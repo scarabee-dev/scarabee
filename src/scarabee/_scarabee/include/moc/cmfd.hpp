@@ -59,6 +59,14 @@ class CMFD {
   double y_min() const;
   double y_max() const;
 
+  const std::vector<double>& dx() const { return dx_; }
+  const std::vector<double>& dy() const { return dy_; }
+
+  const std::vector<std::pair<std::size_t, std::size_t>>& condensation_scheme()
+      const {
+    return group_condensation_;
+  }
+
   std::optional<std::array<std::size_t, 2>> get_tile(const Vector& r,
                                                      const Direction& u) const;
   std::size_t tile_to_indx(const std::array<std::size_t, 2>& tile) const;
@@ -68,18 +76,10 @@ class CMFD {
 
   CMFDSurfaceCrossing get_surface(const Vector& r, const Direction& u) const;
 
-  std::size_t get_x_neg_surf(const std::size_t i, const std::size_t j) const {
-    return (nx_ + 1) * j + i;
-  }
-  std::size_t get_x_pos_surf(const std::size_t i, const std::size_t j) const {
-    return get_x_neg_surf(i, j) + 1;
-  }
-  std::size_t get_y_neg_surf(const std::size_t i, const std::size_t j) const {
-    return nx_surfs_ + (ny_ + 1) * i + j;
-  }
-  std::size_t get_y_pos_surf(const std::size_t i, const std::size_t j) const {
-    return get_y_neg_surf(i, j) + 1;
-  }
+  std::size_t get_x_neg_surf(const std::size_t i, const std::size_t j) const;
+  std::size_t get_x_pos_surf(const std::size_t i, const std::size_t j) const;
+  std::size_t get_y_neg_surf(const std::size_t i, const std::size_t j) const;
+  std::size_t get_y_pos_surf(const std::size_t i, const std::size_t j) const;
 
   void insert_fsr(const std::array<std::size_t, 2>& tile, std::size_t fsr);
   void insert_fsr(std::size_t tile_indx, std::size_t fsr);
