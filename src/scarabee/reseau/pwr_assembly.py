@@ -2124,20 +2124,6 @@ class PWRAssembly:
         cdf = np.ones((NG, 4))
 
         # Compute the homogeneous flux for each few-group
-        moc = self._asmbly_moc
-        """
-        hom_flux = np.zeros((NG))
-        total_volume = 0.0
-        for i in range(moc.nfsr):
-            Vi = moc.volume(i)
-            total_volume += Vi
-
-            for G in range(NG):
-                gmin, gmax = self.condensation_scheme[G][:]
-                for g in range(gmin, gmax + 1):
-                    hom_flux[G] += Vi * moc.flux(i, g)
-        hom_flux /= total_volume
-        """
         hom_flux = self._get_hom_flux_from_cmfd(cond_scheme)
 
         # Now we can go get the surface fluxes
