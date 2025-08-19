@@ -9,7 +9,7 @@ from .._scarabee import (
     scarabee_log,
     LogLevel,
 )
-from .nodal_flux_1d import NodalFlux1D
+from .nodal_flux import NodalFlux1D
 
 import numpy as np
 
