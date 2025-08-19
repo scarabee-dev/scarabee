@@ -85,6 +85,9 @@ class CMFD {
   void insert_fsr(std::size_t tile_indx, std::size_t fsr);
   void pack_fsr_lists();
 
+  const std::vector<std::size_t>& tile_fsr_list(std::size_t i,
+                                                std::size_t j) const;
+
   std::size_t moc_to_cmfd_group(std::size_t g) const;
 
   const double& current(const std::size_t G, const std::size_t surface) const;

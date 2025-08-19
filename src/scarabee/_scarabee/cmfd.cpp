@@ -296,6 +296,33 @@ void CMFD::pack_fsr_lists() {
   temp_fsrs_.shrink_to_fit();
 }
 
+const std::vector<std::size_t>& CMFD::tile_fsr_list(std::size_t i,
+                                                    std::size_t j) const {
+  if (i >= nx_) {
+    const auto mssg = "Index i along x axis is out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  if (j >= ny_) {
+    const auto mssg = "Index j along y axis is out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  const auto indx = this->tile_to_indx(i, j);
+
+  if (indx >= fsrs_.size()) {
+    const auto mssg =
+        "FSR lists have not been constructed. Must generate tracks on "
+        "MOCDriver.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  return fsrs_[indx];
+}
+
 std::size_t CMFD::moc_to_cmfd_group(std::size_t g) const {
   if (g >= moc_to_cmfd_group_map_.size()) {
     auto mssg = "Group index is out of range.";

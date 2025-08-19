@@ -148,7 +148,8 @@ void init_CMFD(py::module& m) {
            "Returns\n"
            "-------\n"
            "int\n"
-           "    Index of the surface.\n")
+           "    Index of the surface.\n",
+           py::arg("i"), py::arg("j"))
 
       .def("get_x_pos_surf", &CMFD::get_x_pos_surf,
            "Obtains the index of positive x surface for tile (i,j).\n\n"
@@ -161,7 +162,8 @@ void init_CMFD(py::module& m) {
            "Returns\n"
            "-------\n"
            "int\n"
-           "    Index of the surface.\n")
+           "    Index of the surface.\n",
+           py::arg("i"), py::arg("j"))
 
       .def("get_y_neg_surf", &CMFD::get_y_neg_surf,
            "Obtains the index of negative y surface for tile (i,j).\n\n"
@@ -174,7 +176,8 @@ void init_CMFD(py::module& m) {
            "Returns\n"
            "-------\n"
            "int\n"
-           "    Index of the surface.\n")
+           "    Index of the surface.\n",
+           py::arg("i"), py::arg("j"))
 
       .def("get_y_pos_surf", &CMFD::get_y_pos_surf,
            "Obtains the index of positive y surface for tile (i,j).\n\n"
@@ -187,7 +190,22 @@ void init_CMFD(py::module& m) {
            "Returns\n"
            "-------\n"
            "int\n"
-           "    Index of the surface.\n")
+           "    Index of the surface.\n",
+           py::arg("i"), py::arg("j"))
+
+      .def("tile_fsr_list", &CMFD::tile_fsr_list,
+           "Obtains the list of flat source regions in tile (i,j).\n\n"
+           "Parameters\n"
+           "----------\n"
+           "i: int.\n"
+           "    x index of tile.\n"
+           "j: int.\n"
+           "    y index of tile.\n\n"
+           "Returns\n"
+           "-------\n"
+           "List of int\n"
+           "    FSRs int the tile.\n",
+           py::arg("i"), py::arg("j"))
 
       .def("tally_current", &CMFD::tally_current,
            "Tallies the current onto the appropriate CMFD surface(s).\n\n"
