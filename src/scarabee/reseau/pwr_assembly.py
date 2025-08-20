@@ -197,6 +197,11 @@ class PWRAssembly:
     condensation_scheme : list of list of int
         Energy condensation scheme to condense from the group structure of the
         library to the few-groups used in the core solver.
+    prefer_moc_adf_cdf : bool
+        If True, the MOC results will be used to generate the ADFs and CDFs,
+        even if CMFD is being used. ADFs and CDFs that are generated in this
+        manner are typically less accurate than those generated with the CMFD
+        results. Default value is False.
     leakage_model : CriticalLeakage
         Model used to determine the critical leakage flux spectrum, also known
         as the fundamental mode. Default method is homogeneous P1.
@@ -471,6 +476,7 @@ class PWRAssembly:
         self._keff_tolerance: float = 1.0e-5
         self._anisotropic: bool = False
         self._cmfd: bool = True
+        self._prefer_moc_adf_cdf: bool = False
 
         self._asmbly_cells = []
         self._asmbly_geom: Optional[Cartesian2D] = None
@@ -840,6 +846,14 @@ class PWRAssembly:
                     raise ValueError("The condensation scheme is not continuous")
 
         self._condensation_scheme = copy.deepcopy(cs)
+
+    @property
+    def prefer_moc_adf_cdf(self) -> bool:
+        return self._prefer_moc_adf_cdf
+
+    @prefer_moc_adf_cdf.setter
+    def prefer_moc_adf_cdf(self, value: bool) -> None:
+        self._prefer_moc_adf_cdf = value
 
     @property
     def cmfd_condensation_scheme(self) -> Optional[List[List[int]]]:
@@ -2896,13 +2910,18 @@ class PWRAssembly:
         """
         diff_xs = self._compute_few_group_xs()
         ff = self._compute_form_factors()
-        if self.cmfd and self.cmfd_condensation_scheme is not None:
+        if (
+            self.cmfd
+            and self.cmfd_condensation_scheme is not None
+            and not self.prefer_moc_adf_cdf
+        ):
             # If we are using CMFD, we should use the currents to generate the
             # ADFs and CDFs, as it is far more accurate, as explained by Smith [1].
             adf, cdf = self._compute_adf_cdf_from_cmfd()
         else:
-            mssg = "CMFD is not on. Accurate discontinuity factors cannot be computed without CMFD."
-            scarabee_log(LogLevel.Warning, mssg)
+            if not self.prefer_moc_adf_cdf:
+                mssg = "CMFD is not on. Accurate discontinuity factors cannot be computed without CMFD."
+                scarabee_log(LogLevel.Warning, mssg)
             adf, cdf = self._compute_adf_cdf_from_moc()
         return DiffusionData(diff_xs, ff, adf, cdf)
 
