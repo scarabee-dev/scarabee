@@ -90,6 +90,13 @@ class PWRAssembly:
         scattering data. Default is 1.
     symmetry : Symmetry
         Symmetry of the fuel assembly. Default is Symmetry.Full.
+    independent_quadrant : bool
+        If symmetry is Symmetry.Quarter and this attribute is true, the quarter
+        assembly is treated as an independent assembly, with ADFs generated for
+        all sides and CDFs generated for all corners. Form factors are only
+        generated for the pins present in the quarter assembly. This improves
+        the modeling of asymmetric burnable absorber loadings in the nodal
+        calculation. Default value is False.
     linear_power : float
         Linear power density of the full assembly in kW/cm. This value should
         not be reduced due to symmetry. Default is 42.
@@ -114,6 +121,13 @@ class PWRAssembly:
         The spacing between fuel pins.
     symmetry : Symmetry
         Symmetry of the fuel assembly.
+    independent_quadrant : bool
+        If symmetry is Symmetry.Quarter and this attribute is true, the quarter
+        assembly is treated as an independent assembly, with ADFs generated for
+        all sides and CDFs generated for all corners. Form factors are only
+        generated for the pins present in the quarter assembly. This improves
+        the modeling of asymmetric burnable absorber loadings in the nodal
+        calculation.
     assembly_pitch : float
         Spacing between fuel assemblies.
     fuel_volume_fraction : float
@@ -225,6 +239,7 @@ class PWRAssembly:
         moderator_pressure: float = 15.5,
         moderator_legendre_order: int = 1,
         symmetry: Symmetry = Symmetry.Full,
+        independent_quadrant: bool = False,
         linear_power: float = 42.0,
         assembly_pitch: Optional[float] = None,
         spacer_grid_width: Optional[float] = None,
@@ -235,6 +250,12 @@ class PWRAssembly:
         self._ndl: NDLibrary = ndl
         self._chain: DepletionChain = self._ndl.depletion_chain
         self._symmetry: Symmetry = symmetry
+        self._independent_quadrant: bool = independent_quadrant
+
+        if self.symmetry != Symmetry.Quarter and self.independent_quadrant:
+            raise RuntimeError(
+                "Cannot have independent_quadrant set to True when not using quarter symmetry."
+            )
 
         if len(shape) != 2:
             raise ValueError("Shape must have 2 entries.")
@@ -499,6 +520,10 @@ class PWRAssembly:
     @property
     def symmetry(self) -> Symmetry:
         return self._symmetry
+
+    @property
+    def independent_quadrant(self) -> bool:
+        return self._independent_quadrant
 
     @property
     def assembly_pitch(self) -> float:
@@ -2142,7 +2167,7 @@ class PWRAssembly:
             cdf[:, CDF.III] = cdf[:, CDF.I]
             cdf[:, CDF.IV] = cdf[:, CDF.I]
 
-        if self.symmetry in [Symmetry.Half, Symmetry.Full]:
+        if self.symmetry in [Symmetry.Half, Symmetry.Full] or self.independent_quadrant:
             het_flux_xn = self._get_het_flux_xn_cmfd(cond_scheme)
             het_flux_II = self._get_het_flux_II_cmfd(cond_scheme)
 
@@ -2153,7 +2178,7 @@ class PWRAssembly:
             )
             cdf[:, CDF.III] = cdf[:, CDF.II]
 
-        if self.symmetry == Symmetry.Full:
+        if self.symmetry == Symmetry.Full or self.independent_quadrant:
             het_flux_yn = self._get_het_flux_yn_cmfd(cond_scheme)
             het_flux_III = self._get_het_flux_III_cmfd(cond_scheme)
             het_flux_IV = self._get_het_flux_IV_cmfd(cond_scheme)
@@ -2656,7 +2681,9 @@ class PWRAssembly:
         adf = np.ones((NG, 6))
         cdf = np.zeros((NG, 4))
 
-        if self.symmetry == Symmetry.Full:
+        if self.symmetry == Symmetry.Full or (
+            self.symmetry == Symmetry.Quarter and self.independent_quadrant
+        ):
             # Get flux along surfaces
             xn_segments = moc.trace_fsr_segments(
                 Vector(moc.x_min + 0.001, moc.y_max), Direction(0.0, -1.0)
@@ -2776,38 +2803,57 @@ class PWRAssembly:
             A 2D Numpy array for the pin power form factors. First index is
             y (from high to low) and the second index is x (from low to high).
         """
-        ff = np.zeros((self.shape[1], self.shape[0]))
+        if self.symmetry == Symmetry.Quarter and self.independent_quadrant:
+            ff = np.zeros((self._simulated_shape[1], self._simulated_shape[0]))
 
-        for j in range(len(self.cells)):
-            for i in range(len(self.cells[j])):
-                cell = self.cells[j][i]
+            for j in range(len(self.cells)):
+                for i in range(len(self.cells[j])):
+                    cell = self.cells[j][i]
 
-                if not isinstance(cell, FuelPin):
-                    continue
+                    if not isinstance(cell, FuelPin):
+                        continue
 
-                # Pin Power
-                pp = cell.compute_pin_linear_power(self._ndl)
+                    # Pin Power
+                    ff[j, i] = cell.compute_pin_linear_power(self._ndl)
 
-                if self.symmetry == Symmetry.Full:
-                    ff[j, i] = pp
+            mean_ff = np.mean(ff)
+            ff /= mean_ff
 
-                elif self.symmetry == Symmetry.Half:
-                    ff[j, i] = pp
-                    ff[-(j + 1), i] = pp
+            return ff
 
-                elif self.symmetry == Symmetry.Quarter:
-                    ox = self.shape[1] // 2
+        else:
+            ff = np.zeros((self.shape[1], self.shape[0]))
 
-                    ff[j, i + ox] = pp
-                    ff[j, -(i + ox + 1)] = pp
+            for j in range(len(self.cells)):
+                for i in range(len(self.cells[j])):
+                    cell = self.cells[j][i]
 
-                    ff[-(j + 1), i + ox] = pp
-                    ff[-(j + 1), -(i + ox + 1)] = pp
+                    if not isinstance(cell, FuelPin):
+                        continue
 
-        mean_ff = np.mean(ff)
-        ff /= mean_ff
+                    # Pin Power
+                    pp = cell.compute_pin_linear_power(self._ndl)
 
-        return ff
+                    if self.symmetry == Symmetry.Full:
+                        ff[j, i] = pp
+
+                    elif self.symmetry == Symmetry.Half:
+                        ff[j, i] = pp
+                        ff[-(j + 1), i] = pp
+
+                    elif self.symmetry == Symmetry.Quarter:
+                        ox = self.shape[1] // 2
+
+                        ff[j, i + ox] = pp
+                        ff[j, -(i + ox + 1)] = pp
+
+                        ff[-(j + 1), i + ox] = pp
+                        ff[-(j + 1), -(i + ox + 1)] = pp
+
+            mean_ff = np.mean(ff)
+            ff /= mean_ff
+
+            return ff
 
     def _compute_few_group_xs(self) -> DiffusionCrossSection:
         """
