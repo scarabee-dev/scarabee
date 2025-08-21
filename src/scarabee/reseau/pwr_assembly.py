@@ -2087,7 +2087,7 @@ class PWRAssembly:
             total_length += s[1]
         invs_tot_length = 1.0 / total_length
 
-        flux = [0.0 for G in range(len(self.condensation_scheme))]
+        flux = np.zeros(len(self.condensation_scheme))
 
         for G in range(len(self.condensation_scheme)):
             gmin, gmax = self.condensation_scheme[G][:]
@@ -2095,8 +2095,7 @@ class PWRAssembly:
                 for s in segments:
                     flux[G] += s[1] * self._asmbly_moc.flux(s[0], g)
 
-        for G in range(len(self.condensation_scheme)):
-            flux[G] *= invs_tot_length
+        flux *= invs_tot_length
 
         return flux
 
@@ -2678,7 +2677,7 @@ class PWRAssembly:
         moc = self._asmbly_moc
 
         # First, compute the homogeneous flux
-        homog_flux = [0.0 for G in range(NG)]
+        homog_flux = np.zeros(NG)
         total_volume = 0.0
         for i in range(moc.nfsr):
             Vi = moc.volume(i)
@@ -2688,8 +2687,7 @@ class PWRAssembly:
                 gmin, gmax = self.condensation_scheme[G][:]
                 for g in range(gmin, gmax + 1):
                     homog_flux[G] += Vi * moc.flux(i, g)
-        for G in range(NG):
-            homog_flux[G] /= total_volume
+        homog_flux /= total_volume
 
         # Create empty arrays for ADFs and CDFs
         adf = np.ones((NG, 6))
@@ -2910,6 +2908,7 @@ class PWRAssembly:
         """
         diff_xs = self._compute_few_group_xs()
         ff = self._compute_form_factors()
+
         if (
             self.cmfd
             and self.cmfd_condensation_scheme is not None
@@ -2923,6 +2922,7 @@ class PWRAssembly:
                 mssg = "CMFD is not on. Accurate discontinuity factors cannot be computed without CMFD."
                 scarabee_log(LogLevel.Warning, mssg)
             adf, cdf = self._compute_adf_cdf_from_moc()
+
         return DiffusionData(diff_xs, ff, adf, cdf)
 
     def _run_assembly_calculation(
