@@ -9,7 +9,6 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
-#include "spdlog/spdlog.h"
 
 namespace scarabee {
 
