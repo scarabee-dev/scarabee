@@ -725,8 +725,8 @@ class BurnablePoisonRod:
             F2 *= dt
 
             # Do the matrix exponentials
-            F2.exponential_product(N)
             F1.exponential_product(N)
+            F2.exponential_product(N)
 
         # Now we can build a new material composition
         new_mat_comp = MaterialComposition()
@@ -785,11 +785,11 @@ class BurnablePoisonRod:
 
         if self._poison_prev_dep_mat is None or dtm1 is None:
             # Use CE/LI
-            F1 = (dt / 12.0) * A0 + (5.0 * dt / 12.0) * Ap1
-            F2 = (5.0 * dt / 12.0) * A0 + (dt / 12.0) * Ap1
+            F1 = (5.0 * dt / 12.0) * A0 + (dt / 12.0) * Ap1
+            F2 = (dt / 12.0) * A0 + (5.0 * dt / 12.0) * Ap1
 
-            F2.exponential_product(N)
             F1.exponential_product(N)
+            F2.exponential_product(N)
 
         else:
             # Use LE/QI
@@ -819,8 +819,8 @@ class BurnablePoisonRod:
             )
             F4 *= dt
 
-            F4.exponential_product(N)
             F3.exponential_product(N)
+            F4.exponential_product(N)
 
         # Now we can build a new material composition
         new_mat_comp = MaterialComposition()

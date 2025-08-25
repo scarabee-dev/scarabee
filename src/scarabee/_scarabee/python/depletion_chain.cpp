@@ -86,7 +86,7 @@ void init_DepletionChain(py::module& m) {
       .def_property_readonly(
           "incident_energies", &FissionYields::incident_energies,
           "List of incident energies at which yields are tabulated.")
-      .def("yield", &FissionYields::yield,
+      .def("fission_yield", &FissionYields::yield,
            "Computes the fission yield for a specified target and incident "
            "neutron energy.\n\n"
            "Parameters\n"
