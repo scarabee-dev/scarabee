@@ -211,7 +211,8 @@ void MOCDriver::generate_tracks(std::uint32_t n_angles, double d,
   allocate_track_fluxes();
 
   draw_timer.stop();
-  spdlog::info("Time spent drawing tracks: {:.5} s.", draw_timer.elapsed_time());
+  spdlog::info("Time spent drawing tracks: {:.5} s.",
+               draw_timer.elapsed_time());
 }
 
 void MOCDriver::solve() {
@@ -1832,6 +1833,18 @@ std::shared_ptr<CrossSection> MOCDriver::homogenize(
     for (const auto i : regions) {
       sum_fluxV += this->flux(i, g) * this->volume(i);
     }
+
+    if (sum_fluxV == 0.) {
+      std::stringstream mssg;
+      mssg << "Cannot homogenize cross sections. ";
+      mssg << "Sum of FSR flux*volume in group " << g << " is zero. ";
+      mssg << "If you see this error while using CMFD, try skipping several "
+              "MOC iterations before applying CMFD.";
+      const auto err_str = mssg.str();
+      spdlog::error(err_str);
+      throw ScarabeeException(err_str);
+    }
+
     const double invs_sum_fluxV = 1. / sum_fluxV;
 
     j = 0;
