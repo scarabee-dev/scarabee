@@ -90,7 +90,7 @@ void init_CMFD(py::module& m) {
                     "clamped to the range (0.05, 20).")
 
       .def_property(
-          "check_neutorn_balance", &CMFD::neutron_balance_check,
+          "check_neutron_balance", &CMFD::neutron_balance_check,
           &CMFD::set_neutron_balance_check,
           "Flag indicating that the neutron balance should be checked in each "
           "CMFD tile on each CMFD solve. Should only be used for debugging "
