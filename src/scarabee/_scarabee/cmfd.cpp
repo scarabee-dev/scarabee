@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <sstream>
 
 namespace scarabee {
 
@@ -502,18 +503,151 @@ void CMFD::homogenize_ext_src(const MOCDriver& moc) {
 }
 
 void CMFD::check_neutron_balance(const std::size_t i, const std::size_t j,
-                                 std::size_t g, const double keff) const {
+                                 std::size_t g, const double keff,
+                                 const MOCDriver& moc) const {
+  const double moc_residual =
+      this->calc_neutron_balance_residual_moc(i, j, g, keff);
+  const double cmfd_residual =
+      this->calc_neutron_balance_residual_cmfd(i, j, g, keff, moc);
+
+  spdlog::debug(
+      "CMFD tile ({:d}, {:d}) in group {:d} MOC residual {:.5E}, CMFD residual "
+      "{:.5E}.",
+      i, j, g, moc_residual, cmfd_residual);
+}
+
+double CMFD::calc_surf_current_cmfd(std::size_t i, std::size_t j, std::size_t g,
+                                    CMFD::TileSurf surf,
+                                    const MOCDriver& moc) const {
+  // Get flux and diffusion coefficient for current cell
+  const double flx_ij = this->flux(i, j, g);
+
+  const auto ijsurf = [this, i, j, surf]() {
+    switch (surf) {
+      case TileSurf::XN:
+        return this->get_x_neg_surf(i, j);
+        break;
+      case TileSurf::XP:
+        return this->get_x_pos_surf(i, j);
+        break;
+      case TileSurf::YN:
+        return this->get_y_neg_surf(i, j);
+        break;
+      case TileSurf::YP:
+        return this->get_y_pos_surf(i, j);
+        break;
+    }
+    // NEVER GETS HERE
+    return static_cast<std::size_t>(0);
+  }();
+
+  // Get the next CMFD tile or BC (only Reflective or Vacuum).
+  // Periodic is treated like an interior cell.
+  const auto next_tile_or_bc = find_next_cell_or_bc(i, j, surf, moc);
+
+  // If we have a BC, handle that here
+  if (std::holds_alternative<BoundaryCondition>(next_tile_or_bc)) {
+    const auto bc = std::get<BoundaryCondition>(next_tile_or_bc);
+
+    if (bc == BoundaryCondition::Reflective) {
+      return 0.;
+    }
+
+    // Vacuum BC
+    auto [D_surf, D_nl] = calc_surf_diffusion_coeffs(i, j, g, surf, moc);
+    D_nl = D_transp_corr_(g, ijsurf);
+    if (surf == CMFD::TileSurf::XP || surf == CMFD::TileSurf::YP) {
+      return (D_surf - D_nl) * flx_ij;
+    } else {
+      return -(D_surf + D_nl) * flx_ij;
+    }
+  }
+
+  // Get indices to next CMFD tile
+  const auto [ii, jj] = std::get<std::array<std::size_t, 2>>(next_tile_or_bc);
+
+  // Get flux, diffusion coefficient, and length for next tile
+  const double flx_iijj = this->flux(ii, jj, g);
+  auto [D_surf, D_nl] = calc_surf_diffusion_coeffs(i, j, g, surf, moc);
+  D_nl = D_transp_corr_(g, ijsurf);
+
+  if (surf == CMFD::TileSurf::XP || surf == CMFD::TileSurf::YP) {
+    return -D_surf * (flx_iijj - flx_ij) - D_nl * (flx_iijj + flx_ij);
+  } else {
+    return D_surf * (flx_iijj - flx_ij) - D_nl * (flx_iijj + flx_ij);
+  }
+}
+
+double CMFD::calc_neutron_balance_residual_cmfd(const std::size_t i,
+                                                const std::size_t j,
+                                                std::size_t g,
+                                                const double keff,
+                                                const MOCDriver& moc) const {
+  // First, we get the spacing of the tile
+  const double dx = dx_[i];
+  const double dy = dy_[j];
+
+  const auto xpsurf = get_x_pos_surf(i, j);
+  const auto xnsurf = get_x_neg_surf(i, j);
+  const auto ypsurf = get_y_pos_surf(i, j);
+  const auto ynsurf = get_y_neg_surf(i, j);
+
+  // Get surface diffusion coefficients for Cell i,j
+  auto [Dxp, Dnl_xp] =
+      calc_surf_diffusion_coeffs(i, j, g, CMFD::TileSurf::XP, moc);
+  auto [Dyp, Dnl_yp] =
+      calc_surf_diffusion_coeffs(i, j, g, CMFD::TileSurf::YP, moc);
+  auto [Dxn, Dnl_xn] =
+      calc_surf_diffusion_coeffs(i, j, g, CMFD::TileSurf::XN, moc);
+  auto [Dyn, Dnl_yn] =
+      calc_surf_diffusion_coeffs(i, j, g, CMFD::TileSurf::YN, moc);
+  Dnl_xp = D_transp_corr_(g, xpsurf);
+  Dnl_xn = D_transp_corr_(g, xnsurf);
+  Dnl_yp = D_transp_corr_(g, ypsurf);
+  Dnl_yn = D_transp_corr_(g, ynsurf);
+
+  // Compute currents
+  const double J_xn = calc_surf_current_cmfd(i, j, g, TileSurf::XN, moc);
+  const double J_xp = calc_surf_current_cmfd(i, j, g, TileSurf::XP, moc);
+  const double J_yn = calc_surf_current_cmfd(i, j, g, TileSurf::YN, moc);
+  const double J_yp = calc_surf_current_cmfd(i, j, g, TileSurf::YP, moc);
+
+  // Get the xs for our tile
+  const auto& xs = *xs_(i, j);
+  const double chi_g_keff = xs.chi(g) / keff;
+
+  // Compute the fission and scatter sources
+  double fiss_source = 0.;
+  double scat_source = 0.;
+  for (std::size_t gg = 0; gg < ng_; gg++) {
+    const double flx_gg = this->flux(i, j, gg);
+    fiss_source += chi_g_keff * xs.vEf(gg) * flx_gg;
+    scat_source += xs.Es(gg, g) * flx_gg;
+  }
+
+  // Compute the total leakage from the currents
+  const double leak_rate = ((J_xp - J_xn) / dx) + ((J_yp - J_yn) / dy);
+
+  // Now compute the removal reaction rate
+  const double tot_reac_rate = Et_(g, i, j) * this->flux(i, j, g);
+
+  // Compute the residual of the balance equation
+  return leak_rate + tot_reac_rate - (scat_source + fiss_source);
+}
+
+double CMFD::calc_neutron_balance_residual_moc(const std::size_t i,
+                                               const std::size_t j,
+                                               std::size_t g,
+                                               const double keff) const {
   // First, we get the spacing of the tile
   const double dx = dx_[i];
   const double dy = dy_[j];
 
   // Next, get the surfaces for out tile
-  const double J_xn = surface_currents_.at(g, j * x_bounds_.size() + i);
-  const double J_xp = surface_currents_.at(g, j * x_bounds_.size() + i + 1);
-  const double J_yn =
-      surface_currents_.at(g, nx_surfs_ + i * y_bounds_.size() + j);
-  const double J_yp =
-      surface_currents_.at(g, nx_surfs_ + i * y_bounds_.size() + j + 1);
+  const double J_xn = surface_currents_.at(g, this->get_x_neg_surf(i, j));
+  const double J_xp = surface_currents_.at(g, this->get_x_pos_surf(i, j));
+  const double J_yn = surface_currents_.at(g, this->get_y_neg_surf(i, j));
+  const double J_yp = surface_currents_.at(g, this->get_y_pos_surf(i, j));
 
   // Get the xs for our tile
   const auto& xs = *xs_(i, j);
@@ -535,16 +669,7 @@ void CMFD::check_neutron_balance(const std::size_t i, const std::size_t j,
   const double tot_reac_rate = Et_(g, i, j) * flux_.at(g, i, j);
 
   // Compute the residual of the balance equation
-  const double residual =
-      leak_rate + tot_reac_rate - (scat_source + fiss_source);
-
-  if (std::abs(residual) >= 1.E-5) {
-    spdlog::error(
-        "CMFD tile ({:d}, {:d}) in group {:d} has a neutron balance residual "
-        "of "
-        "{:.5E}.",
-        i, j, g, residual);
-  }
+  return leak_rate + tot_reac_rate - (scat_source + fiss_source);
 }
 
 void CMFD::set_damping(double wd) {
@@ -1089,7 +1214,9 @@ void CMFD::update_moc_fluxes(MOCDriver& moc) {
   bool flux_update_warning = false;
 
   // Normalize homogenized moc flux and cmfd flux
-  flux_ /= xt::sum(flux_)();
+  const double moc_norm = xt::sum(flux_)();
+  flux_ /= moc_norm;
+  surface_currents_ /= moc_norm;
   flux_cmfd_ /= flux_cmfd_.sum();
 
   // Precompute update ratio in each CMFD cell
@@ -1149,7 +1276,7 @@ void CMFD::update_moc_fluxes(MOCDriver& moc) {
     for (std::size_t l = 0; l < tot_cells; l++) {
       const auto& fsrs = fsrs_[l];
       const std::size_t linear_indx = G * tot_cells + l;
-      const double& flx_ratio = update_ratios_(linear_indx);
+      const double flx_ratio = update_ratios_(linear_indx);
 
       // Update scalar flux in each MOC FSR
       for (const auto f : fsrs) {
@@ -1216,7 +1343,7 @@ void CMFD::solve(MOCDriver& moc, double keff, std::size_t moc_iteration) {
       for (std::size_t i = 0; i < nx_; i++) {
         for (std::size_t j = 0; j < ny_; j++) {
           for (std::size_t g = 0; g < ng_; g++) {
-            this->check_neutron_balance(i, j, g, keff);
+            this->check_neutron_balance(i, j, g, keff, moc);
           }
         }
       }
