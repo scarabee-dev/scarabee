@@ -79,14 +79,14 @@ set(PYBIND11_NEWPYTHON ON)
 find_package(pybind11 CONFIG QUIET)
 if (NOT pybind11_FOUND)
   set(PYBIND11_FINDPYTHON ON)
-  message(STATUS "Downloading pybind11 v3.0.0")
+  message(STATUS "Downloading pybind11 v3.0.1")
   FetchContent_Declare(pybind11
     GIT_REPOSITORY https://github.com/pybind/pybind11.git
-    GIT_TAG        v3.0.0
+    GIT_TAG        v3.0.1
   )
   FetchContent_MakeAvailable(pybind11)
   if (NOT pybind11_VERSION)
-    set(pybind11_VERSION 3.0.0)
+    set(pybind11_VERSION 3.0.1)
   endif()
 endif()
 
