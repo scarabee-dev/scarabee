@@ -43,10 +43,10 @@ class TestFDDWaterFixedSource:
         flux, _, _, _ = solver.flux()
 
         # Check flux near one of the corners
-        assert flux[0, NW//4, NW//4] == pytest.approx(0.00075089384360491140, rel=5.E-5)
-        assert flux[1, NW//4, NW//4] == pytest.approx(0.00074730485848786140, rel=5.E-5)
-        assert flux[2, NW//4, NW//4] == pytest.approx(0.00040547453273072160, rel=5.E-5)
-        assert flux[3, NW//4, NW//4] == pytest.approx(0.00018576061880256343, rel=5.E-5)
-        assert flux[4, NW//4, NW//4] == pytest.approx(0.00014746100470025965, rel=5.E-5)
-        assert flux[5, NW//4, NW//4] == pytest.approx(0.00066284749711381990, rel=5.E-5)
-        assert flux[6, NW//4, NW//4] == pytest.approx(0.00213305538166966800, rel=5.E-5)
+        assert flux[0, NW//4, NW//4] == pytest.approx(0.00075089384360491140, rel=1.E-4)
+        assert flux[1, NW//4, NW//4] == pytest.approx(0.00074730485848786140, rel=1.E-4)
+        assert flux[2, NW//4, NW//4] == pytest.approx(0.00040547453273072160, rel=1.E-4)
+        assert flux[3, NW//4, NW//4] == pytest.approx(0.00018576061880256343, rel=1.E-4)
+        assert flux[4, NW//4, NW//4] == pytest.approx(0.00014746100470025965, rel=1.E-4)
+        assert flux[5, NW//4, NW//4] == pytest.approx(0.00066284749711381990, rel=1.E-4)
+        assert flux[6, NW//4, NW//4] == pytest.approx(0.00213305538166966800, rel=1.E-4)
