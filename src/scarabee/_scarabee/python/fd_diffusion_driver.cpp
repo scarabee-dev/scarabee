@@ -47,7 +47,7 @@ void init_FDDiffusionDriver(py::module& m) {
 
       .def_property(
           "flux_tolerance", &FDDiffusionDriver::flux_tolerance,
-          &FDDiffusionDriver::flux_tolerance,
+          &FDDiffusionDriver::set_flux_tolerance,
           "Maximum relative error in the flux for problem convergence.")
 
       .def_property(
