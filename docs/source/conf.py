@@ -20,7 +20,7 @@ on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
 # -- Project information -----------------------------------------------------
 
 project = 'Scarabée'
-copyright = '2024, Hunter Belanger'
+copyright = '2024-2025, Hunter Belanger'
 author = 'Hunter Belanger'
 
 # The full version, including alpha/beta/rc tags
@@ -121,7 +121,9 @@ mathjax3_config = {
 # Seetings for the PyData theme
 html_theme = 'pydata_sphinx_theme'
 
-html_title = "Scarabée"
+#html_title = 'Scarabée'
+#html_logo = "_images/scarabee_logo.png"
+html_favicon = "_images/scarabee_logo.png"
 
 html_theme_options = {
    "icon_links": [
@@ -135,5 +137,11 @@ html_theme_options = {
             # The type of image to be used (see below for details)
             "type": "fontawesome",
         }
-   ] 
+   ],
+
+   "logo": {
+      "text": "Scarabée",
+      "image_light": "_images/scarabee_logo.png",
+      "image_dark": "_images/scarabee_logo_dark.png",
+   }
 }

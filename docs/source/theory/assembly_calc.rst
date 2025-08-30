@@ -3,11 +3,4 @@
 Assembly Calculation
 ====================
 
-Method of Characteristics
--------------------------
-
-Fundamental Mode Calculation
-----------------------------
-
-Cross Section Homogenization
-----------------------------
+To be written.
