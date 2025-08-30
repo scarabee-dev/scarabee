@@ -28,7 +28,8 @@ void init_Vector(py::module& m) {
 
       .def("dot", &Vector::dot,
            "Computes dot product with another vector.\n\n"
-           ".. math:: d = \\text{self}.x \\cdot v.x + \\text{self}.y \\cdot v.y\n\n"
+           ".. math:: d = \\text{self}.x \\cdot v.x + \\text{self}.y \\cdot "
+           "v.y\n\n"
            "Parameters\n"
            "----------\n"
            "v : Vector\n"

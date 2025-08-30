@@ -38,16 +38,12 @@ class Segment {
 
   std::size_t fsr_indx() const { return fsr_indx_; }
 
-  CMFDSurfaceCrossing& entry_cmfd_surface() {
-    return entry_cmfd_surface_;
-  }
+  CMFDSurfaceCrossing& entry_cmfd_surface() { return entry_cmfd_surface_; }
   const CMFDSurfaceCrossing& entry_cmfd_surface() const {
     return entry_cmfd_surface_;
   }
 
-  CMFDSurfaceCrossing& exit_cmfd_surface() { 
-    return exit_cmfd_surface_; 
-  }
+  CMFDSurfaceCrossing& exit_cmfd_surface() { return exit_cmfd_surface_; }
   const CMFDSurfaceCrossing& exit_cmfd_surface() const {
     return exit_cmfd_surface_;
   }
@@ -59,7 +55,6 @@ class Segment {
   std::size_t fsr_indx_;
   CMFDSurfaceCrossing entry_cmfd_surface_;
   CMFDSurfaceCrossing exit_cmfd_surface_;
-
 
   friend class cereal::access;
   template <class Archive>

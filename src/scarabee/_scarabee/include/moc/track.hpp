@@ -112,7 +112,7 @@ class Track {
   std::size_t forward_phi_index_;  // azimuthal angle index in forward direction
   std::size_t
       backward_phi_index_;  // azimuthal angle index in backaward direction
-  
+
   std::size_t cmfd_entry_cell_;
   std::size_t cmfd_exit_cell_;
 

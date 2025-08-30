@@ -45,8 +45,8 @@ SphericalHarmonics::SphericalHarmonics(
         }
 
       }  // all scattering moments
-    }    // all polar angles
-  }      // all azimuthal angles
+    }  // all polar angles
+  }  // all azimuthal angles
 }
 
 }  // namespace scarabee

@@ -223,7 +223,6 @@ class MOCDriver {
     flux_(g, i, lj) = new_flx;
   }
 
-
   // Private default constructor for cereal
   MOCDriver() : polar_quad_(YamamotoTabuchi<6>()) {}
 
