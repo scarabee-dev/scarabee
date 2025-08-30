@@ -47,10 +47,178 @@ void init_FDDiffusionDriver(py::module& m) {
 
       .def_property(
           "flux_tolerance", &FDDiffusionDriver::flux_tolerance,
-          &FDDiffusionDriver::flux_tolerance,
+          &FDDiffusionDriver::set_flux_tolerance,
           "Maximum relative error in the flux for problem convergence.")
 
-      .def("flux", &FDDiffusionDriver::flux,
+      .def_property(
+          "sim_mode",
+          [](const FDDiffusionDriver& fdd) -> SimulationMode {
+            return fdd.sim_mode();
+          },
+          [](FDDiffusionDriver& fdd, SimulationMode& m) { fdd.sim_mode() = m; },
+          ":py:class:`SimulationMode` describing type of simulation "
+          "(fixed-source or keff).")
+
+      .def("set_extern_src",
+           py::overload_cast<std::size_t, std::size_t, double>(
+               &FDDiffusionDriver::set_extern_src),
+           "Sets the external source in group g and region i.\n\n"
+           "Parameters\n"
+           "----------\n"
+           "i : int\n"
+           "    Region index along x axis.\n"
+           "g : int\n"
+           "    Energy group index.\n"
+           "src : float\n"
+           "      Value of source.\n",
+           py::arg("i"), py::arg("g"), py::arg("src"))
+
+      .def("set_extern_src",
+           py::overload_cast<std::size_t, std::size_t, std::size_t, double>(
+               &FDDiffusionDriver::set_extern_src),
+           "Sets the external source in group g and region (i, j).\n\n"
+           "Parameters\n"
+           "----------\n"
+           "i : int\n"
+           "    Region index along x axis.\n"
+           "j : int\n"
+           "    Region index along y axis.\n"
+           "g : int\n"
+           "    Energy group index.\n"
+           "src : float\n"
+           "      Value of source.\n",
+           py::arg("i"), py::arg("j"), py::arg("g"), py::arg("src"))
+
+      .def("set_extern_src",
+           py::overload_cast<std::size_t, std::size_t, std::size_t, std::size_t,
+                             double>(&FDDiffusionDriver::set_extern_src),
+           "Sets the external source in group g and region (i, j, k).\n\n"
+           "Parameters\n"
+           "----------\n"
+           "i : int\n"
+           "    Region index along x axis.\n"
+           "j : int\n"
+           "    Region index along y axis.\n"
+           "k : int\n"
+           "    Region index along z axis.\n"
+           "g : int\n"
+           "    Energy group index.\n"
+           "src : float\n"
+           "      Value of source.\n",
+           py::arg("i"), py::arg("j"), py::arg("k"), py::arg("g"),
+           py::arg("src"))
+
+      .def("extern_src",
+           py::overload_cast<std::size_t, std::size_t>(
+               &FDDiffusionDriver::extern_src, py::const_),
+           "Returns the external source in group g and region i.\n\n"
+           "Parameters\n"
+           "----------\n"
+           "i : int\n"
+           "    Region index along x axis.\n"
+           "g : int\n"
+           "    Energy group index.\n\n"
+           "Returns\n"
+           "-------\n"
+           "float\n"
+           "     Value of the external source.\n",
+           py::arg("i"), py::arg("g"))
+
+      .def("extern_src",
+           py::overload_cast<std::size_t, std::size_t, std::size_t>(
+               &FDDiffusionDriver::extern_src, py::const_),
+           "Returns the external source in group g and region (i, j).\n\n"
+           "Parameters\n"
+           "----------\n"
+           "i : int\n"
+           "    Region index along x axis.\n"
+           "j : int\n"
+           "    Region index along y axis.\n"
+           "g : int\n"
+           "    Energy group index.\n\n"
+           "Returns\n"
+           "-------\n"
+           "float\n"
+           "     Value of the external source.\n",
+           py::arg("i"), py::arg("j"), py::arg("g"))
+
+      .def(
+          "extern_src",
+          py::overload_cast<std::size_t, std::size_t, std::size_t, std::size_t>(
+              &FDDiffusionDriver::extern_src, py::const_),
+          "Returns the external source in group g and region (i, j, k).\n\n"
+          "Parameters\n"
+          "----------\n"
+          "i : int\n"
+          "    Region index along x axis.\n"
+          "j : int\n"
+          "    Region index along y axis.\n"
+          "k : int\n"
+          "    Region index along z axis.\n"
+          "g : int\n"
+          "    Energy group index.\n\n"
+          "Returns\n"
+          "-------\n"
+          "float\n"
+          "     Value of the external source.\n",
+          py::arg("i"), py::arg("j"), py::arg("k"), py::arg("g"))
+
+      .def("flux",
+           py::overload_cast<std::size_t, std::size_t>(&FDDiffusionDriver::flux,
+                                                       py::const_),
+           "Returns the scalar flux in group g and region i.\n\n"
+           "Parameters\n"
+           "----------\n"
+           "i : int\n"
+           "    Region index along x axis.\n"
+           "g : int\n"
+           "    Energy group index.\n\n"
+           "Returns\n"
+           "-------\n"
+           "float\n"
+           "     Flux in region i and in group g.\n",
+           py::arg("i"), py::arg("g"))
+
+      .def("flux",
+           py::overload_cast<std::size_t, std::size_t, std::size_t>(
+               &FDDiffusionDriver::flux, py::const_),
+           "Returns the scalar flux in group g and region (i, j).\n\n"
+           "Parameters\n"
+           "----------\n"
+           "i : int\n"
+           "    Region index along x axis.\n"
+           "j : int\n"
+           "    Region index along y axis.\n"
+           "g : int\n"
+           "    Energy group index.\n\n"
+           "Returns\n"
+           "-------\n"
+           "float\n"
+           "     Flux in region (i, j) and in group g.\n",
+           py::arg("i"), py::arg("j"), py::arg("g"))
+
+      .def(
+          "flux",
+          py::overload_cast<std::size_t, std::size_t, std::size_t, std::size_t>(
+              &FDDiffusionDriver::flux, py::const_),
+          "Returns the scalar flux in group g and region (i, j, k).\n\n"
+          "Parameters\n"
+          "----------\n"
+          "i : int\n"
+          "    Region index along x axis.\n"
+          "j : int\n"
+          "    Region index along y axis.\n"
+          "k : int\n"
+          "    Region index along z axis.\n"
+          "g : int\n"
+          "    Energy group index.\n\n"
+          "Returns\n"
+          "-------\n"
+          "float\n"
+          "     Flux in region (i, j, k) and in group g.\n",
+          py::arg("i"), py::arg("j"), py::arg("k"), py::arg("g"))
+
+      .def("flux", py::overload_cast<>(&FDDiffusionDriver::flux, py::const_),
            "Returns the computed flux, along with the mesh bounds. The first "
            "dimension "
            "of the flux array is the energy group index. The second index is "

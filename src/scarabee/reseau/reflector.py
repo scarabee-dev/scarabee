@@ -12,8 +12,7 @@ from .._scarabee import (
 from .nodal_flux import NodalFlux1D
 
 import numpy as np
-
-# import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 
 
 class Reflector:

@@ -20,7 +20,7 @@ on a moderate laptop using this approach.
 
 .. _pin_calc:
 
-.. figure:: ../../images/lattice_scheme.jpg
+.. figure:: ../_images/lattice_scheme.jpg
 
     Depiction of the pin-cell spectrum calculation. This calculation typically
     ignores the surroundings of a fuel pin, and assumes an infinite lattice of
@@ -40,7 +40,7 @@ library to a macro-group structure that typically has 20-40 energy groups.
 
 .. _asmbly_calc_fig:
 
-.. figure:: ../../images/assembly_calc.jpg
+.. figure:: ../_images/assembly_calc.jpg
 
     Depiction of the assembly calculation. It considers the true geometry of
     the assembly, and is performed with either reflective or periodic boundary

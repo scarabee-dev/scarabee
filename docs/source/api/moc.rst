@@ -3,39 +3,39 @@ Method of Characteristics
 
 .. currentmodule:: scarabee
 
-.. autoclass:: MOCDriver
+.. autoclass:: scarabee.MOCDriver
 
-.. autoclass:: BoundaryCondition
+.. autoclass:: scarabee.BoundaryCondition
     :members:
 
-.. autoclass:: SimulationMode
+.. autoclass:: scarabee.SimulationMode
     :members:
 
-.. autoclass:: CMFD
+.. autoclass:: scarabee.CMFD
 
-.. autoclass:: P1CriticalitySpectrum
+.. autoclass:: scarabee.P1CriticalitySpectrum
 
-.. autoclass:: B1CriticalitySpectrum
+.. autoclass:: scarabee.B1CriticalitySpectrum
 
 Polar Quadratures
 -----------------
 
-.. autoclass:: PolarQuadrature
+.. autoclass:: scarabee.PolarQuadrature
 
-.. autoclass:: YamamotoTabuchi2
+.. autoclass:: scarabee.YamamotoTabuchi2
 
-.. autoclass:: YamamotoTabuchi4
+.. autoclass:: scarabee.YamamotoTabuchi4
 
-.. autoclass:: YamamotoTabuchi6
+.. autoclass:: scarabee.YamamotoTabuchi6
 
-.. autoclass:: Legendre2
+.. autoclass:: scarabee.Legendre2
 
-.. autoclass:: Legendre4
+.. autoclass:: scarabee.Legendre4
 
-.. autoclass:: Legendre6
+.. autoclass:: scarabee.Legendre6
 
-.. autoclass:: Legendre8
+.. autoclass:: scarabee.Legendre8
 
-.. autoclass:: Legendre10
+.. autoclass:: scarabee.Legendre10
 
-.. autoclass:: Legendre12
+.. autoclass:: scarabee.Legendre12

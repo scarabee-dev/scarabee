@@ -12,6 +12,7 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include "utils/simulation_mode.hpp"
 
 namespace scarabee {
 
@@ -412,12 +413,18 @@ void load_source_matrix(const DiffusionGeometry& geom,
 }
 
 FDDiffusionDriver::FDDiffusionDriver(std::shared_ptr<DiffusionGeometry> geom)
-    : geom_(geom), flux_() {
+    : geom_(geom), flux_(), extern_src_(), mode_(SimulationMode::Keff) {
   if (geom_ == nullptr) {
     auto mssg = "FDDiffusionDriver provided with nullptr geometry.";
     spdlog::error(mssg);
     throw ScarabeeException(mssg);
   }
+
+  flux_.resize(geom_->ngroups() * geom_->nmats());
+  flux_.fill(1.);
+
+  extern_src_.resize(geom_->ngroups() * geom_->nmats());
+  extern_src_.fill(0.);
 }
 
 void FDDiffusionDriver::set_flux_tolerance(double ftol) {
@@ -452,7 +459,341 @@ void FDDiffusionDriver::set_keff_tolerance(double ktol) {
   keff_tol_ = ktol;
 }
 
-void FDDiffusionDriver::solve() {
+double FDDiffusionDriver::flux(std::size_t i, std::size_t g) const {
+  if (geom_->ndims() != 1) {
+    std::stringstream mssg;
+    mssg << "Provided 1 index to a " << geom_->ndims() << "D problem.";
+    spdlog::error(mssg.str());
+    throw ScarabeeException(mssg.str());
+  }
+
+  if (g >= this->ngroups()) {
+    const auto mssg = "Group index out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  if (i >= this->geometry()->nx()) {
+    const auto mssg = "x index out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  auto mopt = this->geometry()->geom_to_mat_indx({i});
+
+  if (mopt.has_value() == false) {
+    return 0.;
+  }
+
+  return flux_(mopt.value() + g * geom_->nmats());
+}
+
+double FDDiffusionDriver::flux(std::size_t i, std::size_t j,
+                               std::size_t g) const {
+  if (geom_->ndims() != 2) {
+    std::stringstream mssg;
+    mssg << "Provided 2 indices to a " << geom_->ndims() << "D problem.";
+    spdlog::error(mssg.str());
+    throw ScarabeeException(mssg.str());
+  }
+
+  if (g >= this->ngroups()) {
+    const auto mssg = "Group index out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  if (i >= this->geometry()->nx()) {
+    const auto mssg = "x index out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  if (j >= this->geometry()->ny()) {
+    const auto mssg = "y index out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  auto mopt = this->geometry()->geom_to_mat_indx({i, j});
+
+  if (mopt.has_value() == false) {
+    return 0.;
+  }
+
+  return flux_(mopt.value() + g * geom_->nmats());
+}
+
+double FDDiffusionDriver::flux(std::size_t i, std::size_t j, std::size_t k,
+                               std::size_t g) const {
+  if (geom_->ndims() != 3) {
+    std::stringstream mssg;
+    mssg << "Provided 3 indices to a " << geom_->ndims() << "D problem.";
+    spdlog::error(mssg.str());
+    throw ScarabeeException(mssg.str());
+  }
+
+  if (g >= this->ngroups()) {
+    const auto mssg = "Group index out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  if (i >= this->geometry()->nx()) {
+    const auto mssg = "x index out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  if (j >= this->geometry()->ny()) {
+    const auto mssg = "y index out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  if (k >= this->geometry()->nz()) {
+    const auto mssg = "z index out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  auto mopt = this->geometry()->geom_to_mat_indx({i, j, k});
+
+  if (mopt.has_value() == false) {
+    return 0.;
+  }
+
+  return flux_(mopt.value() + g * geom_->nmats());
+}
+
+double FDDiffusionDriver::extern_src(std::size_t i, std::size_t g) const {
+  if (geom_->ndims() != 1) {
+    std::stringstream mssg;
+    mssg << "Provided 1 index to a " << geom_->ndims() << "D problem.";
+    spdlog::error(mssg.str());
+    throw ScarabeeException(mssg.str());
+  }
+
+  if (g >= this->ngroups()) {
+    const auto mssg = "Group index out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  if (i >= this->geometry()->nx()) {
+    const auto mssg = "x index out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  auto mopt = this->geometry()->geom_to_mat_indx({i});
+
+  if (mopt.has_value() == false) {
+    return 0.;
+  }
+
+  return extern_src_(mopt.value() + g * geom_->nmats());
+}
+
+double FDDiffusionDriver::extern_src(std::size_t i, std::size_t j,
+                                     std::size_t g) const {
+  if (geom_->ndims() != 2) {
+    std::stringstream mssg;
+    mssg << "Provided 2 indices to a " << geom_->ndims() << "D problem.";
+    spdlog::error(mssg.str());
+    throw ScarabeeException(mssg.str());
+  }
+
+  if (g >= this->ngroups()) {
+    const auto mssg = "Group index out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  if (i >= this->geometry()->nx()) {
+    const auto mssg = "x index out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  if (j >= this->geometry()->ny()) {
+    const auto mssg = "y index out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  auto mopt = this->geometry()->geom_to_mat_indx({i, j});
+
+  if (mopt.has_value() == false) {
+    return 0.;
+  }
+
+  return extern_src_(mopt.value() + g * geom_->nmats());
+}
+
+double FDDiffusionDriver::extern_src(std::size_t i, std::size_t j,
+                                     std::size_t k, std::size_t g) const {
+  if (geom_->ndims() != 3) {
+    std::stringstream mssg;
+    mssg << "Provided 3 indices to a " << geom_->ndims() << "D problem.";
+    spdlog::error(mssg.str());
+    throw ScarabeeException(mssg.str());
+  }
+
+  if (g >= this->ngroups()) {
+    const auto mssg = "Group index out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  if (i >= this->geometry()->nx()) {
+    const auto mssg = "x index out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  if (j >= this->geometry()->ny()) {
+    const auto mssg = "y index out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  if (k >= this->geometry()->nz()) {
+    const auto mssg = "z index out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  auto mopt = this->geometry()->geom_to_mat_indx({i, j, k});
+
+  if (mopt.has_value() == false) {
+    return 0.;
+  }
+
+  return extern_src_(mopt.value() + g * geom_->nmats());
+}
+
+void FDDiffusionDriver::set_extern_src(std::size_t i, std::size_t g,
+                                       double src) {
+  if (geom_->ndims() != 1) {
+    std::stringstream mssg;
+    mssg << "Provided 1 index to a " << geom_->ndims() << "D problem.";
+    spdlog::error(mssg.str());
+    throw ScarabeeException(mssg.str());
+  }
+
+  if (g >= this->ngroups()) {
+    const auto mssg = "Group index out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  if (i >= this->geometry()->nx()) {
+    const auto mssg = "x index out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  auto mopt = this->geometry()->geom_to_mat_indx({i});
+
+  if (mopt.has_value() == false) {
+    std::stringstream mssg;
+    mssg << "Tile at index (" << i << ") is outside defined geometry.";
+    spdlog::error(mssg.str());
+    throw ScarabeeException(mssg.str());
+  }
+
+  extern_src_(mopt.value() + g * geom_->nmats()) = src;
+}
+
+void FDDiffusionDriver::set_extern_src(std::size_t i, std::size_t j,
+                                       std::size_t g, double src) {
+  if (geom_->ndims() != 2) {
+    std::stringstream mssg;
+    mssg << "Provided 2 indices to a " << geom_->ndims() << "D problem.";
+    spdlog::error(mssg.str());
+    throw ScarabeeException(mssg.str());
+  }
+
+  if (g >= this->ngroups()) {
+    const auto mssg = "Group index out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  if (i >= this->geometry()->nx()) {
+    const auto mssg = "x index out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  if (j >= this->geometry()->ny()) {
+    const auto mssg = "y index out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  auto mopt = this->geometry()->geom_to_mat_indx({i, j});
+
+  if (mopt.has_value() == false) {
+    std::stringstream mssg;
+    mssg << "Tile at index (" << i << ", " << j
+         << ") is outside defined geometry.";
+    spdlog::error(mssg.str());
+    throw ScarabeeException(mssg.str());
+  }
+
+  extern_src_(mopt.value() + g * geom_->nmats()) = src;
+}
+
+void FDDiffusionDriver::set_extern_src(std::size_t i, std::size_t j,
+                                       std::size_t k, std::size_t g,
+                                       double src) {
+  if (geom_->ndims() != 3) {
+    std::stringstream mssg;
+    mssg << "Provided 3 indices to a " << geom_->ndims() << "D problem.";
+    spdlog::error(mssg.str());
+    throw ScarabeeException(mssg.str());
+  }
+
+  if (g >= this->ngroups()) {
+    const auto mssg = "Group index out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  if (i >= this->geometry()->nx()) {
+    const auto mssg = "x index out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  if (j >= this->geometry()->ny()) {
+    const auto mssg = "y index out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  if (k >= this->geometry()->nz()) {
+    const auto mssg = "z index out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  auto mopt = this->geometry()->geom_to_mat_indx({i, j, k});
+
+  if (mopt.has_value() == false) {
+    std::stringstream mssg;
+    mssg << "Tile at index (" << i << ", " << j << ", " << k
+         << ") is outside defined geometry.";
+    spdlog::error(mssg.str());
+    throw ScarabeeException(mssg.str());
+  }
+
+  extern_src_(mopt.value() + g * geom_->nmats()) = src;
+}
+
+void FDDiffusionDriver::power_iteration() {
   Timer sim_timer;
   sim_timer.start();
 
@@ -467,12 +808,10 @@ void FDDiffusionDriver::solve() {
   load_loss_matrix(*geom_, M);
 
   // Initialize flux and source vectors
-  Eigen::VectorXd flux(geom_->ngroups() * geom_->nmats());
   Eigen::VectorXd new_flux(geom_->ngroups() * geom_->nmats());
   Eigen::VectorXd Q(geom_->ngroups() * geom_->nmats());
 
-  flux.fill(1.);
-  flux.normalize();
+  flux_.normalize();
 
   // Initialize a vector for computing keff faster
   Eigen::VectorXd VvEf(geom_->ngroups() * geom_->nmats());
@@ -511,10 +850,10 @@ void FDDiffusionDriver::solve() {
     iteration++;
 
     // Compute source vector
-    Q = (1. / keff_) * QM * flux;
+    Q = (1. / keff_) * QM * flux_;
 
     // Get new flux
-    new_flux = solver.solveWithGuess(Q, flux);
+    new_flux = solver.solveWithGuess(Q, flux_);
     // For some reason, this doesn't seem to be working with the new versions
     // of Eigen, despite clearly succeeding. Just commenting it out for now.
     // if (solver.info() != Eigen::Success) {
@@ -524,7 +863,7 @@ void FDDiffusionDriver::solve() {
 
     // Estiamte keff
     double prev_keff = keff_;
-    keff_ = prev_keff * VvEf.dot(new_flux) / VvEf.dot(flux);
+    keff_ = prev_keff * VvEf.dot(new_flux) / VvEf.dot(flux_);
     keff_diff = std::abs(keff_ - prev_keff) / keff_;
 
     // Normalize our new flux
@@ -533,10 +872,10 @@ void FDDiffusionDriver::solve() {
     // Find the max flux error
     flux_diff = 0.;
     for (std::size_t i = 0; i < geom_->ngroups() * geom_->nmats(); i++) {
-      double flux_diff_i = std::abs(new_flux(i) - flux(i)) / new_flux(i);
+      double flux_diff_i = std::abs(new_flux(i) - flux_(i)) / new_flux(i);
       if (flux_diff_i > flux_diff) flux_diff = flux_diff_i;
     }
-    flux = new_flux;
+    flux_ = new_flux;
 
     // Write information
     spdlog::info("-------------------------------------");
@@ -547,17 +886,77 @@ void FDDiffusionDriver::solve() {
                  iteration_timer.elapsed_time());
   }
 
-  // Copy flux into the permanent xtensor array
-  flux_.resize({geom_->ngroups() * geom_->nmats()});
-  for (std::size_t i = 0; i < geom_->ngroups() * geom_->nmats(); i++) {
-    flux_(i) = flux(i);
+  solved_ = true;
+
+  sim_timer.stop();
+  spdlog::info("");
+  spdlog::info("Simulation Time: {:.5E} s", sim_timer.elapsed_time());
+}
+
+void FDDiffusionDriver::fixed_source() {
+  Timer sim_timer;
+  sim_timer.start();
+
+  spdlog::info("Solving fixed source problem.");
+  spdlog::info("Flux tolerance: {:.5E}", flux_tol_);
+
+  // First, we create our loss matrix
+  Eigen::SparseMatrix<double, Eigen::RowMajor> M;
+
+  // Load the loss matrix
+  load_loss_matrix(*geom_, M);
+
+  // Initialize a vector for computing keff faster
+  Eigen::VectorXd VvEf(geom_->ngroups() * geom_->nmats());
+  for (std::size_t m = 0; m < geom_->nmats(); m++) {
+    const double Vm = geom_->volume(m);
+    const auto& mat = geom_->mat(m);
+    for (std::size_t g = 0; g < geom_->ngroups(); g++) {
+      VvEf(m + g * geom_->nmats()) = Vm * mat->vEf(g);
+    }
   }
+
+  // Initialize a vector for computing the source vector Q faster
+  Eigen::SparseMatrix<double, Eigen::RowMajor> QM;
+  load_source_matrix(*geom_, QM);
+
+  // Subtract source matrix from loss matrix (only for fixed-source problems)
+  M -= QM;
+
+  // Create a solver for the problem
+  spdlog::info("Initializing iterative solver");
+  Eigen::BiCGSTAB<Eigen::SparseMatrix<double, Eigen::RowMajor>> solver;
+  solver.compute(M);
+  solver.setTolerance(flux_tol_);
+  if (solver.info() != Eigen::Success) {
+    std::stringstream mssg;
+    mssg << "Could not initialize iterative solver";
+    spdlog::error(mssg.str());
+    throw ScarabeeException(mssg.str());
+  }
+
+  // Get new flux
+  flux_ = solver.solve(extern_src_);
+  // For some reason, this doesn't seem to be working with the new versions
+  // of Eigen, despite clearly succeeding. Just commenting it out for now.
+  // if (solver.info() != Eigen::Success) {
+  //  spdlog::error("Solution impossible.");
+  //  throw ScarabeeException("Solution impossible");
+  // }
 
   solved_ = true;
 
   sim_timer.stop();
   spdlog::info("");
   spdlog::info("Simulation Time: {:.5E} s", sim_timer.elapsed_time());
+}
+
+void FDDiffusionDriver::solve() {
+  if (sim_mode() == SimulationMode::Keff) {
+    this->power_iteration();
+  } else {
+    this->fixed_source();
+  }
 }
 
 std::tuple<xt::xarray<double>, xt::xarray<double>,

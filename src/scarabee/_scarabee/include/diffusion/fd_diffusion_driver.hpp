@@ -4,12 +4,15 @@
 #include <diffusion/diffusion_data.hpp>
 #include <diffusion/diffusion_geometry.hpp>
 #include <utils/serialization.hpp>
+#include <utils/simulation_mode.hpp>
 
 #include <xtensor/containers/xarray.hpp>
 #include <xtensor/containers/xtensor.hpp>
 
 #include <cereal/cereal.hpp>
 #include <cereal/types/memory.hpp>
+
+#include <Eigen/Dense>
 
 #include <memory>
 #include <optional>
@@ -25,6 +28,9 @@ class FDDiffusionDriver {
 
   std::size_t ngroups() const { return geom_->ngroups(); }
 
+  SimulationMode& sim_mode() { return mode_; }
+  const SimulationMode& sim_mode() const { return mode_; }
+
   void solve();
   bool solved() const { return solved_; }
 
@@ -35,6 +41,20 @@ class FDDiffusionDriver {
   void set_flux_tolerance(double ftol);
 
   double keff() const { return keff_; }
+
+  double flux(std::size_t i, std::size_t g) const;
+  double flux(std::size_t i, std::size_t j, std::size_t g) const;
+  double flux(std::size_t i, std::size_t j, std::size_t k, std::size_t g) const;
+
+  double extern_src(std::size_t i, std::size_t g) const;
+  double extern_src(std::size_t i, std::size_t j, std::size_t g) const;
+  double extern_src(std::size_t i, std::size_t j, std::size_t k,
+                    std::size_t g) const;
+
+  void set_extern_src(std::size_t i, std::size_t g, double src);
+  void set_extern_src(std::size_t i, std::size_t j, std::size_t g, double src);
+  void set_extern_src(std::size_t i, std::size_t j, std::size_t k,
+                      std::size_t g, double src);
 
   std::tuple<xt::xarray<double>, xt::xarray<double>,
              std::optional<xt::xarray<double>>,
@@ -51,11 +71,16 @@ class FDDiffusionDriver {
 
  private:
   std::shared_ptr<DiffusionGeometry> geom_;
-  xt::xtensor<double, 1> flux_;  // Flux in each MAT tile in each group
+  Eigen::VectorXd flux_;        // Flux in each MAT tile in each group
+  Eigen::VectorXd extern_src_;  // Source in each MAT tile in each group
+  SimulationMode mode_;
   double keff_ = 1.;
   double flux_tol_ = 1.E-5;
   double keff_tol_ = 1.E-5;
   bool solved_{false};
+
+  void power_iteration();
+  void fixed_source();
 
   friend class cereal::access;
   FDDiffusionDriver() {}

@@ -18,6 +18,7 @@ problems, better understanding reactor physics and the core design process.
    :maxdepth: 2
    :caption: Contents:
 
+   install/index
    theory/index 
    examples/index
    api/index 

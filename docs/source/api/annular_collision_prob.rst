@@ -3,7 +3,7 @@ Annular Collision Probabilities
 
 .. currentmodule:: scarabee
 
-.. autoclass:: CylindricalCell
+.. autoclass:: scarabee.CylindricalCell
 
-.. autoclass:: CylindricalFluxSolver
+.. autoclass:: scarabee.CylindricalFluxSolver
 

@@ -3,9 +3,9 @@ Logging
 
 .. currentmodule:: scarabee
 
-.. autoclass:: LogLevel
+.. autoclass:: scarabee.LogLevel
     :members:
 
-.. autofunction:: set_logging_level
+.. autofunction:: scarabee.set_logging_level
 
-.. autofunction:: set_output_file
+.. autofunction:: scarabee.set_output_file

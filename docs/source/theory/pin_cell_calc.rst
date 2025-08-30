@@ -3,11 +3,5 @@
 Pin Cell Spectrum Calculation
 =============================
 
-Annular Collision Probabilities
--------------------------------
+To be written.
 
-Cross Section Energy Condensation
----------------------------------
-
-Buffer Regions for Inter Cells
-------------------------------

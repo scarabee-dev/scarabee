@@ -38,13 +38,14 @@ MOCDriver::MOCDriver(std::shared_ptr<Cartesian2D> geometry,
       y_max_bc_(ymax),
       anisotropic_(anisotropic) {
   if (geometry_ == nullptr) {
-    auto mssg = "MOCDriver provided with nullptr geometry.";
+    const auto mssg = "MOCDriver provided with nullptr geometry.";
     spdlog::error(mssg);
     throw ScarabeeException(mssg);
   }
 
   if (geometry_->tiles_valid() == false) {
-    auto mssg = "Cannot run MOC on a Cartesian2D geometry with invalid tiles.";
+    const auto mssg =
+        "Cannot run MOC on a Cartesian2D geometry with invalid tiles.";
     spdlog::error(mssg);
     throw ScarabeeException(mssg);
   }
@@ -76,13 +77,13 @@ std::size_t MOCDriver::size() const { return fsrs_.size(); }
 
 void MOCDriver::set_flux_tolerance(double ftol) {
   if (ftol <= 0.) {
-    auto mssg = "Tolerance for flux must be in the interval (0., 0.1).";
+    const auto mssg = "Tolerance for flux must be in the interval (0., 0.1).";
     spdlog::error(mssg);
     throw ScarabeeException(mssg);
   }
 
   if (ftol >= 0.1) {
-    auto mssg = "Tolerance for flux must be in the interval (0., 0.1).";
+    const auto mssg = "Tolerance for flux must be in the interval (0., 0.1).";
     spdlog::error(mssg);
     throw ScarabeeException(mssg);
   }
@@ -92,13 +93,13 @@ void MOCDriver::set_flux_tolerance(double ftol) {
 
 void MOCDriver::set_keff_tolerance(double ktol) {
   if (ktol <= 0.) {
-    auto mssg = "Tolerance for keff must be in the interval (0., 0.1).";
+    const auto mssg = "Tolerance for keff must be in the interval (0., 0.1).";
     spdlog::error(mssg);
     throw ScarabeeException(mssg);
   }
 
   if (ktol >= 0.1) {
-    auto mssg = "Tolerance for keff must be in the interval (0., 0.1).";
+    const auto mssg = "Tolerance for keff must be in the interval (0., 0.1).";
     spdlog::error(mssg);
     throw ScarabeeException(mssg);
   }
@@ -118,7 +119,7 @@ void MOCDriver::set_cmfd(std::shared_ptr<CMFD> cmfd) {
       (std::abs(this->x_min() - cmfd->x_min())) > SURFACE_COINCIDENT ||
       (std::abs(this->y_max() - cmfd->y_max())) > SURFACE_COINCIDENT ||
       (std::abs(this->y_min() - cmfd->y_min())) > SURFACE_COINCIDENT) {
-    auto mssg =
+    const auto mssg =
         "CMFD geometry bounds do not align with MOCDriver geometry bounds";
     spdlog::error(mssg);
     throw ScarabeeException(mssg);
@@ -129,13 +130,15 @@ void MOCDriver::set_cmfd(std::shared_ptr<CMFD> cmfd) {
 
 void MOCDriver::set_fsr_area_tolerance(double atol) {
   if (atol <= 0.) {
-    auto mssg = "Tolerance for FSR areas must be in the interval (0., 0.25).";
+    const auto mssg =
+        "Tolerance for FSR areas must be in the interval (0., 0.25).";
     spdlog::error(mssg);
     throw ScarabeeException(mssg);
   }
 
   if (atol >= 0.25) {
-    auto mssg = "Tolerance for FSR areas must be in the interval (0., 0.25).";
+    const auto mssg =
+        "Tolerance for FSR areas must be in the interval (0., 0.25).";
     spdlog::error(mssg);
     throw ScarabeeException(mssg);
   }
@@ -160,7 +163,7 @@ void MOCDriver::generate_tracks(std::uint32_t n_angles, double d,
   }
 
   if (n_angles < 4) {
-    auto mssg = "MOCDriver must have at least 4 angles.";
+    const auto mssg = "MOCDriver must have at least 4 angles.";
     spdlog::error(mssg);
     throw ScarabeeException(mssg);
   }
@@ -168,13 +171,13 @@ void MOCDriver::generate_tracks(std::uint32_t n_angles, double d,
   if (n_angles % 4 != 0) {
     // If the number of angles isn't a multiple of 4, we won't be able to make
     // all the boundary condition connections due to an odd number.
-    auto mssg = "MOCDriver number of angles must be a multiple of 4.";
+    const auto mssg = "MOCDriver number of angles must be a multiple of 4.";
     spdlog::error(mssg);
     throw ScarabeeException(mssg);
   }
 
   if (d <= 0.) {
-    auto mssg = "MOCDriver track spacing must be > 0.";
+    const auto mssg = "MOCDriver track spacing must be > 0.";
     spdlog::error(mssg);
     throw ScarabeeException(mssg);
   }
@@ -191,7 +194,7 @@ void MOCDriver::generate_tracks(std::uint32_t n_angles, double d,
        x_max_bc_ != BoundaryCondition::Periodic) ||
       (x_min_bc_ != BoundaryCondition::Periodic &&
        x_max_bc_ == BoundaryCondition::Periodic)) {
-    auto mssg = "Only one x boundary has a periodic boundary condition.";
+    const auto mssg = "Only one x boundary has a periodic boundary condition.";
     spdlog::error(mssg);
     throw ScarabeeException(mssg);
   }
@@ -200,7 +203,7 @@ void MOCDriver::generate_tracks(std::uint32_t n_angles, double d,
        y_max_bc_ != BoundaryCondition::Periodic) ||
       (y_min_bc_ != BoundaryCondition::Periodic &&
        y_max_bc_ == BoundaryCondition::Periodic)) {
-    auto mssg = "Only one y boundary has a periodic boundary condition.";
+    const auto mssg = "Only one y boundary has a periodic boundary condition.";
     spdlog::error(mssg);
     throw ScarabeeException(mssg);
   }
@@ -211,7 +214,8 @@ void MOCDriver::generate_tracks(std::uint32_t n_angles, double d,
   allocate_track_fluxes();
 
   draw_timer.stop();
-  spdlog::info("Time spent drawing tracks: {:.5} s.", draw_timer.elapsed_time());
+  spdlog::info("Time spent drawing tracks: {:.5} s.",
+               draw_timer.elapsed_time());
 }
 
 void MOCDriver::solve() {
@@ -220,7 +224,7 @@ void MOCDriver::solve() {
 
   // Make sure the geometry has been drawn
   if (angle_info_.empty()) {
-    auto mssg = "Cannot solve MOC problem. Geometry has not been traced.";
+    const auto mssg = "Cannot solve MOC problem. Geometry has not been traced.";
     spdlog::error(mssg);
     throw ScarabeeException(mssg);
   }
@@ -238,7 +242,7 @@ void MOCDriver::solve() {
     bool all_zero_extern_src = true;
     for (const auto& es : extern_src_) {
       if (es < 0.) {
-        auto mssg = "All external sources must be > 0.";
+        const auto mssg = "All external sources must be > 0.";
         spdlog::error(mssg);
         throw ScarabeeException(mssg);
       }
@@ -249,7 +253,7 @@ void MOCDriver::solve() {
     }
 
     if (all_zero_extern_src) {
-      auto mssg = "Must have at least one non-zero external source.";
+      const auto mssg = "Must have at least one non-zero external source.";
       spdlog::error(mssg);
       throw ScarabeeException(mssg);
     }
@@ -1138,7 +1142,7 @@ void MOCDriver::trace_tracks() {
                 cmfd_->get_tile(moc_track.exit_pos(), -moc_track.dir());
             if (entry_cell.has_value() == false ||
                 exit_cell.has_value() == false) {
-              auto mssg =
+              const auto mssg =
                   "Could not find entry/exit CMFD cells for track during "
                   "tracing";
               spdlog::error(mssg);
@@ -1209,7 +1213,7 @@ void MOCDriver::trace_tracks() {
                 cmfd_->get_tile(moc_track.exit_pos(), -moc_track.dir());
             if (entry_cell.has_value() == false ||
                 exit_cell.has_value() == false) {
-              auto mssg =
+              const auto mssg =
                   "Could not find entry/exit CMFD cells for track during "
                   "tracing";
               spdlog::error(mssg);
@@ -1426,7 +1430,7 @@ void MOCDriver::allocate_fsr_data() {
   // Get total number of unique FSRs
   nfsrs_ = geometry_->num_fsrs();
   if (nfsrs_ == 0) {
-    auto mssg = "No flat source regions found.";
+    const auto mssg = "No flat source regions found.";
     spdlog::error(mssg);
     throw ScarabeeException(mssg);
   }
@@ -1548,7 +1552,7 @@ double MOCDriver::flux(const Vector& r, const Direction& u, std::size_t g,
   }
 
   // SHOULD NEVER GET HERE
-  auto mssg = "How did I get here ?";
+  const auto mssg = "How did I get here ?";
   spdlog::error(mssg);
   throw ScarabeeException(mssg);
   return 0.;
@@ -1592,7 +1596,7 @@ double MOCDriver::volume(const Vector& r, const Direction& u) const {
   }
 
   // SHOULD NEVER GET HERE
-  auto mssg = "How did I get here ?";
+  const auto mssg = "How did I get here ?";
   spdlog::error(mssg);
   throw ScarabeeException(mssg);
   return 0.;
@@ -1653,7 +1657,7 @@ std::size_t MOCDriver::get_fsr_indx(std::size_t fsr_id,
                                     std::size_t instance) const {
   const std::size_t i = fsr_offsets_.at(fsr_id) + instance;
   if (i >= nfsrs_) {
-    auto mssg = "FSR index out of range.";
+    const auto mssg = "FSR index out of range.";
     spdlog::error(mssg);
     throw ScarabeeException(mssg);
   }
@@ -1683,13 +1687,13 @@ void MOCDriver::set_extern_src(const Vector& r, const Direction& u,
   }
 
   if (g >= this->ngroups()) {
-    auto mssg = "Group index out of range.";
+    const auto mssg = "Group index out of range.";
     spdlog::error(mssg);
     throw ScarabeeException(mssg);
   }
 
   if (src < 0.) {
-    auto mssg = "Cannot assign negative external source.";
+    const auto mssg = "Cannot assign negative external source.";
     spdlog::error(mssg);
     throw ScarabeeException(mssg);
   }
@@ -1708,7 +1712,7 @@ double MOCDriver::extern_src(const Vector& r, const Direction& u,
   }
 
   if (g >= this->ngroups()) {
-    auto mssg = "Group index out of range.";
+    const auto mssg = "Group index out of range.";
     spdlog::error(mssg);
     throw ScarabeeException(mssg);
   }
@@ -1718,19 +1722,19 @@ double MOCDriver::extern_src(const Vector& r, const Direction& u,
 
 void MOCDriver::set_extern_src(std::size_t i, std::size_t g, double src) {
   if (i >= nfsrs_) {
-    auto mssg = "Source region index out of range.";
+    const auto mssg = "Source region index out of range.";
     spdlog::error(mssg);
     throw ScarabeeException(mssg);
   }
 
   if (g >= this->ngroups()) {
-    auto mssg = "Group index out of range.";
+    const auto mssg = "Group index out of range.";
     spdlog::error(mssg);
     throw ScarabeeException(mssg);
   }
 
   if (src < 0.) {
-    auto mssg = "Cannot assign negative external source.";
+    const auto mssg = "Cannot assign negative external source.";
     spdlog::error(mssg);
     throw ScarabeeException(mssg);
   }
@@ -1740,13 +1744,13 @@ void MOCDriver::set_extern_src(std::size_t i, std::size_t g, double src) {
 
 double MOCDriver::extern_src(std::size_t i, std::size_t g) const {
   if (i >= nfsrs_) {
-    auto mssg = "Source region index out of range.";
+    const auto mssg = "Source region index out of range.";
     spdlog::error(mssg);
     throw ScarabeeException(mssg);
   }
 
   if (g >= this->ngroups()) {
-    auto mssg = "Group index out of range.";
+    const auto mssg = "Group index out of range.";
     spdlog::error(mssg);
     throw ScarabeeException(mssg);
   }
@@ -1775,7 +1779,7 @@ std::shared_ptr<CrossSection> MOCDriver::homogenize(
 
   // Check all regions are valid
   if (regions.size() > this->nregions()) {
-    auto mssg =
+    const auto mssg =
         "The number of provided regions is greater than the number of regions.";
     spdlog::error(mssg);
     throw ScarabeeException(mssg);
@@ -1783,7 +1787,7 @@ std::shared_ptr<CrossSection> MOCDriver::homogenize(
 
   for (const auto m : regions) {
     if (m >= this->nfsr()) {
-      auto mssg = "Invalid region index in homogenization list.";
+      const auto mssg = "Invalid region index in homogenization list.";
       spdlog::error(mssg);
       throw ScarabeeException(mssg);
     }
@@ -1832,6 +1836,18 @@ std::shared_ptr<CrossSection> MOCDriver::homogenize(
     for (const auto i : regions) {
       sum_fluxV += this->flux(i, g) * this->volume(i);
     }
+
+    if (sum_fluxV == 0.) {
+      std::stringstream mssg;
+      mssg << "Cannot homogenize cross sections. ";
+      mssg << "Sum of FSR flux*volume in group " << g << " is zero. ";
+      mssg << "If you see this error while using CMFD, try skipping several "
+              "MOC iterations before applying CMFD.";
+      const auto err_str = mssg.str();
+      spdlog::error(err_str);
+      throw ScarabeeException(err_str);
+    }
+
     const double invs_sum_fluxV = 1. / sum_fluxV;
 
     j = 0;
@@ -1885,7 +1901,7 @@ xt::xtensor<double, 1> MOCDriver::homogenize_flux_spectrum(
 
   // Check all regions are valid
   if (regions.size() > this->nfsr()) {
-    auto mssg =
+    const auto mssg =
         "The number of provided regions is greater than the number of regions.";
     spdlog::error(mssg);
     throw ScarabeeException(mssg);
@@ -1893,7 +1909,7 @@ xt::xtensor<double, 1> MOCDriver::homogenize_flux_spectrum(
 
   for (const auto m : regions) {
     if (m >= this->nregions()) {
-      auto mssg = "Invalid region index in homogenization list.";
+      const auto mssg = "Invalid region index in homogenization list.";
       spdlog::error(mssg);
       throw ScarabeeException(mssg);
     }
@@ -1920,14 +1936,14 @@ xt::xtensor<double, 1> MOCDriver::homogenize_flux_spectrum(
 
 void MOCDriver::apply_criticality_spectrum(const xt::xtensor<double, 1>& flux) {
   if (this->solved() == false) {
-    auto mssg =
+    const auto mssg =
         "Cannot apply criticality spectrum when problem has not been solved.";
     spdlog::error(mssg);
     throw ScarabeeException(mssg);
   }
 
   if (flux.size() != this->ngroups()) {
-    auto mssg =
+    const auto mssg =
         "Length of criticality flux spectrum does not agree with the number of "
         "groups.";
     spdlog::error(mssg);

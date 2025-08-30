@@ -1,7 +1,7 @@
 [build-system]
 requires = [
   "scikit-build-core>=0.10",
-  "pybind11==3.0.0",
+  "pybind11==3.0.1",
   "mypy",
   "numpy"
 ]
@@ -18,11 +18,13 @@ authors = [
   {name = "Hunter Belanger", email = "hunter.belanger@gmail.com"},
 ]
 description = "A lattice physics code for LWR analysis."
+readme = "README.md"
+license = "GPL-3.0-only"
+license-files = ["LICENSE"]
 requires-python = ">=3.9"
 keywords = ["lattice physics", "reactor physics", "neutron transport", "LWR"]
 classifiers = [
   "Development Status :: 2 - Pre-Alpha",
-  "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
   "Topic :: Scientific/Engineering",
   "Topic :: Scientific/Engineering :: Physics",
   "Programming Language :: C++",

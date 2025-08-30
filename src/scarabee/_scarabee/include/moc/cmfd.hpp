@@ -136,10 +136,10 @@ class CMFD {
     unbounded_cmfd_solves_ = num_solves;
   }
 
-  void set_skip_moc_iterations(int num_iter) {
+  std::size_t skip_moc_iterations() const { return skip_moc_iterations_; }
+  void set_skip_moc_iterations(std::size_t num_iter) {
     skip_moc_iterations_ = num_iter;
   }
-  std::size_t skip_moc_iterations() const { return skip_moc_iterations_; }
 
   std::size_t moc_iteration() const { return moc_iteration_; }
 
@@ -220,8 +220,19 @@ class CMFD {
   void update_moc_fluxes(MOCDriver& moc);
   void normalize_currents();
   void compute_homogenized_xs_and_flux(const MOCDriver& moc);
+
   void check_neutron_balance(const std::size_t i, const std::size_t j,
-                             std::size_t g, const double keff) const;
+                             std::size_t g, const double keff,
+                             const MOCDriver& moc) const;
+  double calc_surf_current_cmfd(std::size_t i, std::size_t j, std::size_t g,
+                                TileSurf surf, const MOCDriver& moc) const;
+  double calc_neutron_balance_residual_cmfd(const std::size_t i,
+                                            const std::size_t j, std::size_t g,
+                                            const double keff,
+                                            const MOCDriver& moc) const;
+  double calc_neutron_balance_residual_moc(const std::size_t i,
+                                           const std::size_t j, std::size_t g,
+                                           const double keff) const;
 
   // Private default constructor, needed for cereal
   CMFD() = default;

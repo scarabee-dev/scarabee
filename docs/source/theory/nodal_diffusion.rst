@@ -3,11 +3,5 @@
 Nodal diffusion
 ===============
 
-Assembly Discontinuity Factors
-------------------------------
+To be written.
 
-Intra-Nodal Flux Reconstruction
--------------------------------
-
-Pin-Power Reconstruction
-------------------------

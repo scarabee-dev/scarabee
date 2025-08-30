@@ -3071,6 +3071,11 @@ class PWRAssembly:
         scarabee_log(LogLevel.Info, "")
 
     def solve(self) -> None:
+        """
+        Solves the assembly problem. If depletion_exposure_steps or
+        depletion_time_steps are None, then a single k-eigenvalue problem will
+        be run. Otherwise, the depletion calculation will be performed.
+        """
         if self.depletion_exposure_steps is None:
             # Single one-off calulcation
             self._run_assembly_calculation(True)

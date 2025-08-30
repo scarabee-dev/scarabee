@@ -201,13 +201,13 @@ material.
 
 .. _nr_fig:
 
-.. figure:: ../../images/nr.svg
+.. figure:: ../_images/nr.svg
 
     Narrow resonance flux for :math:`^{238}U` at varying dilutions.
 
 .. _nr_zoom_fig:
 
-.. figure:: ../../images/nr_zoom.svg
+.. figure:: ../_images/nr_zoom.svg
 
     Narrow resonance flux for the 6.7 eV resonance of :math:`^{238}U` at
     varying dilutions.
@@ -254,7 +254,7 @@ Using this approximation, we find that the wide resonance flux spectrum is
 
 .. _wr_nr_fig:
 
-.. figure:: ../../images/wr.svg
+.. figure:: ../_images/wr.svg
 
     Comparison of the narrow resonance and wide resonance flux for :math:`^{238}U` at a dilution of 10 barns.
 

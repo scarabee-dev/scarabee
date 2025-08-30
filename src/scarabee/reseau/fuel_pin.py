@@ -1,4 +1,3 @@
-from matplotlib.streamplot import OutOfBounds
 from .._scarabee import (
     NDLibrary,
     MaterialComposition,
