@@ -38,7 +38,6 @@ import numpy as np
 from typing import Optional, List, Tuple, Union
 import copy
 from threading import Thread
-import matplotlib.pyplot as plt
 
 
 class Symmetry(Enum):

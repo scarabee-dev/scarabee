@@ -18,6 +18,8 @@ authors = [
   {name = "Hunter Belanger", email = "hunter.belanger@gmail.com"},
 ]
 description = "A lattice physics code for LWR analysis."
+readme = "README.md"
+license = "GPL-3.0-only"
 requires-python = ">=3.9"
 keywords = ["lattice physics", "reactor physics", "neutron transport", "LWR"]
 classifiers = [
