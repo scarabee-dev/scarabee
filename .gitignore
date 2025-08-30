@@ -5,6 +5,10 @@ compile_commands.json
 *__pycache__
 scarabee.egg-info
 data/*.h5
+data/tools/U235_600.txt
+data/tools/U238_600.txt
+data/tools/U235_600.dir
+data/tools/U238_600.dir
 docs/_build
 _scarabee.*
 *imgui.ini

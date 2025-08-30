@@ -1,0 +1,7 @@
+ace_file_generation_fast_mode
+  nucl_file_name            U235.endf
+  temp                      600.0
+  ace_file_name             U235_600.txt
+  ace_dir_file_name         U235_600.dir
+  process_probability_table off
+  process_gas_production    off
