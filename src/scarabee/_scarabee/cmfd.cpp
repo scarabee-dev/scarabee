@@ -296,6 +296,33 @@ void CMFD::pack_fsr_lists() {
   temp_fsrs_.shrink_to_fit();
 }
 
+const std::vector<std::size_t>& CMFD::tile_fsr_list(std::size_t i,
+                                                    std::size_t j) const {
+  if (i >= nx_) {
+    const auto mssg = "Index i along x axis is out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  if (j >= ny_) {
+    const auto mssg = "Index j along y axis is out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  const auto indx = this->tile_to_indx(i, j);
+
+  if (indx >= fsrs_.size()) {
+    const auto mssg =
+        "FSR lists have not been constructed. Must generate tracks on "
+        "MOCDriver.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  return fsrs_[indx];
+}
+
 std::size_t CMFD::moc_to_cmfd_group(std::size_t g) const {
   if (g >= moc_to_cmfd_group_map_.size()) {
     auto mssg = "Group index is out of range.";
@@ -344,6 +371,74 @@ const double& CMFD::current(const std::size_t G,
   }
 
   return surface_currents_(G, surface);
+}
+
+std::size_t CMFD::get_x_neg_surf(const std::size_t i,
+                                 const std::size_t j) const {
+  if (i >= nx_) {
+    const auto mssg = "Index i along x axis is out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  if (j >= ny_) {
+    const auto mssg = "Index j along y axis is out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  return (nx_ + 1) * j + i;
+}
+
+std::size_t CMFD::get_x_pos_surf(const std::size_t i,
+                                 const std::size_t j) const {
+  if (i >= nx_) {
+    const auto mssg = "Index i along x axis is out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  if (j >= ny_) {
+    const auto mssg = "Index j along y axis is out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  return get_x_neg_surf(i, j) + 1;
+}
+
+std::size_t CMFD::get_y_neg_surf(const std::size_t i,
+                                 const std::size_t j) const {
+  if (i >= nx_) {
+    const auto mssg = "Index i along x axis is out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  if (j >= ny_) {
+    const auto mssg = "Index j along y axis is out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  return nx_surfs_ + (ny_ + 1) * i + j;
+}
+
+std::size_t CMFD::get_y_pos_surf(const std::size_t i,
+                                 const std::size_t j) const {
+  if (i >= nx_) {
+    const auto mssg = "Index i along x axis is out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  if (j >= ny_) {
+    const auto mssg = "Index j along y axis is out of range.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  return get_y_neg_surf(i, j) + 1;
 }
 
 void CMFD::tally_current(double aflx, const Direction& u, std::size_t G,

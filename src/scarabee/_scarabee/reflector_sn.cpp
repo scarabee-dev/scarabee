@@ -8,7 +8,6 @@
 #include <xtensor/io/xio.hpp>
 
 #include <sstream>
-#include "spdlog/spdlog.h"
 
 namespace scarabee {
 
@@ -388,7 +387,9 @@ void ReflectorSN::fill_source_iso(xt::xtensor<double, 3>& Q,
   const double invs_keff = 1. / keff_;
   Q.fill(0.);
 
-  for (std::size_t i = 0; i < xs_.size(); i++) {
+#pragma omp parallel for
+  for (int ii = 0; ii < static_cast<int>(xs_.size()); ii++) {
+    const std::size_t i = static_cast<std::size_t>(ii);
     const auto& mat = xs_[i];
 
     for (std::size_t g = 0; g < xs_[0]->ngroups(); g++) {
@@ -623,7 +624,9 @@ void ReflectorSN::fill_source_aniso(xt::xtensor<double, 3>& Q,
   const double invs_keff = 1. / keff_;
   Q.fill(0.);
 
-  for (std::size_t i = 0; i < xs_.size(); i++) {
+#pragma omp parallel for
+  for (int ii = 0; ii < static_cast<int>(xs_.size()); ii++) {
+    const std::size_t i = static_cast<std::size_t>(ii);
     const auto& mat = xs_[i];
 
     for (std::size_t g = 0; g < xs_[0]->ngroups(); g++) {
@@ -648,13 +651,27 @@ double ReflectorSN::calc_keff(const xt::xtensor<double, 3>& old_flux,
                               const double keff) const {
   double num = 0.;
   double denom = 0.;
-  for (std::size_t i = 0; i < xs_.size(); i++) {
-    const auto& mat = xs_[i];
-    const double dx = dx_[i];
-    for (std::size_t g = 0; g < mat->ngroups(); g++) {
-      num += dx * mat->vEf(g) * new_flux(g, i, 0);
-      denom += dx * mat->vEf(g) * old_flux(g, i, 0);
+
+#pragma omp parallel
+  {
+    double thrd_num = 0.;
+    double thrd_denom = 0.;
+
+#pragma omp for
+    for (int ii = 0; ii < static_cast<int>(xs_.size()); ii++) {
+      const std::size_t i = static_cast<std::size_t>(ii);
+      const auto& mat = xs_[i];
+      const double dx = dx_[i];
+      for (std::size_t g = 0; g < mat->ngroups(); g++) {
+        thrd_num += dx * mat->vEf(g) * new_flux(g, i, 0);
+        thrd_denom += dx * mat->vEf(g) * old_flux(g, i, 0);
+      }
     }
+#pragma omp atomic
+    num += thrd_num;
+
+#pragma omp atomic
+    denom += thrd_denom;
   }
 
   return keff * num / denom;

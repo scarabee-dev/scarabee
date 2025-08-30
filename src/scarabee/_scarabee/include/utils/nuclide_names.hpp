@@ -14,6 +14,6 @@ std::string nuclide_name_to_element_symbol(const std::string& name);
 
 std::uint32_t nuclide_name_to_za(const std::string& name);
 
-}
+}  // namespace scarabee
 
 #endif

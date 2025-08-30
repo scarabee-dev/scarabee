@@ -49,6 +49,18 @@ void init_CMFD(py::module& m) {
            "         The scheme for condensing energy groups.\n",
            py::arg("dx"), py::arg("dy"), py::arg("groups"))
 
+      .def_property_readonly("nx", &CMFD::nx, "Number of CMFD tiles along x.")
+      .def_property_readonly("ny", &CMFD::ny, "Number of CMFD tiles along y.")
+
+      .def_property_readonly("dx", &CMFD::dx,
+                             "List of tile widths along the x axis.")
+      .def_property_readonly("dy", &CMFD::dy,
+                             "List of tile widths along the y axis.")
+
+      .def_property_readonly("condensation_scheme", &CMFD::condensation_scheme,
+                             "Condensation scheme to go from the MOC group "
+                             "structure to the CMFD group structure.")
+
       .def_property(
           "keff_tolerance", &CMFD::keff_tolerance, &CMFD::set_keff_tolerance,
           "Maximum relative absolute difference in keff for convergence.")
@@ -125,6 +137,76 @@ void init_CMFD(py::module& m) {
            "    The x and y tile indices.\n",
            py::arg("r"), py::arg("u"))
 
+      .def("get_x_neg_surf", &CMFD::get_x_neg_surf,
+           "Obtains the index of negative x surface for tile (i,j).\n\n"
+           "Parameters\n"
+           "----------\n"
+           "i: int.\n"
+           "    x index of tile.\n"
+           "j: int.\n"
+           "    y index of tile.\n\n"
+           "Returns\n"
+           "-------\n"
+           "int\n"
+           "    Index of the surface.\n",
+           py::arg("i"), py::arg("j"))
+
+      .def("get_x_pos_surf", &CMFD::get_x_pos_surf,
+           "Obtains the index of positive x surface for tile (i,j).\n\n"
+           "Parameters\n"
+           "----------\n"
+           "i: int.\n"
+           "    x index of tile.\n"
+           "j: int.\n"
+           "    y index of tile.\n\n"
+           "Returns\n"
+           "-------\n"
+           "int\n"
+           "    Index of the surface.\n",
+           py::arg("i"), py::arg("j"))
+
+      .def("get_y_neg_surf", &CMFD::get_y_neg_surf,
+           "Obtains the index of negative y surface for tile (i,j).\n\n"
+           "Parameters\n"
+           "----------\n"
+           "i: int.\n"
+           "    x index of tile.\n"
+           "j: int.\n"
+           "    y index of tile.\n\n"
+           "Returns\n"
+           "-------\n"
+           "int\n"
+           "    Index of the surface.\n",
+           py::arg("i"), py::arg("j"))
+
+      .def("get_y_pos_surf", &CMFD::get_y_pos_surf,
+           "Obtains the index of positive y surface for tile (i,j).\n\n"
+           "Parameters\n"
+           "----------\n"
+           "i: int.\n"
+           "    x index of tile.\n"
+           "j: int.\n"
+           "    y index of tile.\n\n"
+           "Returns\n"
+           "-------\n"
+           "int\n"
+           "    Index of the surface.\n",
+           py::arg("i"), py::arg("j"))
+
+      .def("tile_fsr_list", &CMFD::tile_fsr_list,
+           "Obtains the list of flat source regions in tile (i,j).\n\n"
+           "Parameters\n"
+           "----------\n"
+           "i: int.\n"
+           "    x index of tile.\n"
+           "j: int.\n"
+           "    y index of tile.\n\n"
+           "Returns\n"
+           "-------\n"
+           "List of int\n"
+           "    FSRs int the tile.\n",
+           py::arg("i"), py::arg("j"))
+
       .def("tally_current", &CMFD::tally_current,
            "Tallies the current onto the appropriate CMFD surface(s).\n\n"
            "Parameters\n"
@@ -149,7 +231,7 @@ void init_CMFD(py::module& m) {
            "    CMFD surface index.\n\n"
            "Returns\n"
            "-------\n"
-           "float.\n"
+           "float\n"
            "    Tallied current in CMFD group g on surface surf.\n",
            py::arg("g"), py::arg("surf"))
 

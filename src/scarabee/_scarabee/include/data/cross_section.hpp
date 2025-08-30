@@ -59,9 +59,7 @@ class CrossSection {
   CrossSection(const XS1D& Et, const XS1D& Dtr, const XS1D& Ea, const XS2D& Es,
                const std::string& name = "");
 
-  void set(const CrossSection& other) {
-    (*this) = other;
-  }
+  void set(const CrossSection& other) { (*this) = other; }
 
   std::size_t ngroups() const { return Etr_.ngroups(); }
 

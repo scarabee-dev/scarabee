@@ -15,7 +15,7 @@ namespace scarabee {
 //----------------------------------------------------------------------------
 class Vector {
  public:
-  Vector(double i_x, double i_y) : x_(i_x), y_(i_y){};
+  Vector(double i_x, double i_y) : x_(i_x), y_(i_y) {};
   ~Vector() = default;
 
   double x() const { return x_; }
