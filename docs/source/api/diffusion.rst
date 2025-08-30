@@ -3,14 +3,14 @@ Diffusion
 
 .. currentmodule:: scarabee
 
-.. autoclass:: DiffusionGeometryTile
+.. autoclass:: scarabee.DiffusionGeometryTile
    :members:
 
-.. autoclass:: Neighbor
+.. autoclass:: scarabee.Neighbor
    :members:
 
-.. autoclass:: DiffusionGeometry
+.. autoclass:: scarabee.DiffusionGeometry
 
-.. autoclass:: FDDiffusionDriver
+.. autoclass:: scarabee.FDDiffusionDriver
 
-.. autoclass:: NEMDiffusionDriver
+.. autoclass:: scarabee.NEMDiffusionDriver

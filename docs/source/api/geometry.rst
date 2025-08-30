@@ -3,31 +3,31 @@ Geometry
 
 .. currentmodule:: scarabee
 
-.. autoclass:: Vector
+.. autoclass:: scarabee.Vector
 
-.. autoclass:: Direction
+.. autoclass:: scarabee.Direction
 
-.. autoclass:: EmptyCell
+.. autoclass:: scarabee.EmptyCell
 
-.. autoclass:: PinCellType
+.. autoclass:: scarabee.PinCellType
 
-.. autoclass:: SimplePinCell
+.. autoclass:: scarabee.SimplePinCell
 
-.. autoclass:: PinCell
+.. autoclass:: scarabee.PinCell
 
-.. autoclass:: BWRCornerType
+.. autoclass:: scarabee.BWRCornerType
     :members:
 
-.. autoclass:: SimpleBWRCornerPinCell
+.. autoclass:: scarabee.SimpleBWRCornerPinCell
 
-.. autoclass:: BWRCornerPinCell
+.. autoclass:: scarabee.BWRCornerPinCell
 
-.. autoclass:: Tile
-    :members:
-    :inherited-members:
-
-.. autoclass:: TileIndex
+.. autoclass:: scarabee.Tile
     :members:
     :inherited-members:
 
-.. autoclass:: Cartesian2D
+.. autoclass:: scarabee.TileIndex
+    :members:
+    :inherited-members:
+
+.. autoclass:: scarabee.Cartesian2D

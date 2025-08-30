@@ -3,12 +3,12 @@ Lattice Tool Chains
 
 .. currentmodule:: scarabee.reseau
 
-.. autoclass:: FuelPin
+.. autoclass:: scarabee.reseau.FuelPin
 
-.. autoclass:: GuideTube
+.. autoclass:: scarabee.reseau.GuideTube
 
-.. autoclass:: BurnablePoisonRod
+.. autoclass:: scarabee.reseau.BurnablePoisonRod
 
-.. autoclass:: PWRAssembly
+.. autoclass:: scarabee.reseau.PWRAssembly
 
-.. autoclass:: Reflector
+.. autoclass:: scarabee.reseau.Reflector

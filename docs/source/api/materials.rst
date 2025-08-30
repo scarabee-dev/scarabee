@@ -3,55 +3,55 @@ Materials
 
 .. currentmodule:: scarabee
 
-.. autoclass:: CrossSection
+.. autoclass:: scarabee.CrossSection
 
-.. autoclass:: DiffusionCrossSection
+.. autoclass:: scarabee.DiffusionCrossSection
 
-.. autoclass:: ADF
+.. autoclass:: scarabee.ADF
    :members:
 
-.. autoclass:: CDF
+.. autoclass:: scarabee.CDF
    :members:
 
-.. autoclass:: DiffusionData
+.. autoclass:: scarabee.DiffusionData
 
-.. autoclass:: NuclideHandle
+.. autoclass:: scarabee.NuclideHandle
    :members:
 
-.. autoclass:: NDLibrary
+.. autoclass:: scarabee.NDLibrary
 
-.. autoclass:: MicroDepletionXS
+.. autoclass:: scarabee.MicroDepletionXS
    :members:
 
-.. autoclass:: MicroNuclideXS
+.. autoclass:: scarabee.MicroNuclideXS
    :members:
 
-.. autoclass:: ResonantOneGroupXS
+.. autoclass:: scarabee.ResonantOneGroupXS
    :members:
 
-.. autoclass:: DepletionReactionRates
+.. autoclass:: scarabee.DepletionReactionRates
    :members:
 
-.. autoclass:: Nuclide
+.. autoclass:: scarabee.Nuclide
    :members:
 
-.. autoclass:: Fraction
+.. autoclass:: scarabee.Fraction
    :members:
 
-.. autoclass:: MaterialComposition
+.. autoclass:: scarabee.MaterialComposition
 
-.. autoclass:: DensityUnits
+.. autoclass:: scarabee.DensityUnits
    :members:
 
-.. autoclass:: Material
+.. autoclass:: scarabee.Material
 
-.. autofunction:: borated_water
+.. autofunction:: scarabee.borated_water
 
-.. autofunction:: water_density
+.. autofunction:: scarabee.water_density
 
-.. autoclass:: MixingFraction
+.. autoclass:: scarabee.MixingFraction
    :members:
 
-.. autofunction:: mix_materials
+.. autofunction:: scarabee.mix_materials
 
-.. autoclass:: FluxCalculator
+.. autoclass:: scarabee.FluxCalculator
