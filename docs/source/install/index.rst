@@ -17,7 +17,7 @@ are available for the following operating system - architecture combinations:
 - macOS ARM64 (newer M1 Macs)
 
 If you are not running one of these combinations, you will likely need to
-compile Scarabée on your system from the source code.
+`compile Scarabée on your system from source code <install_source_>`_.
 
 .. Important::
 
@@ -33,6 +33,8 @@ following command:
    pip install --user scarabee
 
 
+.. _install_source:
+
 Installation from Source
 ========================
 
@@ -46,9 +48,9 @@ Visual Studio, and on Linux you should install a recent version of g++ (you
 will have to look for online for details regarding your particular Linux
 distribution). Users on macOS likely already have a sufficient compiler.
 
-You should start by opening a terminal (command prompt) and navigating to the
-directory where you would like to store your Scarabée source files. Once there
-you can run the command
+You should start by opening a terminal (command prompt on Windows) and
+navigating to the directory where you would like to store your Scarabée source
+files. Once there you can run the command
 
 .. code-block:: bash
 
@@ -84,10 +86,11 @@ Building a Library
 ------------------
 
 To use all features of Scarabée, particularly if you want to perform PWR
-assembly calculations, you will need a multi-group nuclear data library (NDL). To
-build an NDL for Scarabée you will need a Unix-like operating system (such as
-Linux or macOS). If you are Windows you can use the Windows Subsystem for Linux
-(WSL) to complete this task.
+assembly calculations, you will need a multi-group nuclear data library (NDL).
+To build an NDL for Scarabée you will need a Unix-like operating system (such as
+Linux or macOS). If you are on Windows, you can use the `Windows Subsystem for
+Linux (WSL) <https://learn.microsoft.com/en-us/windows/wsl/install>`_ to
+completethis task.
 
 You will also need to download the ENDF files you want to use for your library.
 There are many different publicly available libraries, the most popular of which
@@ -101,7 +104,7 @@ desire. If you do this, please consider contributing your script to the Scarabé
 project ! Download the ENDF files of your choice and store them in a place where
 they can be accessed by the processing script later on.
 
-In addition to having already install Scarabée, you also need to install the
+In addition to having already installed Scarabée, you also need to install the
 Python packages `ENDFtk <https://github.com/njoy/ENDFtk>`_ and
 `PapillonNDL <https://github.com/HunterBelanger/papillon-ndl>`_. Both must be
 compiled from source.
@@ -118,13 +121,14 @@ executable is available in your path.
   called ``frendy``, without any extension ! Therefore, you should be sure to
   rename the executable after it has been compiled.
 
-In the data repository, you will find the example script to generate a library 
-from ENDF/B-VIII.0 files. You should use this script as a base, and modify it to
-your needs. If you are going to make an ENDF/B-VIII.0 library, you should only
-need to modify the first few lines in the block at the top of the file (i.e. the
-location of the ENDF files, desired temperatures, desired group structure,
-etc.). After this is complete, you can run the python script from within that
-directory, and it should begin to process your data library.
+In the `data` folder of the source repository repository, you will find the
+example script to generate a library from ENDF/B-VIII.0 files. You should use
+this script as a base, and modify it to your needs. If you are going to make an
+ENDF/B-VIII.0 library, you should only need to modify the first few lines in
+the block at the top of the file (i.e. the location of the ENDF files, desired
+temperatures, desired group structure, etc.). After this is complete, you can
+run the python script from within the `data` directory, and it should begin to
+process your data library.
 
 .. Warning::
 
@@ -147,7 +151,7 @@ Using a Library
 ---------------
 
 Once you have a nuclear data library file, you should move it to a safe
-location where you aren't likely to accidentally delete ! It took a long time
+location where you aren't likely to accidentally delete it ! It took a long time
 to generate, so it would be a shame to lose it !
 
 When running an assembly calculation with Scarabée, you can optionally provide
@@ -162,7 +166,7 @@ the path to the library you want to use:
 This is a convenient method to be able to quickly change libraries. However,
 you might have a favorite library/group structure which you want to use all the
 time. For such a case, you can set the ``SCARABEE_ND_LIBRARY`` environment
-variable on your machine to be to path to your prefered library. If this
+variable on your machine to be the path to your prefered library. If this
 variable is set, Scarabée will use that library when loading an NDL.
 
 .. code-block:: Python
