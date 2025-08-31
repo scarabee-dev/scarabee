@@ -211,6 +211,13 @@ class PWRAssembly:
     depletion_time_steps : optional ndarray
         1D Numpy array of burn-up time steps, in units of days.
         Default is None.
+    corrector_transport : bool
+        If True, the corrector depletion step performs a transport calculation
+        to obtain an updated solution for the flux based on the predictor
+        nuclide concentrations, performing two transport calculations per time
+        step. If False, the flux from the predictor transport calculation is
+        used to perform the corrector step, performing only one transport
+        calculation per time step. Default value is True.
     exposures : ndarray
         1D Numpy array of the total assembly burn-up exposures at which
         material information is available, in units of MWd/kg. Default value
@@ -495,6 +502,10 @@ class PWRAssembly:
         # Arrays for the depletion exposures (MWd/kg) and times (days)
         self._exposures: np.ndarray = np.array([])
         self._times: np.ndarray = np.array([])
+
+        # Indicates if 2 (True) or 1 (False) transport calculation should be
+        # performed per time step.
+        self._corrector_transport: bool = True
 
         # Either a single value or list of values (for each depletion step)
         self._keff: Union[float, List[float]] = 1.0
@@ -788,6 +799,14 @@ class PWRAssembly:
     @property
     def times(self) -> np.ndarray:
         return self._times
+
+    @property
+    def corrector_transport(self) -> bool:
+        return self._corrector_transport
+
+    @corrector_transport.setter
+    def corrector_transport(self, val: bool) -> None:
+        self._corrector_transport = val
 
     @property
     def keff(self) -> Union[float, List[float]]:
@@ -2926,7 +2945,10 @@ class PWRAssembly:
         return DiffusionData(diff_xs, ff, adf, cdf)
 
     def _run_assembly_calculation(
-        self, self_shield: bool, apply_dancoff_corrections: bool = False
+        self,
+        self_shield: bool,
+        apply_dancoff_corrections: bool = False,
+        transport: bool = True,
     ) -> None:
         """
         Runs a single MOC calculation, applies critical leakage model, obtains
@@ -2943,6 +2965,10 @@ class PWRAssembly:
         apply_dancoff_corrections : bool, default False
             If self_shield is False and this option is True, the previously
             obtained Dancoff corrections are applied to all cells.
+        transport : bool, default True
+            If True, the MOC calculation is performed. Otherwise, the MOC
+            calculation is not performed, but the leakage correction and flux
+            normalization are.
         """
         if self_shield:
             # If we want self-shielding, do that stuff
@@ -2959,11 +2985,12 @@ class PWRAssembly:
         self._asmbly_moc.flux_tolerance = self.flux_tolerance
         self._asmbly_moc.keff_tolerance = self.keff_tolerance
 
-        set_logging_level(LogLevel.Warning)
-        self._asmbly_moc.solve()
-        set_logging_level(LogLevel.Info)
-        scarabee_log(LogLevel.Info, "")
-        scarabee_log(LogLevel.Info, "Kinf: {:.5f}".format(self._asmbly_moc.keff))
+        if transport:
+            set_logging_level(LogLevel.Warning)
+            self._asmbly_moc.solve()
+            set_logging_level(LogLevel.Info)
+            scarabee_log(LogLevel.Info, "")
+            scarabee_log(LogLevel.Info, "Kinf: {:.5f}".format(self._asmbly_moc.keff))
 
         self.apply_leakage_model()
         self.obtain_flux_spectra()
@@ -3047,7 +3074,7 @@ class PWRAssembly:
 
             scarabee_log(LogLevel.Info, "Corrector:")
             # Run the a new transport calcualtion to get rates
-            self._run_assembly_calculation(False)
+            self._run_assembly_calculation(False, transport=self.corrector_transport)
 
             # Do correction step for isotopes
             self._correct_depletion(dt_sec, dtm1_sec)
