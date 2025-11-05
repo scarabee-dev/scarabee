@@ -216,10 +216,12 @@ void init_CMFD(py::module& m) {
            "u: Direction\n"
            "    Direction of the angular flux.\n"
            "g: int\n"
-           "    CMFD energy group index."
+           "    CMFD energy group index.\n"
+           "i: int\n"
+           "    Azimuthal angle index.\n"
            "surf: CMFDSurfaceCrossing\n"
            "    Information for surfaces on which the current is tallied.\n",
-           py::arg("aflx"), py::arg("u"), py::arg("g"), py::arg("surf"))
+           py::arg("aflx"), py::arg("u"), py::arg("g"), py::arg("i"), py::arg("surf"))
 
       .def("current", &CMFD::current,
            "Returns the current on a CMFD cell boundary.\n\n"

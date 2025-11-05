@@ -213,9 +213,45 @@ void MOCDriver::generate_tracks(std::uint32_t n_angles, double d,
 
   allocate_track_fluxes();
 
+  // If we have CMFD, we need to determine the surface normalizations which are
+  // unique to each azimuth.
+  if (cmfd_) {
+    cmfd_->set_nazimuth(tracks_.size());
+    compute_cmfd_surface_norms();
+    cmfd_->invert_surface_norms();
+  }
+
   draw_timer.stop();
   spdlog::info("Time spent drawing tracks: {:.5} s.",
                draw_timer.elapsed_time());
+}
+
+void MOCDriver::compute_cmfd_surface_norms() {
+  // Iterate over all sets of azimuths in parallel
+#pragma omp parallel for
+  for (int ii = 0; ii < static_cast<int>(tracks_.size()); ii++) {
+    const std::size_t i = static_cast<std::size_t>(ii);
+
+    // Iterate over all tracks in the azimuth
+    for (const auto& track : tracks_[i]) {
+      // Get the width of the track
+      const double d = track.width();
+      const double phi = track.phi();
+
+      // Grab entry portion of first segment
+      const auto& first_seg = *track.begin();
+      if (first_seg.entry_cmfd_surface()) {
+        cmfd_->tally_surface_norm(i, phi, first_seg.entry_cmfd_surface(), d);
+      }
+
+      // Iterate over all segments on track and contribute exit
+      for (const auto& seg : track) {
+        if (seg.exit_cmfd_surface()) {
+          cmfd_->tally_surface_norm(i, phi, seg.exit_cmfd_surface(), d);
+        }
+      } // all segments on track
+    } // all tracks on azimuth
+  } // all azimuths
 }
 
 void MOCDriver::solve() {
@@ -402,7 +438,7 @@ void MOCDriver::solve_isotropic() {
     iteration_timer.stop();
     spdlog::info("-------------------------------------");
     if (mode_ == SimulationMode::Keff) {
-      spdlog::info("Iteration {:>4d}          keff: {:.5f}", iteration, keff_);
+      spdlog::info("Iteration {:>4d}          keff: {:.15f}", iteration, keff_);
       spdlog::info("     keff difference:     {:.5E}", rel_diff_keff);
     } else if (mode_ == SimulationMode::FixedSource) {
       spdlog::info("Iteration {:>4d}", iteration);
@@ -574,7 +610,8 @@ void MOCDriver::sweep(xt::xtensor<double, 3>& sflux,
     // Get the group for CMFD
     std::size_t G = g;
     if (cmfd_) G = cmfd_->moc_to_cmfd_group(g);
-
+    
+    std::size_t azimuth = 0;
     for (auto& tracks : tracks_) {
       for (std::size_t t = 0; t < tracks.size(); t++) {
         auto& track = tracks[t];
@@ -598,7 +635,7 @@ void MOCDriver::sweep(xt::xtensor<double, 3>& sflux,
           for (std::size_t p = 0; p < n_pol_angles_; p++) {
             cmfd_flx += tw * polar_quad_.wsin()[p] * angflux[p];
           }
-          cmfd_->tally_current(cmfd_flx, u_forw, G, surf_indx);
+          cmfd_->tally_current(cmfd_flx, u_forw, G, azimuth, surf_indx);
         }
 
         // Follow track in forward direction
@@ -621,7 +658,7 @@ void MOCDriver::sweep(xt::xtensor<double, 3>& sflux,
 
           if (cmfd_surf &&
               cmfd_->moc_iteration() >= cmfd_->skip_moc_iterations()) {
-            cmfd_->tally_current(cmfd_flx, u_forw, G, cmfd_surf);
+            cmfd_->tally_current(cmfd_flx, u_forw, G, azimuth, cmfd_surf);
           }
 
           sflux(g, i, 0) += tw * delta_sum;
@@ -650,7 +687,7 @@ void MOCDriver::sweep(xt::xtensor<double, 3>& sflux,
           for (std::size_t p = 0; p < n_pol_angles_; p++) {
             cmfd_flx += tw * polar_quad_.wsin()[p] * angflux[p];
           }
-          cmfd_->tally_current(cmfd_flx, u_back, G, surf_indx);
+          cmfd_->tally_current(cmfd_flx, u_back, G, azimuth, surf_indx);
         }
 
         // Iterate over segments in backwards direction
@@ -673,7 +710,7 @@ void MOCDriver::sweep(xt::xtensor<double, 3>& sflux,
           }  // For all polar angles
           if (cmfd_surf &&
               cmfd_->moc_iteration() >= cmfd_->skip_moc_iterations()) {
-            cmfd_->tally_current(cmfd_flx, u_back, G, cmfd_surf);
+            cmfd_->tally_current(cmfd_flx, u_back, G, azimuth, cmfd_surf);
           }
 
           sflux(g, i, 0) += tw * delta_sum;
@@ -688,6 +725,7 @@ void MOCDriver::sweep(xt::xtensor<double, 3>& sflux,
           }
         }
       }  // For all tracks
+      azimuth++;
     }  // For all azimuthal angles
 
     for (std::size_t i = 0; i < nfsrs_; i++) {
@@ -710,7 +748,8 @@ void MOCDriver::sweep_anisotropic(xt::xtensor<double, 3>& sflux,
     // Get the group for CMFD
     std::size_t G = g;
     if (cmfd_) G = cmfd_->moc_to_cmfd_group(g);
-
+    
+    std::size_t azimuth = 0;
     for (auto& tracks : tracks_) {
       for (std::size_t t = 0; t < tracks.size(); t++) {
         auto& track = tracks[t];
@@ -739,7 +778,7 @@ void MOCDriver::sweep_anisotropic(xt::xtensor<double, 3>& sflux,
             cmfd_flx += polar_quad_.wsin()[p] * angflux[pp];
           }
           cmfd_->tally_current(INVS_4SQRTPI * tw * cmfd_flx, u_forw, G,
-                               surf_indx);
+                               azimuth, surf_indx);
         }
 
         // Follow track in forward direction
@@ -785,7 +824,7 @@ void MOCDriver::sweep_anisotropic(xt::xtensor<double, 3>& sflux,
           if (cmfd_surf &&
               cmfd_->moc_iteration() >= cmfd_->skip_moc_iterations()) {
             cmfd_->tally_current(INVS_4SQRTPI * tw * cmfd_flx, u_forw, G,
-                                 cmfd_surf);
+                                 azimuth, cmfd_surf);
           }
         }  // For all segments along forward direction of track
 
@@ -818,7 +857,7 @@ void MOCDriver::sweep_anisotropic(xt::xtensor<double, 3>& sflux,
             cmfd_flx += polar_quad_.wsin()[p] * angflux[pp];
           }
           cmfd_->tally_current(INVS_4SQRTPI * tw * cmfd_flx, u_back, G,
-                               surf_indx);
+                               azimuth, surf_indx);
         }
 
         for (auto seg_it = track.rbegin(); seg_it != track.rend(); seg_it++) {
@@ -865,7 +904,7 @@ void MOCDriver::sweep_anisotropic(xt::xtensor<double, 3>& sflux,
           if (cmfd_surf &&
               cmfd_->moc_iteration() >= cmfd_->skip_moc_iterations()) {
             cmfd_->tally_current(INVS_4SQRTPI * tw * cmfd_flx, u_back, G,
-                                 cmfd_surf);
+                                 azimuth, cmfd_surf);
           }
         }  // For all segments along forward direction of track
 
@@ -878,6 +917,7 @@ void MOCDriver::sweep_anisotropic(xt::xtensor<double, 3>& sflux,
           }
         }
       }  // For all tracks
+      azimuth++;
     }  // For all azimuthal angles
 
     for (std::size_t i = 0; i < nfsrs_; i++) {
@@ -1856,6 +1896,7 @@ std::shared_ptr<CrossSection> MOCDriver::homogenize(
       const double V = volume(i);
       const double flx = flux(i, g);
       const double coeff = invs_sum_fluxV * flx * V;
+      Et(g) += coeff * mat->Et(g);
       Dtr(g) += coeff * mat->Dtr(g);
       Ea(g) += coeff * mat->Ea(g);
       Ef(g) += coeff * mat->Ef(g);
@@ -1871,9 +1912,6 @@ std::shared_ptr<CrossSection> MOCDriver::homogenize(
 
       j++;
     }
-
-    // Reconstruct total xs from absorption and scattering
-    Et(g) = Ea(g) + xt::sum(xt::view(Es, 0, g, xt::all()))();
   }
 
   return std::make_shared<CrossSection>(Et, Dtr, Ea, Es, Ef, vEf, chi);

@@ -238,6 +238,7 @@ std::shared_ptr<CrossSection> CrossSection::condense(
     // First we do all of the 1D cross sections
     for (std::size_t g = g_min; g <= g_max; g++) {
       const double fluxg_fluxG = flux(g) * invs_flux_G;
+      Et(G) += fluxg_fluxG * this->Et(g);
       Dtr(G) += fluxg_fluxG * this->Dtr(g);
       Ea(G) += fluxg_fluxG * this->Ea(g);
       Ef(G) += fluxg_fluxG * this->Ef(g);
@@ -260,9 +261,6 @@ std::shared_ptr<CrossSection> CrossSection::condense(
         }
       }
     }
-
-    // Reconstruct total xs from absorption and scattering
-    Et(G) = Ea(G) + xt::sum(xt::view(Es, 0, G, xt::all()))();
   }
 
   // If we don't have a P1 matrix, then Et actually contains Etr and Es

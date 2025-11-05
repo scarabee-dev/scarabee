@@ -7,7 +7,9 @@
 #include <moc/boundary_condition.hpp>
 #include <data/diffusion_cross_section.hpp>
 #include <utils/simulation_mode.hpp>
+#include <utils/openmp_mutex.hpp>
 
+#include <htl/static_vector.hpp>
 #include <xtensor/containers/xtensor.hpp>
 #include <Eigen/Sparse>
 
@@ -54,6 +56,12 @@ class CMFD {
   std::size_t nx_surfs() const { return nx_surfs_; }
   std::size_t ny_surfs() const { return ny_surfs_; }
 
+  std::size_t nazimuth() const { return azimuth_surface_nroms_.shape()[0]; };
+  void set_nazimuth(std::size_t nazimuth) {
+    azimuth_surface_nroms_.resize({nazimuth, nx_surfs()+ny_surfs()});
+    azimuth_surface_nroms_.fill(0.);
+  }
+
   double x_min() const;
   double x_max() const;
   double y_min() const;
@@ -72,7 +80,7 @@ class CMFD {
   std::size_t tile_to_indx(const std::array<std::size_t, 2>& tile) const;
   std::size_t tile_to_indx(const std::size_t& i, const std::size_t& j) const;
 
-  std::array<std::size_t, 2> indx_to_tile(std::size_t cell_index);
+  std::array<std::size_t, 2> indx_to_tile(std::size_t cell_index) const;
 
   CMFDSurfaceCrossing get_surface(const Vector& r, const Direction& u) const;
 
@@ -92,11 +100,20 @@ class CMFD {
 
   const double& current(const std::size_t G, const std::size_t surface) const;
 
+  htl::static_vector<std::size_t, 4> get_surface_indices(const CMFDSurfaceCrossing& surf) const;
+
+  void tally_surface_norm(std::size_t i, double phi, const CMFDSurfaceCrossing& surf, double d);
+  void invert_surface_norms() {
+    for (std::size_t i = 0; i < azimuth_surface_nroms_.size(); i++)
+      azimuth_surface_nroms_.flat(i) = 1. / azimuth_surface_nroms_.flat(i);
+  }
+
   void tally_current(double aflx, const Direction& u, std::size_t G,
-                     const CMFDSurfaceCrossing& surf);
+                     std::size_t i, const CMFDSurfaceCrossing& surf);
 
   void zero_currents() {
     surface_currents_.fill(0.);
+    surface_currents_c_.fill(0.);
     surface_currents_normalized_ = false;
   }
 
@@ -183,7 +200,14 @@ class CMFD {
   // The first index is the CMFG group, and the second is the surface ID.
   // Surfaces are ordered as all x surfaces, then all y surfaces.
   // Number of surfaces is then ny_*x_bounds_.size() + nx_*y_bounds_.size().
-  xt::xtensor<double, 2> surface_currents_;  // group, surface
+  xt::xtensor<double, 2> surface_currents_;   // group, surface
+  xt::xtensor<double, 2> surface_currents_c_; // group, surface
+  xt::xtensor<OpenMPMutex, 2> surface_current_mutexes_; // group, surface
+
+  // This contains the normalization factors which are used when tallying
+  // currents. The normalization is unique to each surface and also for each
+  // azimuthal angle from the MOC simulation.
+  xt::xtensor<double, 2> azimuth_surface_nroms_; // Azimuth index (i), surface
   bool surface_currents_normalized_ = false;
 
   xt::xtensor<std::shared_ptr<DiffusionCrossSection>, 2> xs_;
@@ -251,6 +275,7 @@ class CMFD {
         CEREAL_NVP(skip_moc_iterations_), CEREAL_NVP(moc_iteration_),
         CEREAL_NVP(keff_), CEREAL_NVP(solve_time_), CEREAL_NVP(solved_),
         CEREAL_NVP(mode_), CEREAL_NVP(fsrs_), CEREAL_NVP(surface_currents_),
+        CEREAL_NVP(surface_currents_c_), CEREAL_NVP(azimuth_surface_nroms_),
         CEREAL_NVP(surface_currents_normalized_), CEREAL_NVP(xs_),
         CEREAL_NVP(Et_), CEREAL_NVP(flux_), CEREAL_NVP(D_transp_corr_));
   }
@@ -268,6 +293,7 @@ class CMFD {
         CEREAL_NVP(skip_moc_iterations_), CEREAL_NVP(moc_iteration_),
         CEREAL_NVP(keff_), CEREAL_NVP(solve_time_), CEREAL_NVP(solved_),
         CEREAL_NVP(mode_), CEREAL_NVP(fsrs_), CEREAL_NVP(surface_currents_),
+        CEREAL_NVP(surface_currents_c_), CEREAL_NVP(azimuth_surface_nroms_),
         CEREAL_NVP(surface_currents_normalized_), CEREAL_NVP(xs_),
         CEREAL_NVP(Et_), CEREAL_NVP(flux_), CEREAL_NVP(D_transp_corr_));
 
@@ -293,6 +319,9 @@ class CMFD {
         volumes_[indx] = dx_[i] * dy_[j];
       }
     }
+
+    // Allocate the mutexes
+    surface_current_mutexes_.resize({group_condensation_.size(), nx_surfs_ + ny_surfs_});
 
     // No need to treat M_ and QM_. These will be reallocated and filled when
     // needed in a CMFD solve.
