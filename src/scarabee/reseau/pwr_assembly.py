@@ -1818,6 +1818,8 @@ class PWRAssembly:
             self._asmbly_moc.cmfd = CMFD(
                 dx_cmfd, dy_cmfd, self.cmfd_condensation_scheme
             )
+            self._asmbly_moc.cmfd.skip_moc_iterations = 20
+            self._asmbly_moc.cmfd.check_neutron_balance = True
 
         # Trace tracks
         self._asmbly_moc.generate_tracks(
@@ -2986,7 +2988,8 @@ class PWRAssembly:
         self._asmbly_moc.keff_tolerance = self.keff_tolerance
 
         if transport:
-            set_logging_level(LogLevel.Warning)
+            #set_logging_level(LogLevel.Warning)
+            set_logging_level(LogLevel.Debug) # To get CMFD balance info
             self._asmbly_moc.solve()
             set_logging_level(LogLevel.Info)
             scarabee_log(LogLevel.Info, "")
