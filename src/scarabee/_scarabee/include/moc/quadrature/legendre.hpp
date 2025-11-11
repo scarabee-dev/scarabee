@@ -6,7 +6,7 @@
 
 namespace scarabee {
 
-// Available N are 2, 4, 6, 8, 10, and 12
+// Available N are 2, 4, 6, 8, 10, 12, 16, 32, and 64
 
 template <std::size_t N>
 class Legendre {

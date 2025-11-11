@@ -51,6 +51,12 @@ void init_PolarQuadrature(py::module& m) {
                           "Ten point Legendre polar quadrature.");
   init_quad<Legendre<12>>(m, "Legendre12",
                           "Twelve point Legendre polar quadrature.");
+  init_quad<Legendre<16>>(m, "Legendre16",
+                          "Sixteen point Legendre polar quadrature.");
+  init_quad<Legendre<32>>(m, "Legendre32",
+                          "Thirty-two point Legendre polar quadrature.");
+  init_quad<Legendre<64>>(m, "Legendre64",
+                          "Sixty-four point Legendre polar quadrature.");
 
   // Yamamoto-Tabuchi quadratures
   init_quad<YamamotoTabuchi<2>>(m, "YamamotoTabuchi2",

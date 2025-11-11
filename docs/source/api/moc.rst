@@ -39,3 +39,9 @@ Polar Quadratures
 .. autoclass:: scarabee.Legendre10
 
 .. autoclass:: scarabee.Legendre12
+
+.. autoclass:: scarabee.Legendre16
+
+.. autoclass:: scarabee.Legendre32
+
+.. autoclass:: scarabee.Legendre64

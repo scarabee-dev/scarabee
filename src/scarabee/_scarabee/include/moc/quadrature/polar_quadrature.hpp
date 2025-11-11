@@ -14,8 +14,9 @@ namespace scarabee {
 
 using PolarQuadratureType =
     std::variant<Legendre<2>, Legendre<4>, Legendre<6>, Legendre<8>,
-                 Legendre<10>, Legendre<12>, YamamotoTabuchi<2>,
-                 YamamotoTabuchi<4>, YamamotoTabuchi<6>>;
+                 Legendre<10>, Legendre<12>, Legendre<16>, Legendre<32>,
+                 Legendre<64>, YamamotoTabuchi<2>, YamamotoTabuchi<4>,
+                 YamamotoTabuchi<6>>;
 
 class PolarQuadrature {
  public:

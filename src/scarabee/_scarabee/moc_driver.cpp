@@ -580,7 +580,7 @@ void MOCDriver::solve_anisotropic() {
     iteration_timer.stop();
     spdlog::info("-------------------------------------");
     if (mode_ == SimulationMode::Keff) {
-      spdlog::info("Iteration {:>4d}          keff: {:.5f}", iteration, keff_);
+      spdlog::info("Iteration {:>4d}          keff: {:.15f}", iteration, keff_);
       spdlog::info("     keff difference:     {:.5E}", rel_diff_keff);
     } else if (mode_ == SimulationMode::FixedSource) {
       spdlog::info("Iteration {:>4d}", iteration);
@@ -623,7 +623,7 @@ void MOCDriver::sweep(xt::xtensor<double, 3>& sflux,
         const Direction u_back = -u_forw;
 
         // Load the angular flux for forward direction
-        htl::static_vector<double, 6> angflux;
+        htl::static_vector<double, 32> angflux;
         for (std::size_t p = 0; p < n_pol_angles_; p++)
           angflux.push_back(track.entry_flux()(g, p));
 
@@ -753,7 +753,7 @@ void MOCDriver::sweep_anisotropic(xt::xtensor<double, 3>& sflux,
     for (auto& tracks : tracks_) {
       for (std::size_t t = 0; t < tracks.size(); t++) {
         auto& track = tracks[t];
-        htl::static_vector<double, 12> angflux;
+        htl::static_vector<double, 64> angflux;
         for (std::size_t pp = 0; pp < n_pol_angles_; pp++)
           angflux.push_back(track.entry_flux()(g, pp));
         const double tw = 4. * PI * track.wgt() *
