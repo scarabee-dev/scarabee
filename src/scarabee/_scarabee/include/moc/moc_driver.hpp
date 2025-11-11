@@ -199,8 +199,6 @@ class MOCDriver {
   void allocate_track_fluxes();
   void segment_renormalization();
 
-  void compute_cmfd_surface_norms();
-
   // isotropic
   void solve_isotropic();
   void sweep(xt::xtensor<double, 3>& flux, const xt::xtensor<double, 2>& src);

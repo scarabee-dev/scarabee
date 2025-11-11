@@ -10,7 +10,6 @@
 #include <cmath>
 #include <limits>
 #include <sstream>
-#include <mutex>
 
 namespace scarabee {
 
@@ -127,9 +126,6 @@ CMFD::CMFD(const std::vector<double>& dx, const std::vector<double>& dy,
   // Allocate surfaces array
   surface_currents_ =
       xt::zeros<double>({group_condensation_.size(), nx_surfs_ + ny_surfs_});
-  surface_currents_c_ =
-      xt::zeros<double>({group_condensation_.size(), nx_surfs_ + ny_surfs_});
-  surface_current_mutexes_.resize({group_condensation_.size(), nx_surfs_ + ny_surfs_});
 
   // Allocate the xs array
   xs_.resize({nx_, ny_});
@@ -445,7 +441,8 @@ std::size_t CMFD::get_y_pos_surf(const std::size_t i,
   return get_y_neg_surf(i, j) + 1;
 }
 
-htl::static_vector<std::size_t, 4> CMFD::get_surface_indices(const CMFDSurfaceCrossing& surf) const {
+htl::static_vector<std::size_t, 4> CMFD::get_surface_indices(
+    const CMFDSurfaceCrossing& surf) const {
   const auto tile = this->indx_to_tile(surf.cell_index);
   std::size_t i = tile[0];
   std::size_t j = tile[1];
@@ -501,33 +498,8 @@ htl::static_vector<std::size_t, 4> CMFD::get_surface_indices(const CMFDSurfaceCr
   return surf_indexes;
 }
 
-void CMFD::tally_surface_norm(std::size_t i, double phi, const CMFDSurfaceCrossing& surf, double d) {
-  if (i >= this->nazimuth()) {
-    auto mssg = "Azimuth index out of range.";
-    spdlog::error(mssg);
-    throw ScarabeeException(mssg);
-  }
-
-  // Get surface index(s) from CMFDSurfaceCrossing
-  htl::static_vector<std::size_t, 4> surf_indexes = get_surface_indices(surf);
-
-  const bool is_corner = surf_indexes.size() > 1;
-  if (is_corner) {
-    // Split flux between two surfaces evenly
-    d *= 0.5;
-  }
-
-  for (auto si : surf_indexes) {
-    if (si < nx_surfs_) {
-      azimuth_surface_nroms_(i, si) += d / std::abs(std::cos(phi));
-    } else {
-      azimuth_surface_nroms_(i, si) += d / std::abs(std::sin(phi));
-    }
-  }
-}
-
 void CMFD::tally_current(double aflx, const Direction& u, std::size_t G,
-                         std::size_t i, const CMFDSurfaceCrossing& surf) {
+                         const CMFDSurfaceCrossing& surf) {
   if (G >= surface_currents_.shape()[0]) {
     auto mssg = "Group index out of range.";
     spdlog::error(mssg);
@@ -544,25 +516,10 @@ void CMFD::tally_current(double aflx, const Direction& u, std::size_t G,
   }
 
   for (auto si : surf_indexes) {
-    //const double norm = azimuth_surface_nroms_(i, si);
-    const double norm = 1.;
-    const double score = std::copysign(aflx * norm, si < nx_surfs_ ? u.x() : u.y());
+    const double score = std::copysign(aflx, si < nx_surfs_ ? u.x() : u.y());
 
-    double& sum = surface_currents_(G, si);
-    double& c = surface_currents_c_(G, si);
-
-    auto lock = std::scoped_lock(surface_current_mutexes_(G, si));
-
-    // c is zero for the first contribution.
-    const double y = score - c;
-    // Alas, sum is big, y small, so low-order digits of y are lost.         
-    const double t = sum + y;
-    // (t - sum) cancels the high-order part of y;
-    // subtracting y recovers negative (low part of y)
-    c = (t - sum) - y;
-    // Algebraically, c should always be zero. Beware
-    // overly-aggressive optimizing compilers!
-    sum = t;
+#pragma omp atomic
+    surface_currents_(G, si) += score;
   }
 }
 
@@ -1433,15 +1390,15 @@ void CMFD::update_moc_fluxes(MOCDriver& moc) {
 
       // Update scalar flux in each MOC FSR
       for (const auto f : fsrs) {
-        //for (std::size_t lj = 0; lj < moc.num_spherical_harmonics(); lj++) {
-        for (std::size_t lj = 0; lj < 1; lj++) {
+        for (std::size_t lj = 0; lj < moc.num_spherical_harmonics(); lj++) {
+          // for (std::size_t lj = 0; lj < 1; lj++) {
           const double new_flx = moc.flux(f, g, lj) * flx_ratio;
           moc.set_flux(f, g, new_flx, lj);
         }
       }
     }
   }
-  
+
   // Update MOC angular flux at boundaries
   auto& moc_tracks = moc.tracks();
   for (auto& tracks : moc_tracks) {
@@ -1458,7 +1415,6 @@ void CMFD::update_moc_fluxes(MOCDriver& moc) {
       }
     }
   }
-  
 
   if (flux_update_warning) {
     spdlog::warn(
