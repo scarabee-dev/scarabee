@@ -23,6 +23,7 @@ from .._scarabee import (
     CMFD,
     BoundaryCondition,
     SimulationMode,
+    Legendre8,
     YamamotoTabuchi6,
     P1CriticalitySpectrum,
     B1CriticalitySpectrum,
@@ -39,6 +40,7 @@ import numpy as np
 from typing import Optional, List, Tuple, Union
 import copy
 from threading import Thread
+from .. import PolarQuadrature
 
 
 class Symmetry(Enum):
@@ -169,10 +171,14 @@ class PWRAssembly:
         in range (0., 1.E-2). Default value is 1.E-5.
     moc_track_spacing : float
         Spacing between tracks in the assembly MOC calculations. Default value
-        is 0.05 cm.
+        is 0.04 cm.
     moc_num_angles : int
         Number of azimuthal angles in the assembly MOC calculations. Default
         value is 32.
+    moc_polar_quadrature : PolarQuadrature
+        The polar quadrature used for the MOC calculations. Default is
+        YamamotoTabuchi6 for isotropic calculations and Legendre8 for
+        anisotropic calculations.
     flux_tolerance : float
         Flux convergence tolerance for assembly calculations. Must be in range
         (0., 1.E-2). Default value is 1.E-5.
@@ -477,8 +483,10 @@ class PWRAssembly:
                 self.grid_sleeve.size * [1.0e10], self._ndl
             )
 
-        self._moc_track_spacing: float = 0.05
+        self._moc_track_spacing: float = 0.04
         self._moc_num_angles: int = 64
+        # Default polar quadrature chosen later based on _anisotropic
+        self._moc_polar_quadrature: Optional[PolarQuadrature] = None 
         self._flux_tolerance: float = 1.0e-5
         self._keff_tolerance: float = 1.0e-5
         self._anisotropic: bool = False
@@ -665,6 +673,14 @@ class PWRAssembly:
         if dna < 4:
             raise ValueError("Number of angles for MOC calculation must be > 4.")
         self._moc_num_angles = int(dna)
+
+    @property
+    def moc_polar_quadrature(self) -> Optional[PolarQuadrature]:
+        return self._moc_polar_quadrature
+
+    @moc_polar_quadrature.setter
+    def moc_polar_quadrature(self, pq: PolarQuadrature) -> None:
+        self._moc_polar_quadrature = pq
 
     @property
     def flux_tolerance(self) -> float:
@@ -1782,7 +1798,7 @@ class PWRAssembly:
                 )
 
         # Construct the MOC
-        self._asmbly_moc = MOCDriver(self._asmbly_geom, anisotropic=self._anisotropic)
+        self._asmbly_moc = MOCDriver(self._asmbly_geom, anisotropic=self.anisotropic)
         self._asmbly_moc.x_min_bc = self._x_min_bc
         self._asmbly_moc.x_max_bc = self._x_max_bc
         self._asmbly_moc.y_min_bc = self._y_min_bc
@@ -1818,14 +1834,17 @@ class PWRAssembly:
             self._asmbly_moc.cmfd = CMFD(
                 dx_cmfd, dy_cmfd, self.cmfd_condensation_scheme
             )
-            self._asmbly_moc.cmfd.skip_moc_iterations = 20
-            self._asmbly_moc.cmfd.check_neutron_balance = True
+
+        if self.anisotropic and self.moc_polar_quadrature is None:
+            self.moc_polar_quadrature = Legendre8()
+        elif self.moc_polar_quadrature is None:
+            self.moc_polar_quadrature = YamamotoTabuchi6()
 
         # Trace tracks
         self._asmbly_moc.generate_tracks(
-            self._moc_num_angles,
-            self._moc_track_spacing,
-            YamamotoTabuchi6(),
+            self.moc_num_angles,
+            self.moc_track_spacing,
+            self.moc_polar_quadrature,
         )
 
         self._save_fsr_indexes()
@@ -2988,8 +3007,7 @@ class PWRAssembly:
         self._asmbly_moc.keff_tolerance = self.keff_tolerance
 
         if transport:
-            #set_logging_level(LogLevel.Warning)
-            set_logging_level(LogLevel.Debug) # To get CMFD balance info
+            set_logging_level(LogLevel.Warning)
             self._asmbly_moc.solve()
             set_logging_level(LogLevel.Info)
             scarabee_log(LogLevel.Info, "")

@@ -58,7 +58,7 @@ autodoc_default_options = {
     'members': True,
     'member-order': 'bysource',
     'special-members': '__init__',
-    'inherited-members': True,
+    'inherited-members': False,
 }
 
 # Napoleon settings

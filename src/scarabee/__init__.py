@@ -1,5 +1,6 @@
 from ._scarabee import *
 from . import _scarabee
+from typing import Union
 
 
 # Check if we are in a Jupyter notebook or not
@@ -25,3 +26,19 @@ __license__ = _scarabee.__license__
 __maintainer__ = _scarabee.__maintainer__
 __email__ = _scarabee.__email__
 __version__ = _scarabee.__version__
+
+# Define a general polar quadrature type for use in type hints
+PolarQuadrature = Union[
+    Legendre2,
+    Legendre4,
+    Legendre6,
+    Legendre8,
+    Legendre10,
+    Legendre12,
+    Legendre16,
+    Legendre32,
+    Legendre64,
+    YamamotoTabuchi2,
+    YamamotoTabuchi4,
+    YamamotoTabuchi6,
+]

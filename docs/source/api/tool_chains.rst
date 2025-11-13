@@ -9,6 +9,8 @@ Lattice Tool Chains
 
 .. autoclass:: scarabee.reseau.BurnablePoisonRod
 
+.. autoclass:: scarabee.reseau.CriticalLeakage
+
 .. autoclass:: scarabee.reseau.PWRAssembly
 
 .. autoclass:: scarabee.reseau.Reflector
