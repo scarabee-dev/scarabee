@@ -964,7 +964,7 @@ void CMFD::optimize_diffusion_coef(double& D, const double dx,
 
   if (EtDx < 1.) {
     return;
-  } else if (EtDx < 14 && EtDx >= 1) {
+  } else if (EtDx < 14. && EtDx >= 1.) {
     const double EtDx2 = EtDx * EtDx;
     const double EtDx3 = EtDx2 * EtDx;
     const double EtDx4 = EtDx3 * EtDx;
@@ -1390,11 +1390,8 @@ void CMFD::update_moc_fluxes(MOCDriver& moc) {
 
       // Update scalar flux in each MOC FSR
       for (const auto f : fsrs) {
-        for (std::size_t lj = 0; lj < moc.num_spherical_harmonics(); lj++) {
-          // for (std::size_t lj = 0; lj < 1; lj++) {
-          const double new_flx = moc.flux(f, g, lj) * flx_ratio;
-          moc.set_flux(f, g, new_flx, lj);
-        }
+        const double new_flx = moc.flux(f, g, 0) * flx_ratio;
+        moc.set_flux(f, g, new_flx, 0);
       }
     }
   }
