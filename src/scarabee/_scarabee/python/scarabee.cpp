@@ -94,7 +94,7 @@ PYBIND11_MODULE(_scarabee, m, py::mod_gil_not_used()) {
 
   m.attr("__author__") = "Hunter Belanger";
   m.attr("__copyright__") = "Copyright 2024-2025, Hunter Belanger";
-  m.attr("__license__") = "GPL-3.0-or-later";
+  m.attr("__license__") = "LGPL-3.0-or-later";
   m.attr("__maintainer__") = "Hunter Belanger";
   m.attr("__email__") = "hunter.belanger@gmail.com";
   m.attr("__version__") = scarabee::VERSION_STRING;

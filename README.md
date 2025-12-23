@@ -1,6 +1,6 @@
 # Scarabée
 [![Documentation Status](https://readthedocs.org/projects/scarabee/badge/?version=latest)](https://scarabee.readthedocs.io/en/latest/?badge=latest)
-[![License](https://img.shields.io/badge/License-GPLv3-brightgreen)](https://github.com/HunterBelanger/scarabee/blob/master/LICENSE)
+[![License](https://img.shields.io/badge/License-LGPLv3-brightgreen)](https://github.com/HunterBelanger/scarabee/blob/master/LICENSE)
 
 Scarabée is a simplified lattice physics code for light water reactor (LWR)
 neutronics calculations. It currently has the following features:
