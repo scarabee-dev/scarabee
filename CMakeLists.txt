@@ -10,23 +10,21 @@ include(FetchContent)
 
 #===============================================================================
 # Get Eigen
-message(STATUS "Downloading Eigen3 v5.0.0")
+message(STATUS "Downloading Eigen3 v5.0.1")
 FetchContent_Declare(eigen
-  GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
-  GIT_TAG        5.0.0
+  URL      https://gitlab.com/libeigen/eigen/-/archive/5.0.1/eigen-5.0.1.tar.gz
+  URL_HASH MD5=294f188b9cd8ff95650ebce53b8d3f1d
   EXCLUDE_FROM_ALL
 )
-set(BUILD_TESTING OFF)
-set(EIGEN_TEST_NOQT ON)
-set(EIGEN_BUILD_CMAKE_PACKAGE OFF)
+set(EIGEN_BUILD_TESTING OFF)
 FetchContent_MakeAvailable(eigen)
 
 #===============================================================================
 # Get SPDLOG
 message(STATUS "Downloading spdlog v1.16.0")
 FetchContent_Declare(spdlog
-  GIT_REPOSITORY https://github.com/gabime/spdlog.git
-  GIT_TAG        v1.16.0
+  URL      https://github.com/gabime/spdlog/archive/refs/tags/v1.16.0.tar.gz
+  URL_HASH MD5=7e963629c9075b628e765896e057521f
   EXCLUDE_FROM_ALL
 )
 set(SPDLOG_BUILD_PIC ON CACHE BOOL "Build position independent code (-fPIC)")
@@ -36,8 +34,8 @@ FetchContent_MakeAvailable(spdlog)
 # Get HTL
 message(STATUS "Downloading HTL")
 FetchContent_Declare(htl
-  GIT_REPOSITORY https://github.com/HunterBelanger/htl.git
-  GIT_TAG        master
+  URL      https://github.com/HunterBelanger/htl/archive/8d89b5ed90f499669a720a55b46f529495bcac0a.tar.gz # Master on Mar. 11 2025
+  URL_HASH MD5=1e8330327f6fe11cabd5fab30933283d
   EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(htl)
@@ -46,18 +44,18 @@ FetchContent_MakeAvailable(htl)
 # Get XTL
 message(STATUS "Downloading xtl v0.8.1")
 FetchContent_Declare(xtl
-  GIT_REPOSITORY https://github.com/xtensor-stack/xtl.git
-  GIT_TAG        0.8.1
+  URL      https://github.com/xtensor-stack/xtl/archive/refs/tags/0.8.1.tar.gz
+  URL_HASH MD5=fe52514ffeb7e54a031b9d4f57090d48
   EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(xtl)
 
 #===============================================================================
 # Get XSIMD
-message(STATUS "Downloading xsimd v13.2.0")
+message(STATUS "Downloading xsimd v14.0.0")
 FetchContent_Declare(xsimd
-  GIT_REPOSITORY https://github.com/xtensor-stack/xsimd.git
-  GIT_TAG        13.2.0
+  URL      https://github.com/xtensor-stack/xsimd/archive/refs/tags/14.0.0.tar.gz
+  URL_HASH MD5=75c0d34cf7011924ba19978076c76dc1
   EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(xsimd)
@@ -66,8 +64,8 @@ FetchContent_MakeAvailable(xsimd)
 # Get XTENSOR
 message(STATUS "Downloading xtensor v0.27.1")
 FetchContent_Declare(xtensor
-  GIT_REPOSITORY https://github.com/xtensor-stack/xtensor.git
-  GIT_TAG        0.27.1
+  URL https://github.com/xtensor-stack/xtensor/archive/refs/tags/0.27.1.tar.gz
+  URL_HASH MD5=ef143422b31b94dd0f5b95b69388cd48
   EXCLUDE_FROM_ALL
 )
 set(XTENSOR_USE_XSIMD ON CACHE BOOL "Enable SIMD acceleration.")
@@ -81,8 +79,8 @@ if (NOT pybind11_FOUND)
   set(PYBIND11_FINDPYTHON ON)
   message(STATUS "Downloading pybind11 v3.0.1")
   FetchContent_Declare(pybind11
-    GIT_REPOSITORY https://github.com/pybind/pybind11.git
-    GIT_TAG        v3.0.1
+    URL https://github.com/pybind/pybind11/archive/refs/tags/v3.0.1.tar.gz
+    URL_HASH MD5=81399a5277559163b3ee912b41de1b76
   )
   FetchContent_MakeAvailable(pybind11)
   if (NOT pybind11_VERSION)
@@ -94,41 +92,41 @@ endif()
 # Get XTENSOR-PYTHON
 message(STATUS "Downloading xtensor-python v0.29.0 with Hunter's NumPy fix")
 FetchContent_Declare(xtensor-python
-  GIT_REPOSITORY https://github.com/HunterBelanger/xtensor-python.git
-  GIT_TAG        b5bf577 # fix/find_numpy branch on October 21, 2025
+  URL      https://github.com/HunterBelanger/xtensor-python/archive/b5bf5773771c70a331a7a5f0ca2e77e16243a6c3.tar.gz
+  URL_HASH MD5=7aeb5606b8373ff0cede3a6c872c434a
   EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(xtensor-python)
 
 #===============================================================================
 # Get HDF5
-message(STATUS "Downloading HDF5 v1.14.6")
-set(HDF5_ENABLE_Z_LIB_SUPPORT OFF)
+message(STATUS "Downloading HDF5 v2.0.0")
 set(HDF5_EXTERNALLY_CONFIGURED  1)
 set(HDF5_ENABLE_SZIP_SUPPORT  OFF)
+set(HDF5_ENABLE_ZLIB_SUPPORT OFF)
 set(HDF5_BUILD_EXAMPLES       OFF)
 set(HDF5_BUILD_TOOLS          OFF)
 set(HDF5_BUILD_UTILS          OFF)
 set(HDF5_BUILD_HL_LIB         OFF)
 set(BUILD_SHARED_LIBS         OFF)
 FetchContent_Declare(hdf5
-  GIT_REPOSITORY https://github.com/HDFGroup/hdf5.git
-  GIT_TAG        hdf5_1.14.6
+  URL      https://github.com/HDFGroup/hdf5/releases/download/2.0.0/hdf5-2.0.0.tar.gz
+  URL_HASH MD5=801597eccdf74d7304444fdc18652b75
   EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(hdf5)
 
 #===============================================================================
 # Get HighFive
-message(STATUS "Downloading HighFive v3.2.0")
+message(STATUS "Downloading HighFive")
 set(HIGHFIVE_UNIT_TESTS OFF)
 set(HIGHFIVE_TEST_SPAN OFF)
 set(HIGHFIVE_EXAMPLES OFF)
 set(HIGHFIVE_BUILD_DOCS OFF)
 set(HIGHFIVE_FIND_HDF5 OFF)
 FetchContent_Declare(HighFive
-  GIT_REPOSITORY https://github.com/highfive-devs/highfive.git
-  GIT_TAG        v3.2.0
+  URL      https://github.com/highfive-devs/highfive/archive/6ea1c7b8b38db5a58acf33f011f442e0c28f0aa7.tar.gz # Dec. 16 2025
+  URL_HASH MD5=6fdc23148460812548f67b07019b209c
   EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(HighFive)
@@ -137,8 +135,8 @@ FetchContent_MakeAvailable(HighFive)
 # Get ImApp
 message(STATUS "Downloading ImApp")
 FetchContent_Declare(ImApp
-  GIT_REPOSITORY https://github.com/HunterBelanger/ImApp.git
-  GIT_TAG        7bcee00 # Master branch on October 21, 2025
+  URL      https://github.com/HunterBelanger/ImApp/archive/7bcee00689165944ca608266ce31ee9ea488ef3f.tar.gz
+  URL_HASH MD5=b9ef619c5550bfb8435ecd7328cfdb21
   EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(ImApp)
@@ -150,8 +148,8 @@ set(BUILD_DOC OFF)
 set(BUILD_SANDBOX OFF)
 set(SKIP_PERFORMANCE_COMPARISON ON)
 FetchContent_Declare(cereal
-  GIT_REPOSITORY https://github.com/USCiLab/cereal.git
-  GIT_TAG        a56bad8 # Master branch on January 20, 2025
+  URL      https://github.com/USCiLab/cereal/archive/a56bad8bbb770ee266e930c95d37fff2a5be7fea.tar.gz
+  URL_HASH MD5=5ac5bf09b9298f8d7210af301dc3cea9
   EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(cereal)
