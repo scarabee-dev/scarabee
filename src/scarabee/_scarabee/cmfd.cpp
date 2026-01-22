@@ -1189,7 +1189,7 @@ void CMFD::create_loss_matrix(const MOCDriver& moc) {
                     g * tot_cells + tile_to_indx(i, ny_ - 1)) +=
             (Dnl_yn - Dyn) * invs_dy;
       }
-      if (j == nx_ - 1 && moc.y_max_bc() == BoundaryCondition::Periodic) {
+      if (j == ny_ - 1 && moc.y_max_bc() == BoundaryCondition::Periodic) {
         M_.coeffRef(g * tot_cells + l, g * tot_cells + tile_to_indx(i, 0)) +=
             (-Dyp - Dnl_yp) * invs_dy;
       }
