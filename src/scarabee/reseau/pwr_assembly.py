@@ -2033,14 +2033,15 @@ class PWRAssembly:
                     if self.depletion_exposure_steps is None:
                         self._run_assembly_calculation(True)
 
+                        dd, ff = self._compute_diffusion_data_and_form_factors()
                         # Create state point
                         state_point = AssemblyStatePoint(
-                            diffusion_data=self._compute_diffusion_data(),
+                            diffusion_data=dd, 
+                            form_factors=ff,
                             exposure=0.0,
                             boron_ppm=boron,
                             moderator_temp=temp,
-                            moderator_pressure=pressure,
-                            k_eff= self._asmbly_moc.keff
+                            moderator_pressure=pressure
                         )
 
                         # Add to slice with explicit indices
@@ -2063,11 +2064,11 @@ class PWRAssembly:
                         for burnup_step in range(len(self.depletion_exposure_steps) + 1):
                             state_point = AssemblyStatePoint(
                                 diffusion_data=self._diffusion_data[burnup_step],
+                                form_factors=self._form_factors[burnup_step],
                                 exposure=float(self._exposures[burnup_step]),
                                 boron_ppm=boron,
                                 moderator_temp=temp,
-                                moderator_pressure=pressure,
-                                k_eff= self.keff[burnup_step]
+                                moderator_pressure=pressure
                             )
                             self._assembly_slice.add_state_point(
                                 burnup_step=burnup_step,

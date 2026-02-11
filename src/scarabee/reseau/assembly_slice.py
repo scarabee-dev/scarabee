@@ -1,7 +1,7 @@
 from typing import List, Optional
 import numpy as np
 from .pwr_case_matrix_options import CaseMatrix
-from .._scarabee import DiffusionData
+from .._scarabee import DiffusionData, FormFactors
 
 class AssemblyStatePoint:
     """ 
@@ -15,18 +15,18 @@ class AssemblyStatePoint:
     def __init__(
         self,
         diffusion_data: DiffusionData,
+        form_factors: FormFactors,
         exposure: float,
         boron_ppm: float,
         moderator_temp: float,
-        moderator_pressure: float,
-        k_eff: float
+        moderator_pressure: float
     ):
         self.diffusion_data = diffusion_data
+        self.form_factors = form_factors
         self.exposure = exposure
         self.boron_ppm = boron_ppm
         self.moderator_temp = moderator_temp
         self.moderator_pressure = moderator_pressure
-        self.keff = k_eff
 
     def __repr__(self) -> str:
         return (
