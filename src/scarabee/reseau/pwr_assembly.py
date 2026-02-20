@@ -14,6 +14,8 @@ from .equivalence_theory import (
     compute_adf_cdf_from_cmfd,
     compute_adf_cdf_from_moc
 )
+from .pwr_case_matrix import PWRCaseMatrix
+from .assembly_slice import AssemblyStatePoint, AssemblySlice
 from .._scarabee import (
     borated_water,
     Material,
@@ -372,6 +374,7 @@ class PWRAssembly:
         self._moderator_temp = 570.
         self._moderator_pressure = 15.5
         self._moderator_legendre_order = 1
+        self._moderator_user_provided: bool = False
         for key in moderator:
             if key == 'boron-ppm':
                 self._boron_ppm = float(moderator[key])
@@ -393,6 +396,7 @@ class PWRAssembly:
                 if isinstance(moderator[key], Material) == False:
                     raise TypeError("Provided moderator is not a scarabee.Material instance.")
                 self._moderator = moderator[key]
+                self._moderator_user_provided = True
             else:
                 raise KeyError(f"Unknown key \"{key}\" provided in moderator dictionary.")
         # If the moderator material wasn't directly provided, we make it from the info
@@ -549,6 +553,13 @@ class PWRAssembly:
         # burn-up step.
         self._diffusion_data: Optional[Union[DiffusionData, List[DiffusionData]]] = None
         self._form_factors: Optional[Union[FormFactors, List[FormFactors]]] = None
+
+        # Case matrix options for branching calculations
+        self._case_matrix: Optional[PWRCaseMatrix] = None
+
+        # AssemblySlice to store case matrix results
+        # Subsequently to be stacked to form a 3d representation of the assembly
+        self._assembly_slice: Optional[AssemblySlice] = None
 
     @property
     def shape(self) -> Tuple[int, int]:
@@ -1900,6 +1911,192 @@ class PWRAssembly:
         self._moderator_xs.set(
             self.moderator.dilution_xs(self.moderator.size * [1.0e10], self._ndl)
         )
+
+    def set_moderator_state(
+        self,
+        boron_ppm: Optional[float] = None,
+        moderator_temp: Optional[float] = None,
+        moderator_pressure: Optional[float] = None
+    ) -> None:
+        """
+        Update the moderator state parameters.
+
+        Any parameter left as ``None`` is unchanged. Values are validated before being
+        stored on the assembly.
+
+        Parameters
+        ----------
+        boron_ppm : Optional[float] = None
+            Soluble boron concentration in the moderator, in parts-per-million (ppm). 
+            Must be >= 0. If ``None``, the current value is unchanged.
+        moderator_temp : Optional[float] = None
+            Moderator temperature in kelvin (K). 
+            Must be > 0. If ``None``, the current value is unchanged.
+        moderator_pressure : Optional[float] = None
+            Moderator pressure in megapascals (MPa). 
+            Must be > 0. If ``None``, the current value is unchanged.
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        ValueError
+            If any provided parameter is outside its valid range.
+        """
+        if boron_ppm is not None:
+            if boron_ppm < 0.0:
+                raise ValueError("Boron concentration must be >= 0.")
+            self._boron_ppm = float(boron_ppm)
+
+        if moderator_temp is not None:
+            if moderator_temp <= 0.0:
+                raise ValueError("Moderator temperature must be > 0.")
+            self._moderator_temp = float(moderator_temp)
+
+        if moderator_pressure is not None:
+            if moderator_pressure <= 0.0:
+                raise ValueError("Moderator pressure must be > 0.")
+            self._moderator_pressure = float(moderator_pressure)
+
+    def update_moderator_material(self) -> None:
+        """
+        Updates the moderator material and cross section definitions 
+        based on the current values of the moderator parameters.
+        Raises RuntimeError for materials besides borated water.
+        """
+        if self._moderator_user_provided:
+            raise RuntimeError(
+                "Cannot update moderator material. Only supported for borated water currently."
+            )
+        self._moderator: Material = borated_water(
+            self.boron_ppm, self.moderator_temp, self.moderator_pressure, self._ndl
+        )
+        self._moderator.name = f"Moderator ({self.boron_ppm} ppm boron)"
+        self._moderator.max_legendre_order = self._moderator_legendre_order
+
+        self.set_moderator_xs()
+
+    @property
+    def assembly_slice(self) -> Optional[AssemblySlice]:
+        """AssemblySlice tabulation produced by run_branches(), if available."""
+        return self._assembly_slice
+    
+    @property
+    def case_matrix(self) -> Optional[PWRCaseMatrix]:
+        """Case matrix defining the tabulated instantaneous branch conditions."""
+        return self._case_matrix
+
+    @case_matrix.setter
+    def case_matrix(self, cm: PWRCaseMatrix) -> None:
+        if cm is not None and not isinstance(cm, PWRCaseMatrix):
+            raise TypeError("case_matrix must be a PWRCaseMatrix.")
+        self._case_matrix = cm
+
+    def run_branches(self) -> None:
+        """
+        Solves the assembly problem over a range of ambient conditions.
+        The case_matrix defines the parameters and granularity over which to branch.
+        If depletion_exposure_steps is None, a simple branching structure will occur. 
+        If it is not None, the depletion calculations will be performed. 
+
+        Currently runs as an ixjxk etc. grid like structure, 
+        solving every possible combination of parameters.
+        In the future this may be changed to apply a true branching structure as in SIMULATE,
+        with depletion 'spines' and branching off of these, 
+        allowing for effective state-space interpolation without excessive computational complexity.
+        """
+        if self._case_matrix is None:
+            raise RuntimeError(
+                "No case matrix has been provided. "
+                "Set `assembly.case_matrix` before calling run_branches()."
+            )
+
+        self._assembly_slice = AssemblySlice(
+            case_matrix=self._case_matrix,
+            exposure_steps=self.depletion_exposure_steps
+        )
+
+        spine_boron = self.boron_ppm
+        spine_temp = self.moderator_temp
+        spine_pressure = self.moderator_pressure
+
+        opts = self._case_matrix
+
+        # Get parameter values to loop over
+        boron_values = opts.boron_values if opts.branch_boron else [spine_boron]
+        temp_values = opts.moderator_temps if opts.branch_moderator_temp else [spine_temp]
+        pressure_values = opts.moderator_pressures if opts.branch_moderator_pressure else [spine_pressure]
+
+        # Loop over all combinations
+        for boron_idx, boron in enumerate(boron_values):
+            for temp_idx, temp in enumerate(temp_values):
+                for pressure_idx, pressure in enumerate(pressure_values):
+                    scarabee_log(LogLevel.Info, "=" * 60)
+                    scarabee_log(LogLevel.Info, f"Running branch: Boron={boron} ppm, Temp={temp} K, Pressure={pressure} MPa")
+                    scarabee_log(LogLevel.Info, "=" * 60)
+
+                    # Set branch conditions
+                    self.set_moderator_state(boron_ppm=boron, 
+                                            moderator_temp=temp, 
+                                            moderator_pressure=pressure)
+                    self.update_moderator_material()
+
+                    # No depletion
+                    if self.depletion_exposure_steps is None:
+                        self._run_assembly_calculation(True)
+
+                        dd, ff = self._compute_diffusion_data_and_form_factors()
+                        # Create state point
+                        state_point = AssemblyStatePoint(
+                            diffusion_data=dd, 
+                            form_factors=ff,
+                            exposure=0.0,
+                            boron_ppm=boron,
+                            moderator_temp=temp,
+                            moderator_pressure=pressure
+                        )
+
+                        # Add to slice with explicit indices
+                        self._assembly_slice.add_state_point(
+                            burnup_step=0,
+                            state_point=state_point,
+                            boron_idx=boron_idx,
+                            temp_idx=temp_idx,
+                            pressure_idx=pressure_idx
+                        )
+                    
+                    else: 
+                        # Reset materials to fresh fuel for depletion
+                        self.reset_materials_to_fresh_fuel()
+
+                        # Run full depletion at these conditions
+                        self._run_depletion_steps()
+
+                        # Save all state points for this branch
+                        for burnup_step in range(len(self.depletion_exposure_steps) + 1):
+                            state_point = AssemblyStatePoint(
+                                diffusion_data=self._diffusion_data[burnup_step],
+                                form_factors=self._form_factors[burnup_step],
+                                exposure=float(self._exposures[burnup_step]),
+                                boron_ppm=boron,
+                                moderator_temp=temp,
+                                moderator_pressure=pressure
+                            )
+                            self._assembly_slice.add_state_point(
+                                burnup_step=burnup_step,
+                                state_point=state_point,
+                                boron_idx=boron_idx,
+                                temp_idx=temp_idx,
+                                pressure_idx=pressure_idx
+                            )
+
+        # Reset to initial state for bookkeeping
+        self.set_moderator_state(boron_ppm=spine_boron, 
+                                moderator_temp=spine_temp, 
+                                moderator_pressure=spine_pressure)
+        self.update_moderator_material()
 
     def set_spacer_grid_sleeve_xs(self) -> None:
         """
