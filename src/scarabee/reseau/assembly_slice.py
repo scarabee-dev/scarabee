@@ -1,13 +1,13 @@
 from typing import List, Optional
 import numpy as np
-from .pwr_case_matrix_options import CaseMatrix
+from .pwr_case_matrix import PWRCaseMatrix
 from .._scarabee import DiffusionData, FormFactors
 
 class AssemblyStatePoint:
     """ 
     The AssemblyStatePoint should store all the relevant data 
     from the lattice calculations within the PWRAssembly class. 
-    It currently only stores a DiffusionData object 
+    It currently stores a DiffusionData object and a FormFactors object, 
     and the parameters of the lattice calculation, 
     but it will be extended to include 
     the base cross sections, pin-power form factors, and ADFs/CDFs etc.
@@ -21,14 +21,14 @@ class AssemblyStatePoint:
         moderator_temp: float,
         moderator_pressure: float
     ):
-        self.diffusion_data = diffusion_data
-        self.form_factors = form_factors
-        self.exposure = exposure
-        self.boron_ppm = boron_ppm
-        self.moderator_temp = moderator_temp
-        self.moderator_pressure = moderator_pressure
+        self.diffusion_data: DiffusionData = diffusion_data
+        self.form_factors: FormFactors = form_factors
+        self.exposure: float = exposure
+        self.boron_ppm: float = boron_ppm
+        self.moderator_temp: float = moderator_temp
+        self.moderator_pressure: float = moderator_pressure
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return (
             f"AssemblyStatePoint(E={self.exposure:.1f} MWd/kg, "
             f"B={self.boron_ppm:.0f} ppm, "
@@ -45,10 +45,10 @@ class AssemblySlice:
     """
     def __init__(
         self,
-        case_matrix_options: CaseMatrix, 
+        case_matrix: PWRCaseMatrix, 
         exposure_steps: Optional[List[float]]
     ):
-        self.case_matrix_options = case_matrix_options
+        self.case_matrix = case_matrix
 
         # Converting the list of exposure steps into exposure values
         self.exposures = (np.array([0.0], dtype=float) if exposure_steps is None
@@ -57,9 +57,9 @@ class AssemblySlice:
 
         # Determine shape of multi-dimensional array
         # Shape: [burnup_steps, boron_values, temp_values, pressure_values]
-        self.num_boron_values = len(case_matrix_options.boron_values) if case_matrix_options.branch_boron else 1
-        self.num_temp_values = len(case_matrix_options.moderator_temps) if case_matrix_options.branch_moderator_temp else 1
-        self.num_pressure_values = len(case_matrix_options.moderator_pressures) if case_matrix_options.branch_moderator_pressure else 1
+        self.num_boron_values = len(case_matrix.boron_values) if case_matrix.branch_boron else 1
+        self.num_temp_values = len(case_matrix.moderator_temps) if case_matrix.branch_moderator_temp else 1
+        self.num_pressure_values = len(case_matrix.moderator_pressures) if case_matrix.branch_moderator_pressure else 1
 
         shape = (
             self.num_burnup_steps,
@@ -75,10 +75,10 @@ class AssemblySlice:
 
     def get_boron_index(self, boron_ppm: float) -> int:
         """Get the index for a given boron concentration."""
-        if not self.case_matrix_options.branch_boron:
+        if not self.case_matrix.branch_boron:
             return 0
 
-        values = self.case_matrix_options.boron_values
+        values = self.case_matrix.boron_values
         for i, b in enumerate(values):
             if abs(b - boron_ppm) < 1e-6:
                 return i
@@ -86,10 +86,10 @@ class AssemblySlice:
         raise ValueError(f"Boron concentration {boron_ppm} not in configured values: {values}")
 
     def get_temp_index(self, moderator_temp: float) -> int:
-        if not self.case_matrix_options.branch_moderator_temp:
+        if not self.case_matrix.branch_moderator_temp:
             return 0
 
-        values = self.case_matrix_options.moderator_temps
+        values = self.case_matrix.moderator_temps
         for i, t in enumerate(values):
             if abs(t - moderator_temp) < 1e-6:
                 return i
@@ -97,10 +97,10 @@ class AssemblySlice:
         raise ValueError(f"Moderator temperature {moderator_temp} not in configured values: {values}")
 
     def get_pressure_index(self, moderator_pressure: float) -> int:
-        if not self.case_matrix_options.branch_moderator_pressure:
+        if not self.case_matrix.branch_moderator_pressure:
             return 0
 
-        values = self.case_matrix_options.moderator_pressures
+        values = self.case_matrix.moderator_pressures
         for i, p in enumerate(values):
             if abs(p - moderator_pressure) < 1e-6:
                 return i
@@ -151,32 +151,41 @@ class AssemblySlice:
         boron_idx: int = 0,
         temp_idx: int = 0,
         pressure_idx: int = 0
-    ) -> Optional[AssemblyStatePoint]:
-        return self.state_points[burnup_step, boron_idx, temp_idx, pressure_idx]
+    ) -> AssemblyStatePoint:
+        state = self.state_points[burnup_step, boron_idx, temp_idx, pressure_idx]
 
-    def __repr__(self) -> str:
+        if state is None:
+            raise RuntimeError(
+                "AssemblySlice entry not populated at "
+                f"(burnup_step={burnup_step}, "
+                f"boron_idx={boron_idx}, "
+                f"temp_idx={temp_idx}, "
+                f"pressure_idx={pressure_idx})."
+            )
+        return state
+
+    def __str__(self) -> str:
         num_filled = sum(sp is not None for sp in self.state_points.ravel())
-        total = self.state_points.size
 
         s = f"AssemblySlice:\n"
         s += f" Burnup steps: {self.num_burnup_steps};\n"
 
-        if self.case_matrix_options.branch_boron:
-            s += f" Boron values: {self.case_matrix_options.boron_values};\n"
+        if self.case_matrix.branch_boron:
+            s += f" Boron values: {self.case_matrix.boron_values};\n"
         else:
             s += f" Boron: spine only;\n"
 
-        if self.case_matrix_options.branch_moderator_temp:
-            s += f" Moderator temps: {self.case_matrix_options.moderator_temps};\n"
+        if self.case_matrix.branch_moderator_temp:
+            s += f" Moderator temps: {self.case_matrix.moderator_temps};\n"
         else:
             s += f" Moderator temp: spine only;\n"
 
-        if self.case_matrix_options.branch_moderator_pressure:
-            s += f" Moderator pressures: {self.case_matrix_options.moderator_pressures};\n"
+        if self.case_matrix.branch_moderator_pressure:
+            s += f" Moderator pressures: {self.case_matrix.moderator_pressures};\n"
         else:
             s += f" Moderator pressure: spine only;\n"
 
         s += f" Shape: {self.state_points.shape}\n"
-        s += f" State points: {num_filled}/{total} filled"
+        s += f" State points: {num_filled} filled"
 
         return s

@@ -2,14 +2,14 @@ from typing import List, Optional
 from dataclasses import dataclass, field
 
 @dataclass
-class CaseMatrix:
+class PWRCaseMatrix:
     """ 
     A dataclass to configure the branching capabilities within PWRAssembly class. 
     Currently able to branch over boron, the moderator temperature and the moderator pressure. 
     """
     boron_values: List[float] = field(default_factory=lambda: [0.0, 800.0, 1600.0])
-    moderator_temps: List[float] = field(default_factory=lambda: [550.0, 570.0, 590.0])
-    moderator_pressures: List[float] = field(default_factory=lambda: [15.5, 25.0])
+    moderator_temps: List[float] = field(default_factory=lambda: [560.0, 580.0, 600.0])
+    moderator_pressures: List[float] = field(default_factory=lambda: [15.0, 16.0])
     
     # Branch flags
     branch_boron: bool = False
@@ -35,13 +35,3 @@ class CaseMatrix:
             raise ValueError("branch_moderator_temp is True but moderator_temps is empty.")
         if self.branch_moderator_pressure and len(self.moderator_pressures) == 0:
             raise ValueError("branch_moderator_pressure is True but moderator_pressures is empty.")
-
-    def num_branches(self) -> int:
-        count = 1
-        if self.branch_boron:
-            count *= len(self.boron_values)
-        if self.branch_moderator_temp:
-            count *= len(self.moderator_temps)
-        if self.branch_moderator_pressure:
-            count *= len(self.moderator_pressures)
-        return count

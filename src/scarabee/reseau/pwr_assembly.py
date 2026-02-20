@@ -14,8 +14,7 @@ from .equivalence_theory import (
     compute_adf_cdf_from_cmfd,
     compute_adf_cdf_from_moc
 )
-from .nodal_flux import NodalFlux1D, NodalFlux2D
-from .pwr_case_matrix_options import CaseMatrix
+from .pwr_case_matrix import PWRCaseMatrix
 from .assembly_slice import AssemblyStatePoint, AssemblySlice
 from .._scarabee import (
     borated_water,
@@ -375,6 +374,7 @@ class PWRAssembly:
         self._moderator_temp = 570.
         self._moderator_pressure = 15.5
         self._moderator_legendre_order = 1
+        self._moderator_user_provided: bool = False
         for key in moderator:
             if key == 'boron-ppm':
                 self._boron_ppm = float(moderator[key])
@@ -396,6 +396,7 @@ class PWRAssembly:
                 if isinstance(moderator[key], Material) == False:
                     raise TypeError("Provided moderator is not a scarabee.Material instance.")
                 self._moderator = moderator[key]
+                self._moderator_user_provided = True
             else:
                 raise KeyError(f"Unknown key \"{key}\" provided in moderator dictionary.")
         # If the moderator material wasn't directly provided, we make it from the info
@@ -554,7 +555,7 @@ class PWRAssembly:
         self._form_factors: Optional[Union[FormFactors, List[FormFactors]]] = None
 
         # Case matrix options for branching calculations
-        self._case_matrix_options: Optional[CaseMatrix] = None
+        self._case_matrix: Optional[PWRCaseMatrix] = None
 
         # AssemblySlice to store case matrix results
         # Subsequently to be stacked to form a 3d representation of the assembly
@@ -1918,7 +1919,31 @@ class PWRAssembly:
         moderator_pressure: Optional[float] = None
     ) -> None:
         """
-        Update one or more moderator state parameters. Any parameter left as None is unchanged.
+        Update the moderator state parameters.
+
+        Any parameter left as ``None`` is unchanged. Values are validated before being
+        stored on the assembly.
+
+        Parameters
+        ----------
+        boron_ppm : Optional[float] = None
+            Soluble boron concentration in the moderator, in parts-per-million (ppm). 
+            Must be >= 0. If ``None``, the current value is unchanged.
+        moderator_temp : Optional[float] = None
+            Moderator temperature in kelvin (K). 
+            Must be > 0. If ``None``, the current value is unchanged.
+        moderator_pressure : Optional[float] = None
+            Moderator pressure in megapascals (MPa). 
+            Must be > 0. If ``None``, the current value is unchanged.
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        ValueError
+            If any provided parameter is outside its valid range.
         """
         if boron_ppm is not None:
             if boron_ppm < 0.0:
@@ -1937,8 +1962,14 @@ class PWRAssembly:
 
     def update_moderator_material(self) -> None:
         """
-        Updates the material's ambient conditions
+        Updates the moderator material and cross section definitions 
+        based on the current values of the moderator parameters.
+        Raises RuntimeError for materials besides borated water.
         """
+        if self._moderator_user_provided:
+            raise RuntimeError(
+                "Cannot update moderator material. Only supported for borated water currently."
+            )
         self._moderator: Material = borated_water(
             self.boron_ppm, self.moderator_temp, self.moderator_pressure, self._ndl
         )
@@ -1947,45 +1978,28 @@ class PWRAssembly:
 
         self.set_moderator_xs()
 
-    def reset_materials_to_fresh_fuel(self) -> None:
-        """
-        Resets all fuel materials back to their initial fresh fuel state.
-        This truncates the fuel_ring_materials lists back to just the first element.
-        """
-        for j in range(len(self.cells)):
-            for i in range(len(self.cells[j])):
-                cell = self.cells[j][i]
-                if isinstance(cell, FuelPin):
-                    # Truncate each fuel ring's material list back to just the fresh fuel [0]
-                    for r in range(cell.num_fuel_rings):
-                        del cell._fuel_ring_materials[r][1:]
-
-                    # Reset depletion matrices
-                    cell._fuel_ring_prev_dep_mats = [None for _ in range(cell.num_fuel_rings)]
-                    cell._fuel_ring_current_dep_mats = [None for _ in range(cell.num_fuel_rings)]
-
-    def set_case_matrix_options(self, options: CaseMatrix) -> None:
-        """
-        Sets the case matrix used in the branching functionality
-        """
-        self._case_matrix_options = options
-
     @property
-    def assembly_slice(self) -> AssemblySlice:
-        if self._assembly_slice is None:
-            raise RuntimeError(
-                "Must run branches before getting AssemblySlice. "
-                "Call run_branches() first."
-            )
+    def assembly_slice(self) -> Optional[AssemblySlice]:
+        """AssemblySlice tabulation produced by run_branches(), if available."""
         return self._assembly_slice
+    
+    @property
+    def case_matrix(self) -> Optional[PWRCaseMatrix]:
+        """Case matrix defining the tabulated instantaneous branch conditions."""
+        return self._case_matrix
+
+    @case_matrix.setter
+    def case_matrix(self, cm: PWRCaseMatrix) -> None:
+        if cm is not None and not isinstance(cm, PWRCaseMatrix):
+            raise TypeError("case_matrix must be a PWRCaseMatrix.")
+        self._case_matrix = cm
 
     def run_branches(self) -> None:
         """
         Solves the assembly problem over a range of ambient conditions.
-        The case_matrix_options defines the parameters and granularity over which to branch.
+        The case_matrix defines the parameters and granularity over which to branch.
         If depletion_exposure_steps is None, a simple branching structure will occur. 
-        If it is not None, the depletion calculations will be performed and the fuel 
-        has to be reset with each parameter update.
+        If it is not None, the depletion calculations will be performed. 
 
         Currently runs as an ixjxk etc. grid like structure, 
         solving every possible combination of parameters.
@@ -1993,14 +2007,14 @@ class PWRAssembly:
         with depletion 'spines' and branching off of these, 
         allowing for effective state-space interpolation without excessive computational complexity.
         """
-        if self._case_matrix_options is None:
+        if self._case_matrix is None:
             raise RuntimeError(
-                "Must set case matrix options before running branches. "
-                "Call set_case_matrix_options() first."
+                "No case matrix has been provided. "
+                "Set `assembly.case_matrix` before calling run_branches()."
             )
 
         self._assembly_slice = AssemblySlice(
-            case_matrix_options=self._case_matrix_options,
+            case_matrix=self._case_matrix,
             exposure_steps=self.depletion_exposure_steps
         )
 
@@ -2008,12 +2022,12 @@ class PWRAssembly:
         spine_temp = self.moderator_temp
         spine_pressure = self.moderator_pressure
 
-        opts = self._case_matrix_options
+        opts = self._case_matrix
 
         # Get parameter values to loop over
-        boron_values = opts.boron_values if opts.branch_boron else [self.boron_ppm]
-        temp_values = opts.moderator_temps if opts.branch_moderator_temp else [self.moderator_temp]
-        pressure_values = opts.moderator_pressures if opts.branch_moderator_pressure else [self.moderator_pressure]
+        boron_values = opts.boron_values if opts.branch_boron else [spine_boron]
+        temp_values = opts.moderator_temps if opts.branch_moderator_temp else [spine_temp]
+        pressure_values = opts.moderator_pressures if opts.branch_moderator_pressure else [spine_pressure]
 
         # Loop over all combinations
         for boron_idx, boron in enumerate(boron_values):

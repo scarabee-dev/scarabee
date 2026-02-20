@@ -5,5 +5,5 @@ from .symmetry import *
 from .pwr_assembly import *
 from .nodal_flux import *
 from .equivalence_theory import *
-from .pwr_case_matrix_options import *
+from .pwr_case_matrix import *
 from .assembly_slice import *
