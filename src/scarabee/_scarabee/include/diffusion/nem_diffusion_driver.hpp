@@ -22,18 +22,6 @@
 
 namespace scarabee {
 
-inline double f0(double /*xi*/) { return 1.; }
-
-inline double f1(double xi) { return xi; }
-
-inline double f2(double xi) { return 3. * xi * xi - 0.25; }
-
-inline double f3(double xi) { return xi * (xi - 0.5) * (xi + 0.5); }
-
-inline double f4(double xi) {
-  return (xi * xi - 0.05) * (xi - 0.5) * (xi + 0.5);
-}
-
 class NEMDiffusionDriver {
  public:
   NEMDiffusionDriver(std::shared_ptr<DiffusionGeometry> geom);
