@@ -49,6 +49,7 @@ extern void init_NEMDiffusionDriver(py::module&);
 extern void init_ReflectorSN(py::module&);
 extern void init_WaterFuncs(py::module&);
 extern void init_DepletionMatrix(py::module&);
+extern void init_all_NodalDiffusionDrivers(py::module&);
 
 PYBIND11_MODULE(_scarabee, m, py::mod_gil_not_used()) {
   xt::import_numpy();
@@ -95,6 +96,7 @@ PYBIND11_MODULE(_scarabee, m, py::mod_gil_not_used()) {
   init_ReflectorSN(m);
   init_WaterFuncs(m);
   init_DepletionMatrix(m);
+  init_all_NodalDiffusionDrivers(m);
 
   m.attr("__author__") = "Hunter Belanger";
   m.attr("__copyright__") =

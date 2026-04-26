@@ -37,7 +37,7 @@ class DiffusionGeometry {
   using TileFill = std::variant<double, std::shared_ptr<DiffusionData>,
                                 std::shared_ptr<DiffusionCrossSection>>;
 
-  enum class Neighbor : std::uint8_t { XN, XP, YN, YP, ZN, ZP };
+  enum class Neighbor : std::uint8_t { XN = 0, XP = 1, YN = 2, YP = 3, ZN = 4, ZP = 5 };
 
   DiffusionGeometry(const std::vector<TileFill>& tiles,
                     const std::vector<double>& dx,
