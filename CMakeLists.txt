@@ -258,6 +258,7 @@ pybind11_add_module(_scarabee src/scarabee/_scarabee/constants.cpp
                               src/scarabee/_scarabee/python/diffusion_geometry.cpp
                               src/scarabee/_scarabee/python/fd_diffusion_driver.cpp
                               src/scarabee/_scarabee/python/nem_diffusion_driver.cpp
+                              src/scarabee/_scarabee/python/nodal_diffusion_driver.cpp
                               src/scarabee/_scarabee/python/reflector_sn.cpp
                               src/scarabee/_scarabee/python/water.cpp
                               src/scarabee/_scarabee/python/depletion_chain.cpp
