@@ -5,6 +5,9 @@
 #include <utils/logging.hpp>
 #include <utils/scarabee_exception.hpp>
 
+#include <cereal/cereal.hpp>
+#include <cereal/types/optional.hpp>
+
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -24,6 +27,9 @@ inline void hash_combine(std::uint64_t& s, const T& v) {
 using Side = DiffusionGeometry::Neighbor;  // Index to side of node
 
 struct NodalCMFDSurface {
+  // Default constructor needs to be public for cereal
+  NodalCMFDSurface() : node1(0), side(Side::XN), node2(std::nullopt) {}
+
   NodalCMFDSurface(std::size_t n1, Side s, std::size_t n2)
       : node1(n1), side(s), node2(n2) {
     // Make sure node1 is always on the - side, and node2 is always on the +
@@ -88,6 +94,13 @@ struct NodalCMFDSurface {
   std::size_t node1;
   Side side;
   std::optional<std::size_t> node2;
+
+ private:
+  friend class cereal::access;
+  template <class Archive>
+  void serialize(Archive& arc) {
+    arc(CEREAL_NVP(node1), CEREAL_NVP(side), CEREAL_NVP(node2));
+  }
 };
 
 }  // namespace scarabee

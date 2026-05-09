@@ -8,17 +8,27 @@
 #include <diffusion/node.hpp>
 #include <diffusion/nodal_cmfd_surface.hpp>
 #include <diffusion/nodal_method.hpp>
+#include <utils/serialization.hpp>
 #include <utils/logging.hpp>
 #include <utils/scarabee_exception.hpp>
+#include <utils/timer.hpp>
 
 #include <xtensor/containers/xtensor.hpp>
 
+#include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <Eigen/IterativeLinearSolvers>
 
-#include <Eigen/SparseLU>
+#include <cereal/cereal.hpp>
+#include <cereal/types/memory.hpp>
+#include <cereal/types/vector.hpp>
+#include <cereal/types/unordered_map.hpp>
+#include <cereal/types/utility.hpp>
+#include <cereal/archives/portable_binary.hpp>
 
 #include <cstddef>
+#include <filesystem>
+#include <fstream>
 #include <memory>
 #include <optional>
 #include <span>
@@ -29,6 +39,10 @@ namespace scarabee {
 
 template <NodalMethod NM>
 class NodalDiffusionDriver {
+  using Vector = Eigen::VectorXd;
+  using Matrix = Eigen::SparseMatrix<double, Eigen::RowMajor>;
+  using Solver = Eigen::BiCGSTAB<Matrix, Eigen::IdentityPreconditioner>;
+
  public:
   NodalDiffusionDriver(std::shared_ptr<DiffusionGeometry> geom);
 
@@ -45,17 +59,32 @@ class NodalDiffusionDriver {
   double flux_tolerance() const { return flux_tol_; }
   void set_flux_tolerance(double ftol);
 
-  bool leakage_corrections() const { return leakage_corrections_; }
-  void set_leakage_corrections(bool lc) { leakage_corrections_ = lc; }
+  bool leakage_corrections() const
+    requires(NM::update_currents)
+  {
+    return leakage_corrections_;
+  }
+  void set_leakage_corrections(bool lc)
+    requires(NM::update_currents)
+  {
+    leakage_corrections_ = lc;
+  }
 
   std::size_t nonlinear_update_frequency() const {
     return nonlinear_update_frequency_;
   }
   void set_nonlinear_update_frequency(std::size_t f);
 
+  std::size_t source_extrapolation_frequency() const {
+    return source_extrapolation_frequency_;
+  }
+  void set_source_extrapolation_frequency(std::size_t f);
+
+  std::size_t max_inner_iterations() const { return max_bicgstab_iterations_; }
+  void set_max_inner_iterations(std::size_t n);
+
   double keff() const { return keff_; }
 
-  /*
   double flux(double x, double y, double z, std::size_t g) const;
   xt::xtensor<double, 4> flux(const xt::xtensor<double, 1>& x,
                               const xt::xtensor<double, 1>& y,
@@ -70,7 +99,6 @@ class NodalDiffusionDriver {
 
   void save(const std::string& fname);
   static std::unique_ptr<NodalDiffusionDriver> load(const std::string& fname);
-  */
 
  private:
   struct DiffusionDataCrossSectionPair {
@@ -78,29 +106,45 @@ class NodalDiffusionDriver {
         const std::shared_ptr<DiffusionData>& idd,
         const std::shared_ptr<DiffusionCrossSection>& ixs)
         : dd(idd), xs(ixs) {}
+    DiffusionDataCrossSectionPair() : dd(nullptr), xs(nullptr) {}
 
     std::shared_ptr<DiffusionData> dd;
     std::shared_ptr<DiffusionCrossSection>
         xs;  // Might be different from xs in dd !!
+
+    template <class Archive>
+    void serialize(Archive& arc) {
+      arc(CEREAL_NVP(dd), CEREAL_NVP(xs));
+    }
   };
+
   using NeighborInfo =
       std::pair<DiffusionGeometry::Tile, std::optional<std::size_t>>;
+
+  enum class Corner { PP, PM, MP, MM };
 
  private:
   // Method relating to solve
   void update_adfs();
   void update_physical_diffusion_coefficients();
-  void update_nonlinear_diffusion_coefficients();
+  double update_nonlinear_diffusion_coefficients();
+
   template <typename DiffCoeffUpdater>
-  void update_diffusion_coefficients(DiffCoeffUpdater dcu);
-  void update_fluxes(Eigen::VectorXd& flux);
+  double update_diffusion_coefficients(DiffCoeffUpdater dcu);
+
+  void update_fluxes(const Vector& flux);
   void update_currents();
   void update_transverse_leakage_coefficients();
 
   void solve_keff();
-  void fill_loss_matrix(Eigen::SparseMatrix<double, Eigen::RowMajor>& M) const;
-  void fill_fission_matrix(
-      Eigen::SparseMatrix<double, Eigen::RowMajor>& F) const;
+  void fill_loss_matrix(Matrix& M) const;
+  void fill_fission_matrix(Matrix& F) const;
+
+  double calc_node_avg_DB2(const std::size_t g, const std::size_t m,
+                           const double dx, const double dy,
+                           const double dz) const;
+  void update_node_xs()
+    requires(NM::update_currents);
 
   // To get index in nodal solver
   int ind(std::size_t n, std::size_t g) const {
@@ -125,6 +169,16 @@ class NodalDiffusionDriver {
   };
 
   // Reconstruction related methods
+  void perform_flux_reconstruction()
+    requires(NM::reconstruct_flux);
+  IntraNodalFlux fit_node_recon_params(std::size_t g, std::size_t m) const
+    requires(NM::reconstruct_flux);
+  void fit_node_recon_params_corners(std::size_t g, std::size_t m)
+    requires(NM::reconstruct_flux);
+  double eval_heter_xy_corner_flux(std::size_t g, std::size_t m, Corner c) const
+    requires(NM::reconstruct_flux);
+  double avg_xy_corner_flux(std::size_t g, std::size_t m, Corner c) const
+    requires(NM::reconstruct_flux);
 
  private:
   xt::xtensor<Node, 2> nodes_;  // Node THEN Group ! Must be to make span
@@ -144,23 +198,42 @@ class NodalDiffusionDriver {
   xt::xtensor<double, 3> surface_diffusion_coefficients_;
 
   // Holds average flux between iterations
-  Eigen::VectorXd flux_;
+  Vector flux_;
 
   std::shared_ptr<DiffusionGeometry> geom_;
-  std::size_t NG_;  // Number of groups
-  std::size_t NM_;  // Number of regions
-  std::size_t nonlinear_update_frequency_{20};
+  std::size_t NG_;                          // Number of groups
+  std::size_t NM_;                          // Number of regions
+  std::size_t nonlinear_update_frequency_;  // Set in constructor based on NM_
+  std::size_t source_extrapolation_frequency_{5};
+  std::size_t max_bicgstab_iterations_{2};
   double keff_{1.};
   double flux_tol_{1.E-5};
   double keff_tol_{1.E-5};
+  double Dnl_tol_{1.E-3};
   bool leakage_corrections_{false};
   bool solved_{false};
+
+  friend class cereal::access;
+  NodalDiffusionDriver() : nodal_solver_(2) {}
+  template <class Archive>
+  void serialize(Archive& arc) {
+    arc(CEREAL_NVP(nodes_), CEREAL_NVP(reconstructed_flux_params_),
+        CEREAL_NVP(nodal_solver_), CEREAL_NVP(neighbors_), CEREAL_NVP(mats_),
+        CEREAL_NVP(surface_indices_),
+        CEREAL_NVP(surface_diffusion_coefficients_), CEREAL_NVP(flux_),
+        CEREAL_NVP(geom_), CEREAL_NVP(NG_), CEREAL_NVP(NM_),
+        CEREAL_NVP(nonlinear_update_frequency_),
+        CEREAL_NVP(source_extrapolation_frequency_),
+        CEREAL_NVP(max_bicgstab_iterations_), CEREAL_NVP(keff_),
+        CEREAL_NVP(flux_tol_), CEREAL_NVP(keff_tol_), CEREAL_NVP(Dnl_tol_),
+        CEREAL_NVP(leakage_corrections_), CEREAL_NVP(solved_));
+  }
 };
 
 template <NodalMethod NM>
 inline NodalDiffusionDriver<NM>::NodalDiffusionDriver(
     std::shared_ptr<DiffusionGeometry> geom)
-    : nodal_solver_(0), geom_(geom) {
+    : nodal_solver_(2), geom_(geom) {
   if (geom_ == nullptr) {
     const auto mssg = "Provided geometry was None.";
     spdlog::error(mssg);
@@ -175,12 +248,27 @@ inline NodalDiffusionDriver<NM>::NodalDiffusionDriver(
   NG_ = geom_->ngroups();
   NM_ = geom_->nmats();
 
-  // Initialize nodal solver
-  nodal_solver_ = std::move(NM(NG_));
+  // User lower diffusion coefficient tolerance for finite difference method
+  if constexpr (NM::update_currents == false) {
+    Dnl_tol_ = 1.E-1;
+  }
 
-  // Initialize size of nodes_ and reconstructed_flux_params_
+  // Initialize the update frequency
+  nonlinear_update_frequency_ =
+      static_cast<std::size_t>(std::ceil(static_cast<double>(NM_) / 2.5));
+
+  // Initialize nodal solver with correct number of groups if needed
+  if (NG_ != 2) nodal_solver_ = NM(NG_);
+
+  // Initialize size of nodes_
   nodes_.resize({NM_, NG_});
-  reconstructed_flux_params_.resize({NM_, NG_});
+
+  // Only allocate memory for reconstructed flux if needed
+  if constexpr (NM::reconstruct_flux) {
+    reconstructed_flux_params_.resize({NM_, NG_});
+  }
+
+  // Set all ADFs on the nodes
   this->update_adfs();
 
   // Initialize mats_
@@ -235,13 +323,7 @@ inline NodalDiffusionDriver<NM>::NodalDiffusionDriver(
 
 template <NodalMethod NM>
 void NodalDiffusionDriver<NM>::set_flux_tolerance(double ftol) {
-  if (ftol <= 0.) {
-    auto mssg = "Tolerance for flux must be in the interval (0., 0.1).";
-    spdlog::error(mssg);
-    throw ScarabeeException(mssg);
-  }
-
-  if (ftol >= 0.1) {
+  if (ftol <= 0. || ftol >= 0.1) {
     auto mssg = "Tolerance for flux must be in the interval (0., 0.1).";
     spdlog::error(mssg);
     throw ScarabeeException(mssg);
@@ -252,13 +334,7 @@ void NodalDiffusionDriver<NM>::set_flux_tolerance(double ftol) {
 
 template <NodalMethod NM>
 void NodalDiffusionDriver<NM>::set_keff_tolerance(double ktol) {
-  if (ktol <= 0.) {
-    auto mssg = "Tolerance for keff must be in the interval (0., 0.1).";
-    spdlog::error(mssg);
-    throw ScarabeeException(mssg);
-  }
-
-  if (ktol >= 0.1) {
+  if (ktol <= 0. || ktol >= 0.1) {
     auto mssg = "Tolerance for keff must be in the interval (0., 0.1).";
     spdlog::error(mssg);
     throw ScarabeeException(mssg);
@@ -283,6 +359,35 @@ inline void NodalDiffusionDriver<NM>::set_nonlinear_update_frequency(
 }
 
 template <NodalMethod NM>
+inline void NodalDiffusionDriver<NM>::set_source_extrapolation_frequency(
+    std::size_t f) {
+  if (f == 0) {
+    auto mssg = "The source update frequency must be > 0.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  } else if (f > 100) {
+    auto mssg = "The source update frequency is larger than 100.";
+    spdlog::warn(mssg);
+  }
+
+  source_extrapolation_frequency_ = f;
+}
+
+template <NodalMethod NM>
+inline void NodalDiffusionDriver<NM>::set_max_inner_iterations(std::size_t n) {
+  if (n == 0) {
+    auto mssg = "The max number of inner iterations must be > 0.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  } else if (n > 20) {
+    auto mssg = "The max number of inner iterations is larger than 20.";
+    spdlog::warn(mssg);
+  }
+
+  max_bicgstab_iterations_ = n;
+}
+
+template <NodalMethod NM>
 inline void NodalDiffusionDriver<NM>::update_adfs() {
   // Get all ADFs for each node / group
   for (std::size_t m = 0; m < NM_; m++) {
@@ -300,11 +405,12 @@ inline void NodalDiffusionDriver<NM>::update_adfs() {
 
 template <NodalMethod NM>
 template <typename DiffCoeffUpdater>
-inline void NodalDiffusionDriver<NM>::update_diffusion_coefficients(
+inline double NodalDiffusionDriver<NM>::update_diffusion_coefficients(
     DiffCoeffUpdater dcu) {
   const double invs_keff = 1. / this->keff_;
 
   // Compute diffusion coefficient for each surface
+  double max_diff = 0.;
   for (const auto& surf_ind : surface_indices_) {
     const auto& surf = surf_ind.first;
     const auto i = surf_ind.second;
@@ -322,7 +428,7 @@ inline void NodalDiffusionDriver<NM>::update_diffusion_coefficients(
                                     geom_->dy(geom_inds_1[1]),
                                     geom_->dz(geom_inds_1[2])};
     const std::shared_ptr<DiffusionCrossSection>& lxs = mats_[n1].xs;
-    std::span<const Node> lnode(&nodes_(n1, 0), NG_);
+    std::span<Node> lnode(&nodes_(n1, 0), NG_);
 
     if (surf.node2) {
       // Here, we have 2 nodes. Get right node info
@@ -332,10 +438,12 @@ inline void NodalDiffusionDriver<NM>::update_diffusion_coefficients(
                                       geom_->dy(geom_inds_2[1]),
                                       geom_->dz(geom_inds_2[2])};
       const std::shared_ptr<DiffusionCrossSection>& rxs = mats_[n2].xs;
-      std::span<const Node> rnode(&nodes_(n2, 0), NG_);
+      std::span<Node> rnode(&nodes_(n2, 0), NG_);
 
       // Compute the diffusion coefficients for all groups
-      dcu(lnode, side, rnode, D, *lxs, *rxs, ldx, rdx, Dnl, invs_keff);
+      const double diff =
+          dcu(lnode, side, rnode, D, *lxs, *rxs, ldx, rdx, Dnl, invs_keff);
+      if (diff > max_diff) max_diff = diff;
     } else {
       // Here, we have a node and a boundary condition
       if (neighbors_(n1, side).first.albedo.has_value() == false) {
@@ -348,19 +456,22 @@ inline void NodalDiffusionDriver<NM>::update_diffusion_coefficients(
       const double B = neighbors_(n1, side).first.albedo.value();
 
       // Compute the diffusion coefficients for all groups
-      dcu(lnode, side, D, B, *lxs, ldx, Dnl, invs_keff);
+      const double diff = dcu(lnode, side, D, B, *lxs, ldx, Dnl, invs_keff);
+      if (diff > max_diff) max_diff = diff;
     }
   }
+  return max_diff;
 }
 
 struct PhysicalDiffCoeffUpdater {
-  void operator()(std::span<const Node> /*lnode*/, const Side side,
-                  std::span<const Node> /*rnode*/, std::span<double> D,
-                  const DiffusionCrossSection& lxs,
-                  const DiffusionCrossSection& rxs,
-                  const std::array<double, 3> ld,
-                  const std::array<double, 3> rd,
-                  std::span<const double> /*Dnl*/, const double /*invs_keff*/) {
+  double operator()(std::span<Node> /*lnode*/, const Side side,
+                    std::span<Node> /*rnode*/, std::span<double> D,
+                    const DiffusionCrossSection& lxs,
+                    const DiffusionCrossSection& rxs,
+                    const std::array<double, 3> ld,
+                    const std::array<double, 3> rd,
+                    std::span<const double> /*Dnl*/,
+                    const double /*invs_keff*/) {
     const double ldx = get_node_width(ld, side);
     const double rdx = get_node_width(rd, side);
     for (std::size_t g = 0; g < lxs.ngroups(); g++) {
@@ -368,18 +479,21 @@ struct PhysicalDiffCoeffUpdater {
       const double rD = rxs.D(g);
       D[g] = 2. * lD * rD / (ldx * lD + rdx * rD);
     }
+    return 0.;  // Fake difference
   }
 
-  void operator()(std::span<const Node> /*lnode*/, const Side side,
-                  std::span<double> D, const double B,
-                  const DiffusionCrossSection& lxs,
-                  const std::array<double, 3> ld,
-                  std::span<const double> /*Dnl*/, const double /*invs_keff*/) {
+  double operator()(std::span<Node> /*lnode*/, const Side side,
+                    std::span<double> D, const double B,
+                    const DiffusionCrossSection& lxs,
+                    const std::array<double, 3> ld,
+                    std::span<const double> /*Dnl*/,
+                    const double /*invs_keff*/) {
     const double ldx = get_node_width(ld, side);
     for (std::size_t g = 0; g < lxs.ngroups(); g++) {
       const double lD = lxs.D(g);
       D[g] = 2. * lD * (1. - B) / (4. * lD * (1. + B) + ldx * (1. - B));
     }
+    return 0.;  // Fake difference
   }
 
   double get_node_width(const std::array<double, 3>& dx, Side side) const {
@@ -401,46 +515,47 @@ struct PhysicalDiffCoeffUpdater {
 
 template <NodalMethod NM>
 struct NonlinearDiffCoeffUpdater {
-  NonlinearDiffCoeffUpdater(NM& ns) : nodal_solver(ns) {}
+  NonlinearDiffCoeffUpdater(NM& ns) : nodal_solver(&ns) {}
 
-  void operator()(std::span<const Node> lnode, const Side side,
-                  std::span<const Node> rnode, std::span<const double> D,
-                  const DiffusionCrossSection& lxs,
-                  const DiffusionCrossSection& rxs,
-                  const std::array<double, 3> ld,
-                  const std::array<double, 3> rd, std::span<double> Dnl,
-                  const double invs_keff) {
-    nodal_solver.compute_keff_nonlinear_diffusion_coefficient(
+  double operator()(std::span<Node> lnode, const Side side,
+                    std::span<Node> rnode, std::span<const double> D,
+                    const DiffusionCrossSection& lxs,
+                    const DiffusionCrossSection& rxs,
+                    const std::array<double, 3> ld,
+                    const std::array<double, 3> rd, std::span<double> Dnl,
+                    const double invs_keff) {
+    return nodal_solver->compute_keff_nonlinear_diffusion_coefficient(
         lnode, side, rnode, D, lxs, rxs, ld, rd, Dnl, invs_keff);
   }
 
-  void operator()(std::span<const Node> lnode, const Side side,
-                  std::span<const double> D, const double B,
-                  const DiffusionCrossSection& lxs,
-                  const std::array<double, 3> ld, std::span<double> Dnl,
-                  const double invs_keff) {
-    nodal_solver.compute_keff_nonlinear_diffusion_coefficient(
+  double operator()(std::span<Node> lnode, const Side side,
+                    std::span<const double> D, const double B,
+                    const DiffusionCrossSection& lxs,
+                    const std::array<double, 3> ld, std::span<double> Dnl,
+                    const double invs_keff) {
+    return nodal_solver->compute_keff_nonlinear_diffusion_coefficient(
         lnode, side, D, B, lxs, ld, Dnl, invs_keff);
   }
 
-  NM& nodal_solver;
+  NM* nodal_solver;
 };
 
 template <NodalMethod NM>
 inline void NodalDiffusionDriver<NM>::update_physical_diffusion_coefficients() {
   PhysicalDiffCoeffUpdater pdcu;
-  this->update_diffusion_coefficients<PhysicalDiffCoeffUpdater>(pdcu);
+  std::ignore =
+      this->update_diffusion_coefficients<PhysicalDiffCoeffUpdater>(pdcu);
 }
 
 template <NodalMethod NM>
-inline void
+inline double
 NodalDiffusionDriver<NM>::update_nonlinear_diffusion_coefficients() {
-  this->update_diffusion_coefficients<NonlinearDiffCoeffUpdater<NM>>(
+  return this->update_diffusion_coefficients<NonlinearDiffCoeffUpdater<NM>>(
       NonlinearDiffCoeffUpdater<NM>(this->nodal_solver_));
 }
 
 template <NodalMethod NM>
-inline void NodalDiffusionDriver<NM>::update_fluxes(Eigen::VectorXd& flux) {
+inline void NodalDiffusionDriver<NM>::update_fluxes(const Vector& flux) {
   for (std::size_t m = 0; m < NM_; m++) {
     for (std::size_t g = 0; g < NG_; g++) {
       nodes_(m, g).phi0() = flux(ind(m, g));
@@ -681,20 +796,73 @@ inline void NodalDiffusionDriver<NM>::update_transverse_leakage_coefficients() {
 }
 
 template <NodalMethod NM>
-void NodalDiffusionDriver<NM>::fill_loss_matrix(
-    Eigen::SparseMatrix<double, Eigen::RowMajor>& M) const {
-  const auto exp_len = static_cast<Eigen::Index>(NM_ * NG_);
+inline double NodalDiffusionDriver<NM>::calc_node_avg_DB2(
+    const std::size_t g, const std::size_t m, const double dx, const double dy,
+    const double dz) const {
+  const Node& node = this->nodes_(m, g);
+  double DB2 = 0.;
+  DB2 += dy * dz * (node.J_xp() - node.J_xn());
+  DB2 += dx * dz * (node.J_yp() - node.J_yn());
+  DB2 += dx * dy * (node.J_zp() - node.J_zn());
+  DB2 /= node.phi0() * dx * dy * dz;
+  return DB2;
+}
+
+template <NodalMethod NM>
+inline void NodalDiffusionDriver<NM>::update_node_xs()
+  requires(NM::update_currents)
+{
+  // Go through all nodes and groups, updating the cross sections
+  for (std::size_t m = 0; m < NM_; m++) {
+    // const auto& dd = *diff_datas_[m];
+    const DiffusionData& dd = *mats_[m].dd;
+    if (dd.leakage_corrections().has_value() == false || dd.reflector())
+      continue;
+    const auto& lc = dd.leakage_corrections().value();
+    const auto& sa_xs = *dd.xs();  // Single-Assembly (un-buckled) xs
+
+    const auto geom_indx = geom_->geom_indx(m);
+    const double del_x = geom_->dx(geom_indx[0]);
+    const double del_y = geom_->dy(geom_indx[1]);
+    const double del_z = geom_->dz(geom_indx[2]);
+    DiffusionCrossSection& xs = *mats_[m].xs;
+
+    for (std::size_t g_in = 0; g_in < NG_; g_in++) {
+      // Compute node/group leakage to loss ratio
+      const double DB2 = this->calc_node_avg_DB2(g_in, m, del_x, del_y, del_z);
+      const double LRr = DB2 / xs.Er(g_in);
+
+      // Can now determine fractional change in each group cross section
+      const double fD = lc.D(g_in) * LRr;
+      const double fEa = lc.Ea(g_in) * LRr;
+      const double fEf = lc.Ef(g_in) * LRr;
+      const double fvEf = lc.vEf(g_in) * LRr;
+
+      // Update the cross sections
+      xs.D_ref(g_in) = (fD + 1.) * sa_xs.D(g_in);
+      xs.Ea_ref(g_in) = (fEa + 1.) * sa_xs.Ea(g_in);
+      xs.Ef_ref(g_in) = (fEf + 1.) * sa_xs.Ef(g_in);
+      xs.vEf_ref(g_in) = (fvEf + 1.) * sa_xs.vEf(g_in);
+
+      for (std::size_t g_out = g_in + 1; g_out < NG_; g_out++) {
+        const double fEs = lc.Es(g_in, g_out) * LRr;
+        xs.Es_ref(g_in, g_out) = (fEs + 1.) * sa_xs.Es(g_in, g_out);
+      }
+    }
+  }
+}
+
+template <NodalMethod NM>
+void NodalDiffusionDriver<NM>::fill_loss_matrix(Matrix& M) const {
+  const Eigen::Index exp_len = static_cast<Eigen::Index>(NM_ * NG_);
   if (M.rows() != exp_len || M.cols() != exp_len) {
     // Resize the matrix if needed (usually only on first call)
     M.resize(exp_len, exp_len);
-    M.reserve(Eigen::VectorX<std::size_t>::Constant(exp_len, 6 + NG_));
+    M.reserve(Eigen::VectorX<std::size_t>::Constant(exp_len, 7 + NG_));
   } else {
     // If we are re-building the matrix, we should zero all entries first
     for (int k = 0; k < M.outerSize(); k++) {
-      for (Eigen::SparseMatrix<double, Eigen::RowMajor>::InnerIterator it(M, k);
-           it; ++it) {
-        it.valueRef() = 0.;
-      }
+      for (Matrix::InnerIterator it(M, k); it; ++it) it.valueRef() = 0.;
     }
   }
 
@@ -743,9 +911,8 @@ void NodalDiffusionDriver<NM>::fill_loss_matrix(
 }
 
 template <NodalMethod NM>
-void NodalDiffusionDriver<NM>::fill_fission_matrix(
-    Eigen::SparseMatrix<double, Eigen::RowMajor>& F) const {
-  const auto exp_len = static_cast<Eigen::Index>(NM_ * NG_);
+void NodalDiffusionDriver<NM>::fill_fission_matrix(Matrix& F) const {
+  const Eigen::Index exp_len = static_cast<Eigen::Index>(NM_ * NG_);
   if (F.rows() != exp_len || F.cols() != exp_len) {
     // Resize the matrix if needed (usually only on first call)
     F.resize(exp_len, exp_len);
@@ -753,10 +920,7 @@ void NodalDiffusionDriver<NM>::fill_fission_matrix(
   } else {
     // If we are re-building the matrix, we should zero all entries first
     for (int k = 0; k < F.outerSize(); k++) {
-      for (Eigen::SparseMatrix<double, Eigen::RowMajor>::InnerIterator it(F, k);
-           it; ++it) {
-        it.valueRef() = 0.;
-      }
+      for (Matrix::InnerIterator it(F, k); it; ++it) it.valueRef() = 0.;
     }
   }
 
@@ -772,19 +936,21 @@ void NodalDiffusionDriver<NM>::fill_fission_matrix(
         F.coeffRef(i, ind(m, gg)) += chi_g * xs.vEf(gg);
     }
   }
-
-  F.makeCompressed();
 }
 
 template <NodalMethod NM>
 void NodalDiffusionDriver<NM>::solve_keff() {
+  Timer sim_timer;
+  sim_timer.start();
+
   // Power Iteration to solve for Keff
   // Initialize flux and source vectors
-  Eigen::VectorXd new_flux(NG_ * NM_);
-  Eigen::VectorXd Q(NG_ * NM_);
+  Vector new_flux(NG_ * NM_);
+  Vector Q(NG_ * NM_);
+  Vector Q_err = Q;
 
   // Initialize a vector for computing keff faster
-  Eigen::VectorXd VvEf(NG_ * NM_);
+  Vector VvEf(NG_ * NM_);
   for (std::size_t m = 0; m < NM_; m++) {
     const DiffusionCrossSection& xs = *mats_[m].xs;
     const auto geom_inds = geom_->geom_indx(m);
@@ -801,21 +967,17 @@ void NodalDiffusionDriver<NM>::solve_keff() {
   flux_.normalize();
 
   // Initialize loss matrix and fission matrix
-  Eigen::SparseMatrix<double, Eigen::RowMajor> M;
-  Eigen::SparseMatrix<double, Eigen::RowMajor> F;
+  Matrix M;
+  Matrix F;
   fill_loss_matrix(M);
   fill_fission_matrix(F);
 
   // Create a solver for the problem
-  Eigen::BiCGSTAB<Eigen::SparseMatrix<double, Eigen::RowMajor>> solver;
-  solver.setTolerance(1.E-60);
+  Solver solver;
   solver.compute(M);
-  if (solver.info() != Eigen::Success) {
-    std::stringstream mssg;
-    mssg << "Could not initialize nodal iterative solver";
-    spdlog::error(mssg.str());
-    throw ScarabeeException(mssg.str());
-  }
+  solver.setTolerance(1.E-10);
+  solver.setMaxIterations(
+      max_bicgstab_iterations_);  // This is choice used by KOMODO
 
   // A lambda to compute the maximum flux difference
   const auto compute_max_flux_diff = [this](const auto& old_flux,
@@ -832,20 +994,33 @@ void NodalDiffusionDriver<NM>::solve_keff() {
   // Begin power iteration
   double keff_diff = 100.;
   double flux_diff = 100.;
+  double D_diff = 100.;
+  double prev_src_err = 100.;
+  double src_err = 100.;
   std::size_t iteration = 0;
-  while (keff_diff > keff_tol_ || flux_diff > flux_tol_) {
+  while (keff_diff > keff_tol_ || flux_diff > flux_tol_ || D_diff > Dnl_tol_) {
     iteration++;
     // Compute source vector
-    Q = (1. / keff_) * F * flux_;
+    Q = F * flux_;
+    Q *= 1. / keff_;
 
-    // Get new flux
+    // Compute error in the source vector
+    prev_src_err = src_err;
+    Q_err = Q - Q_err;
+    src_err = Q_err.norm();
+
+    // Source extrapolation
+    if (iteration > 3 && iteration % source_extrapolation_frequency_ == 0) {
+      spdlog::info("-------------------------------------");
+      spdlog::info("");
+      spdlog::info("Extrapolating source");
+      const double dominance_ration = src_err / prev_src_err;
+      Q += (dominance_ration / (1. - dominance_ration)) * Q_err;
+      spdlog::info("");
+    }
+
+    // Solve system
     new_flux = solver.solveWithGuess(Q, flux_);
-    // For some reason, this doesn't seem to be working with the new versions
-    // of Eigen, despite clearly succeeding. Just commenting it out for now.
-    // if (solver.info() != Eigen::Success) {
-    //   spdlog::error("Solution impossible.");
-    //   throw ScarabeeException("Solution impossible");
-    // }
 
     // Estimate keff
     double prev_keff = keff_;
@@ -865,26 +1040,741 @@ void NodalDiffusionDriver<NM>::solve_keff() {
     spdlog::info("     keff difference:     {:.5E}", keff_diff);
     spdlog::info("     max flux difference: {:.5E}", flux_diff);
 
-    if (iteration % nonlinear_update_frequency_ == 0) {
-      flux_diff = 1.;
+    if (iteration % nonlinear_update_frequency_ == 0 ||
+        (flux_diff < flux_tol_ && D_diff > Dnl_tol_)) {
+      flux_diff = 1.;  // Make sure we do at least one iteration after update
       spdlog::info("-------------------------------------");
       spdlog::info("");
       spdlog::info("Updating nonlinear diffusion coefficients");
-      spdlog::info("");
       update_fluxes(flux_);
       if (NM::update_currents) {
         update_currents();
         update_transverse_leakage_coefficients();
       }
-      update_nonlinear_diffusion_coefficients();
-      fill_loss_matrix(
-          M);  // Will also need to update this when XS is updated !
+      D_diff = update_nonlinear_diffusion_coefficients();
+      spdlog::info("Max difference: {:.5E}", D_diff);
+      spdlog::info("");
+      if constexpr (NM::update_currents) {
+        if (leakage_corrections()) {
+          update_node_xs();
+          // Only need to update F when we update the cross sections
+          fill_fission_matrix(F);
+        }
+      }
+      fill_loss_matrix(M);
       solver.compute(M);
     }
-    // TODO update_cross_sections();
+
+    Q_err = Q;
   }
 
+  // We must do one last update of the fluxes, currents, and non-linear
+  // diffusion coefficients, as this data is needed for accurate intranodal
+  // flux reconstruction.
   update_fluxes(flux_);
+  if (NM::update_currents) {
+    update_currents();
+    update_transverse_leakage_coefficients();
+  }
+  D_diff = update_nonlinear_diffusion_coefficients();
+
+  solved_ = true;
+
+  sim_timer.stop();
+  spdlog::info("");
+  spdlog::info("Simulation Time: {:.5E} s", sim_timer.elapsed_time());
+
+  if constexpr (NM::reconstruct_flux) perform_flux_reconstruction();
+}
+
+//=============================================================================
+// Flux / Power Plotting Methods
+
+template <NodalMethod NM>
+inline double NodalDiffusionDriver<NM>::flux(double x, double y, double z,
+                                             std::size_t g) const {
+  // If problem isn't solved yet, we error
+  if (solved_ == false) {
+    auto mssg = "Cannot compute flux. Problem has not been solved.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  // Check group index
+  if (g >= ngroups()) {
+    std::stringstream mssg;
+    mssg << "Group index g = " << g << " is out of range.";
+    spdlog::error(mssg.str());
+    throw ScarabeeException(mssg.str());
+  }
+
+  // Get geometry index
+  const auto oi = geom_->x_to_i(x);
+  const auto oj = geom_->y_to_j(y);
+  const auto ok = geom_->z_to_k(z);
+  if (oi.has_value() == false || oj.has_value() == false ||
+      ok.has_value() == false)
+    return 0.;
+  const std::size_t i = oi.value();
+  const std::size_t j = oj.value();
+  const std::size_t k = ok.value();
+  const xt::svector<std::size_t> geom_inds{i, j, k};
+
+  // Get material index
+  const auto om = geom_->geom_to_mat_indx(geom_inds);
+  if (om.has_value() == false) return 0.;
+  const std::size_t m = om.value();
+
+  if constexpr (NM::reconstruct_flux) {
+    return reconstructed_flux_params_(m, g)(x, y, z);
+  } else {
+    return flux_(ind(m, g));
+  }
+}
+
+template <NodalMethod NM>
+inline xt::xtensor<double, 4> NodalDiffusionDriver<NM>::flux(
+    const xt::xtensor<double, 1>& x, const xt::xtensor<double, 1>& y,
+    const xt::xtensor<double, 1>& z) const {
+  // If problem isn't solved yet, we error
+  if (solved_ == false) {
+    auto mssg = "Cannot compute flux. Problem has not been solved.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  // Make sure x, y, and z have at least 1 coordinate
+  if (x.size() == 0) {
+    auto mssg = "Array of x coordinates must have at least one entry.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+  if (y.size() == 0) {
+    auto mssg = "Array of y coordinates must have at least one entry.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+  if (z.size() == 0) {
+    auto mssg = "Array of z coordinates must have at least one entry.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  xt::xtensor<double, 4> flux_out;
+  flux_out.resize({ngroups(), x.size(), y.size(), z.size()});
+  flux_out.fill(0.);
+
+  for (std::size_t g = 0; g < ngroups(); g++) {
+#pragma omp parallel for
+    for (int ii = 0; ii < static_cast<int>(x.size()); ii++) {
+      std::size_t i = static_cast<std::size_t>(ii);
+      for (std::size_t j = 0; j < y.size(); j++) {
+        for (std::size_t k = 0; k < z.size(); k++) {
+          // Get geometry index
+          const auto oi = geom_->x_to_i(x[i]);
+          const auto oj = geom_->y_to_j(y[j]);
+          const auto ok = geom_->z_to_k(z[k]);
+          if (oi.has_value() == false || oj.has_value() == false ||
+              ok.has_value() == false) {
+            continue;
+          }
+          const std::size_t gi = oi.value();
+          const std::size_t gj = oj.value();
+          const std::size_t gk = ok.value();
+          const xt::svector<std::size_t> geom_inds{gi, gj, gk};
+
+          // Get material index
+          const auto om = geom_->geom_to_mat_indx(geom_inds);
+          if (om.has_value() == false) continue;
+          const std::size_t m = om.value();
+
+          if constexpr (NM::reconstruct_flux) {
+            flux_out(g, i, j, k) =
+                reconstructed_flux_params_(m, g)(x[i], y[j], z[k]);
+          } else {
+            flux_out(g, i, j, k) = flux_(ind(m, g));
+          }
+        }
+      }
+    }
+  }
+
+  return flux_out;
+}
+
+template <NodalMethod NM>
+inline xt::xtensor<double, 4> NodalDiffusionDriver<NM>::avg_flux() const {
+  // If problem isn't solved yet, we error
+  if (solved_ == false) {
+    auto mssg = "Cannot compute flux. Problem has not been solved.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  const std::size_t nx = geom_->nx();
+  const std::size_t ny = geom_->ny();
+  const std::size_t nz = geom_->nz();
+
+  xt::xtensor<double, 4> flux_out;
+  flux_out.resize({ngroups(), nx, ny, nz});
+
+  for (std::size_t g = 0; g < ngroups(); g++) {
+    for (std::size_t i = 0; i < nx; i++) {
+      for (std::size_t j = 0; j < ny; j++) {
+        for (std::size_t k = 0; k < nz; k++) {
+          const auto om = geom_->geom_to_mat_indx({i, j, k});
+
+          if (om.has_value() == false)
+            flux_out(g, i, j, k) = 0.;
+          else
+            flux_out(g, i, j, k) = flux_(ind(*om, g));
+        }
+      }
+    }
+  }
+
+  return flux_out;
+}
+
+template <NodalMethod NM>
+inline double NodalDiffusionDriver<NM>::power(double x, double y,
+                                              double z) const {
+  // If problem isn't solved yet, we error
+  if (solved_ == false) {
+    auto mssg = "Cannot compute power. Problem has not been solved.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  // Get geometry index
+  const auto oi = geom_->x_to_i(x);
+  const auto oj = geom_->y_to_j(y);
+  const auto ok = geom_->z_to_k(z);
+  if (oi.has_value() == false || oj.has_value() == false ||
+      ok.has_value() == false)
+    return 0.;
+  const std::size_t i = oi.value();
+  const std::size_t j = oj.value();
+  const std::size_t k = ok.value();
+  const xt::svector<std::size_t> geom_inds{i, j, k};
+
+  // Get material index
+  const auto om = geom_->geom_to_mat_indx(geom_inds);
+  if (om.has_value() == false) return 0.;
+  const std::size_t m = om.value();
+
+  const auto& xs = *mats_[m].xs;
+
+  double pwr = 0.;
+
+  for (std::size_t g = 0; g < NG_; g++) {
+    if constexpr (NM::reconstruct_flux) {
+      pwr += reconstructed_flux_params_(m, g)(x, y, z) * xs.Ef(g);
+    } else {
+      pwr += flux_(ind(m, g)) * xs.Ef(g);
+    }
+  }
+
+  return pwr;
+}
+
+template <NodalMethod NM>
+inline xt::xtensor<double, 3> NodalDiffusionDriver<NM>::power(
+    const xt::xtensor<double, 1>& x, const xt::xtensor<double, 1>& y,
+    const xt::xtensor<double, 1>& z) const {
+  // If problem isn't solved yet, we error
+  if (solved_ == false) {
+    auto mssg = "Cannot compute power. Problem has not been solved.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  // Make sure x, y, and z have at least 1 coordinate
+  if (x.size() == 0) {
+    auto mssg = "Array of x coordinates must have at least one entry.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+  if (y.size() == 0) {
+    auto mssg = "Array of y coordinates must have at least one entry.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+  if (z.size() == 0) {
+    auto mssg = "Array of z coordinates must have at least one entry.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  xt::xtensor<double, 3> pwr_out;
+  pwr_out.resize({x.size(), y.size(), z.size()});
+  pwr_out.fill(0.);
+
+#pragma omp parallel for
+  for (int ii = 0; ii < static_cast<int>(x.size()); ii++) {
+    std::size_t i = static_cast<std::size_t>(ii);
+    for (std::size_t j = 0; j < y.size(); j++) {
+      for (std::size_t k = 0; k < z.size(); k++) {
+        // Get geometry index
+        const auto oi = geom_->x_to_i(x[i]);
+        const auto oj = geom_->y_to_j(y[j]);
+        const auto ok = geom_->z_to_k(z[k]);
+        if (oi.has_value() == false || oj.has_value() == false ||
+            ok.has_value() == false) {
+          continue;
+        }
+        const std::size_t gi = oi.value();
+        const std::size_t gj = oj.value();
+        const std::size_t gk = ok.value();
+        const xt::svector<std::size_t> geom_inds{gi, gj, gk};
+
+        // Get material index
+        const auto om = geom_->geom_to_mat_indx(geom_inds);
+        if (om.has_value() == false) {
+          continue;
+        }
+        const std::size_t m = om.value();
+
+        const auto& xs = *mats_[m].xs;
+
+        for (std::size_t g = 0; g < NG_; g++) {
+          if constexpr (NM::reconstruct_flux) {
+            pwr_out(i, j, k) +=
+                reconstructed_flux_params_(m, g)(x[i], y[j], z[k]) * xs.Ef(g);
+          } else {
+            pwr_out(i, j, k) += flux_(ind(m, g)) * xs.Ef(g);
+          }
+        }
+      }
+    }
+  }
+
+  return pwr_out;
+}
+
+template <NodalMethod NM>
+inline xt::xtensor<double, 3> NodalDiffusionDriver<NM>::avg_power() const {
+  // If problem isn't solved yet, we error
+  if (solved_ == false) {
+    auto mssg = "Cannot compute power. Problem has not been solved.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  const std::size_t nx = geom_->nx();
+  const std::size_t ny = geom_->ny();
+  const std::size_t nz = geom_->nz();
+
+  xt::xtensor<double, 3> pwr_out;
+  pwr_out.resize({nx, ny, nz});
+  pwr_out.fill(0.);
+
+  for (std::size_t i = 0; i < nx; i++) {
+    for (std::size_t j = 0; j < ny; j++) {
+      for (std::size_t k = 0; k < nz; k++) {
+        const auto om = geom_->geom_to_mat_indx({i, j, k});
+
+        if (om.has_value() == false) {
+          continue;
+        }
+        const std::size_t m = om.value();
+        const auto& xs = *mats_[m].xs;
+
+        for (std::size_t g = 0; g < NG_; g++) {
+          pwr_out(i, j, k) += flux_(ind(m, g)) * xs.Ef(g);
+        }
+      }
+    }
+  }
+
+  return pwr_out;
+}
+
+//=============================================================================
+// Flux Reconstruction Methods
+
+template <NodalMethod NM>
+inline IntraNodalFlux NodalDiffusionDriver<NM>::fit_node_recon_params(
+    std::size_t g, std::size_t m) const
+  requires(NM::reconstruct_flux)
+{
+  // Get node parameters
+  const Node& node = nodes_(m, g);
+  const auto geom_indx = geom_->geom_indx(m);
+  const double dx = geom_->dx(geom_indx[0]);
+  const double dy = geom_->dy(geom_indx[1]);
+  const double dz = geom_->dz(geom_indx[2]);
+  const auto& xs = *mats_[m].xs;
+  const double D = xs.D(g);
+  const double Er = xs.Er(g);
+  const double eps = std::sqrt(Er / D);
+
+  const double x_low = geom_->x_bounds()[geom_indx[0]];
+  const double x_hi = geom_->x_bounds()[geom_indx[0] + 1];
+  const double y_low = geom_->y_bounds()[geom_indx[1]];
+  const double y_hi = geom_->y_bounds()[geom_indx[1] + 1];
+  const double z_low = geom_->z_bounds()[geom_indx[2]];
+  const double z_hi = geom_->z_bounds()[geom_indx[2] + 1];
+
+  auto sinhc = [](double x) { return std::sinh(x) / x; };
+
+  IntraNodalFlux nf;
+  nf.phi_0 = node.phi0();
+  nf.eps = eps;
+  nf.xm = 0.5 * (x_low + x_hi);
+  nf.ym = 0.5 * (y_low + y_hi);
+  nf.zm = 0.5 * (z_low + z_hi);
+  nf.invs_dx = 1. / dx;
+  nf.invs_dy = 1. / dy;
+  nf.invs_dz = 1. / dz;
+
+  // Initial base matrix for finding fx, fy, and fz coefficients
+  Eigen::Matrix<double, 4, 4> M{
+      {0., 0., 1., 1.}, {0., 0., -1., 1.}, {0., 0., 1., 3.}, {0., 0., 1., -3.}};
+  Eigen::Matrix<double, 4, 1> b;
+  Eigen::Matrix<double, 4, 1> fu_coeffs;
+
+  // Determine fx coefficients
+  const double zeta_x = 0.5 * eps * dx;
+  M(0, 0) = std::cosh(zeta_x) - sinhc(zeta_x);
+  M(0, 1) = std::sinh(zeta_x);
+  M(1, 0) = M(0, 0);
+  M(1, 1) = -M(0, 1);
+  M(2, 0) = zeta_x * std::sinh(zeta_x);
+  M(2, 1) = zeta_x * std::cosh(zeta_x);
+  M(3, 0) = -M(2, 0);
+  M(3, 1) = M(2, 1);
+  b(0) = node.phi_xp() - node.phi0();
+  b(1) = node.phi_xn() - node.phi0();
+  b(2) = -0.5 * node.J_xp() * dx / D;
+  b(3) = -0.5 * node.J_xn() * dx / D;
+  fu_coeffs = M.inverse() * b;
+  nf.ax1 = fu_coeffs(0);
+  nf.ax2 = fu_coeffs(1);
+  nf.bx1 = fu_coeffs(2);
+  nf.bx2 = fu_coeffs(3);
+  nf.ax0 = -nf.ax1 * sinhc(zeta_x);
+  nf.zeta_x = zeta_x;
+
+  // Determine fy coefficients
+  const double zeta_y = 0.5 * eps * dy;
+  M(0, 0) = std::cosh(zeta_y) - sinhc(zeta_y);
+  M(0, 1) = std::sinh(zeta_y);
+  M(1, 0) = M(0, 0);
+  M(1, 1) = -M(0, 1);
+  M(2, 0) = zeta_y * std::sinh(zeta_y);
+  M(2, 1) = zeta_y * std::cosh(zeta_y);
+  M(3, 0) = -M(2, 0);
+  M(3, 1) = M(2, 1);
+  b(0) = node.phi_yp() - node.phi0();
+  b(1) = node.phi_yn() - node.phi0();
+  b(2) = -0.5 * node.J_yp() * dy / D;
+  b(3) = -0.5 * node.J_yn() * dy / D;
+  fu_coeffs = M.inverse() * b;
+  nf.ay1 = fu_coeffs(0);
+  nf.ay2 = fu_coeffs(1);
+  nf.by1 = fu_coeffs(2);
+  nf.by2 = fu_coeffs(3);
+  nf.ay0 = -nf.ay1 * sinhc(zeta_y);
+  nf.zeta_y = zeta_y;
+
+  // Determine fz coefficients
+  const double zeta_z = 0.5 * eps * dz;
+  M(0, 0) = std::cosh(zeta_z) - sinhc(zeta_z);
+  M(0, 1) = std::sinh(zeta_z);
+  M(1, 0) = M(0, 0);
+  M(1, 1) = -M(0, 1);
+  M(2, 0) = zeta_z * std::sinh(zeta_z);
+  M(2, 1) = zeta_z * std::cosh(zeta_z);
+  M(3, 0) = -M(2, 0);
+  M(3, 1) = M(2, 1);
+  b(0) = node.phi_zp() - node.phi0();
+  b(1) = node.phi_zn() - node.phi0();
+  b(2) = -0.5 * node.J_zp() * dz / D;
+  b(3) = -0.5 * node.J_zn() * dz / D;
+  fu_coeffs = M.inverse() * b;
+  nf.az1 = fu_coeffs(0);
+  nf.az2 = fu_coeffs(1);
+  nf.bz1 = fu_coeffs(2);
+  nf.bz2 = fu_coeffs(3);
+  nf.az0 = -nf.az1 * sinhc(zeta_z);
+
+  return nf;
+}
+
+template <NodalMethod NM>
+inline void NodalDiffusionDriver<NM>::fit_node_recon_params_corners(
+    std::size_t g, std::size_t m)
+  requires(NM::reconstruct_flux)
+{
+  const auto geom_indx = geom_->geom_indx(m);
+
+  const double x_low = geom_->x_bounds()[geom_indx[0]];
+  const double x_hi = geom_->x_bounds()[geom_indx[0] + 1];
+  const double y_low = geom_->y_bounds()[geom_indx[1]];
+  const double y_hi = geom_->y_bounds()[geom_indx[1] + 1];
+
+  IntraNodalFlux& nf = reconstructed_flux_params_(m, g);
+
+  // If the corner point we are looking at is along an outer boundary,
+  // we do not compute the average value of the flux, but instead use
+  // the value estimate by the previous node reconstruction, without
+  // any cross terms. This allows the use of and f(x,y) term in the flux
+  // reconstruction on boundary nodes, without leading to the cusps that
+  // would occur when trying to take the average.
+
+  // Determine fxy coefficients
+  double flx_pp, flx_pm, flx_mp, flx_mm;
+  if (geom_indx[0] != geom_->nx() - 1 && geom_indx[1] != geom_->ny() - 1) {
+    flx_pp = avg_xy_corner_flux(g, m, Corner::PP);
+  } else {
+    flx_pp = nf.flux_xy_no_cross(x_hi, y_hi);
+  }
+
+  if (geom_indx[0] != geom_->nx() - 1 && geom_indx[1] != 0) {
+    flx_pm = avg_xy_corner_flux(g, m, Corner::PM);
+  } else {
+    flx_pm = nf.flux_xy_no_cross(x_hi, y_low);
+  }
+
+  if (geom_indx[0] != 0 && geom_indx[1] != geom_->ny() - 1) {
+    flx_mp = avg_xy_corner_flux(g, m, Corner::MP);
+  } else {
+    flx_mp = nf.flux_xy_no_cross(x_low, y_hi);
+  }
+
+  if (geom_indx[0] != 0 && geom_indx[1] != 0) {
+    flx_mm = avg_xy_corner_flux(g, m, Corner::MM);
+  } else {
+    flx_mm = nf.flux_xy_no_cross(x_low, y_low);
+  }
+
+  double pp = flx_pp - nf.flux_xy_no_cross(x_hi, y_hi);
+  double pm = flx_pm - nf.flux_xy_no_cross(x_hi, y_low);
+  double mp = flx_mp - nf.flux_xy_no_cross(x_low, y_hi);
+  double mm = flx_mm - nf.flux_xy_no_cross(x_low, y_low);
+
+  nf.cxy11 = 0.25 * (pp - pm + mm - mp);
+  nf.cxy12 = 0.25 * (pp + pm - mm - mp);
+  nf.cxy21 = 0.25 * (pp - pm - mm + mp);
+  nf.cxy22 = 0.25 * (pp + pm + mm + mp);
+}
+
+template <NodalMethod NM>
+inline double NodalDiffusionDriver<NM>::eval_heter_xy_corner_flux(
+    std::size_t g, std::size_t m, Corner c) const
+  requires(NM::reconstruct_flux)
+{
+  const IntraNodalFlux& nf = reconstructed_flux_params_(m, g);
+  const double dx = 1. / nf.invs_dx;
+  const double x_hi = nf.xm + 0.5 * dx;
+  const double x_low = nf.xm - 0.5 * dx;
+  const double dy = 1. / nf.invs_dy;
+  const double y_hi = nf.ym + 0.5 * dy;
+  const double y_low = nf.ym - 0.5 * dy;
+
+  // Since the definition of the CDF is
+  // CDF = flux_het / flux_hom
+  // we compute the heterogeneous flux as flux_het = flux_hom * CDF
+
+  switch (c) {
+    case Corner::PP:
+      return nf.flux_xy_no_cross(x_hi, y_hi) * geom_->cdf_I(m, g);
+      break;
+
+    case Corner::PM:
+      return nf.flux_xy_no_cross(x_hi, y_low) * geom_->cdf_IV(m, g);
+      break;
+
+    case Corner::MP:
+      return nf.flux_xy_no_cross(x_low, y_hi) * geom_->cdf_II(m, g);
+      break;
+
+    case Corner::MM:
+      return nf.flux_xy_no_cross(x_low, y_low) * geom_->cdf_III(m, g);
+      break;
+  }
+
+  // NEVER GETS HERE
+  return 0.;
+}
+
+template <NodalMethod NM>
+inline double NodalDiffusionDriver<NM>::avg_xy_corner_flux(std::size_t g,
+                                                           std::size_t m,
+                                                           Corner c) const
+  requires(NM::reconstruct_flux)
+{
+  const auto geom_inds = geom_->geom_indx(m);
+
+  double num = 0.;
+  double denom = 0.;
+
+  // First, we add our contribution to the corner flux estimation
+  num += eval_heter_xy_corner_flux(g, m, c);
+  denom += 1.;
+
+  if (c == Corner::PP) {
+    const auto& n_xp = neighbors_(m, Side::XP);
+    const auto& n_yp = neighbors_(m, Side::YP);
+
+    if (n_xp.second) {
+      num += eval_heter_xy_corner_flux(g, n_xp.second.value(), Corner::MP);
+      denom += 1.;
+    }
+    if (n_yp.second) {
+      num += eval_heter_xy_corner_flux(g, n_yp.second.value(), Corner::PM);
+      denom += 1.;
+    }
+
+    const auto om = geom_->geom_to_mat_indx(
+        {geom_inds[0] + 1, geom_inds[1] + 1, geom_inds[2]});
+    if (om) {
+      num += eval_heter_xy_corner_flux(g, om.value(), Corner::MM);
+      denom += 1.;
+    }
+  } else if (c == Corner::PM) {
+    const auto& n_xp = neighbors_(m, Side::XP);
+    const auto& n_ym = neighbors_(m, Side::YN);
+
+    if (n_xp.second) {
+      num += eval_heter_xy_corner_flux(g, n_xp.second.value(), Corner::MM);
+      denom += 1.;
+    }
+    if (n_ym.second) {
+      num += eval_heter_xy_corner_flux(g, n_ym.second.value(), Corner::PP);
+      denom += 1.;
+    }
+
+    const auto om = geom_->geom_to_mat_indx(
+        {geom_inds[0] + 1, geom_inds[1] - 1, geom_inds[2]});
+    if (om) {
+      num += eval_heter_xy_corner_flux(g, om.value(), Corner::MP);
+      denom += 1.;
+    }
+  } else if (c == Corner::MM) {
+    const auto& n_xm = neighbors_(m, Side::XN);
+    const auto& n_ym = neighbors_(m, Side::YN);
+
+    if (n_xm.second) {
+      num += eval_heter_xy_corner_flux(g, n_xm.second.value(), Corner::PM);
+      denom += 1.;
+    }
+    if (n_ym.second) {
+      num += eval_heter_xy_corner_flux(g, n_ym.second.value(), Corner::MP);
+      denom += 1.;
+    }
+
+    const auto om = geom_->geom_to_mat_indx(
+        {geom_inds[0] - 1, geom_inds[1] - 1, geom_inds[2]});
+    if (om) {
+      num += eval_heter_xy_corner_flux(g, om.value(), Corner::PP);
+      denom += 1.;
+    }
+  } else {  // c = Corner::MP
+    const auto& n_xm = neighbors_(m, Side::XN);
+    const auto& n_yp = neighbors_(m, Side::YP);
+
+    if (n_xm.second) {
+      num += eval_heter_xy_corner_flux(g, n_xm.second.value(), Corner::PP);
+      denom += 1.;
+    }
+    if (n_yp.second) {
+      num += eval_heter_xy_corner_flux(g, n_yp.second.value(), Corner::MM);
+      denom += 1.;
+    }
+
+    const auto om = geom_->geom_to_mat_indx(
+        {geom_inds[0] - 1, geom_inds[1] + 1, geom_inds[2]});
+    if (om) {
+      num += eval_heter_xy_corner_flux(g, om.value(), Corner::PM);
+      denom += 1.;
+    }
+  }
+
+  const double avg_het_flx = num / denom;
+
+  // The homogeneous flux is then flux_hom = flux_het / CDF
+  double CDF = 1.;
+  switch (c) {
+    case Corner::PP:
+      CDF = geom_->cdf_I(m, g);
+      break;
+
+    case Corner::PM:
+      CDF = geom_->cdf_IV(m, g);
+      break;
+
+    case Corner::MP:
+      CDF = geom_->cdf_II(m, g);
+      break;
+
+    case Corner::MM:
+      CDF = geom_->cdf_III(m, g);
+      break;
+  }
+
+  return avg_het_flx / CDF;
+}
+
+template <NodalMethod NM>
+inline void NodalDiffusionDriver<NM>::perform_flux_reconstruction()
+  requires(NM::reconstruct_flux)
+{
+  Timer fitting_timer;
+  fitting_timer.start();
+  spdlog::info("Fitting flux reconstruction parameters");
+  reconstructed_flux_params_.resize({NM_, NG_});
+#pragma omp parallel for
+  for (int im = 0; im < static_cast<int>(NM_); im++) {
+    std::size_t m = static_cast<std::size_t>(im);
+    for (std::size_t g = 0; g < NG_; g++) {
+      reconstructed_flux_params_(m, g) = fit_node_recon_params(g, m);
+    }
+  }
+#pragma omp parallel for
+  for (int im = 0; im < static_cast<int>(NM_); im++) {
+    std::size_t m = static_cast<std::size_t>(im);
+    for (std::size_t g = 0; g < NG_; g++) {
+      fit_node_recon_params_corners(g, m);
+    }
+  }
+  fitting_timer.stop();
+  spdlog::info("Fitting Time: {:.5E} s", fitting_timer.elapsed_time());
+}
+
+template <NodalMethod NM>
+inline void NodalDiffusionDriver<NM>::save(const std::string& fname) {
+  if (std::filesystem::exists(fname)) {
+    std::filesystem::remove(fname);
+  }
+
+  std::ofstream file(fname, std::ios_base::binary);
+
+  cereal::PortableBinaryOutputArchive arc(file);
+
+  arc(*this);
+}
+
+template <NodalMethod NM>
+inline std::unique_ptr<NodalDiffusionDriver<NM>> NodalDiffusionDriver<NM>::load(
+    const std::string& fname) {
+  if (std::filesystem::exists(fname) == false) {
+    std::stringstream mssg;
+    mssg << "The file \"" << fname << "\" does not exist.";
+    spdlog::error(mssg.str());
+    throw ScarabeeException(mssg.str());
+  }
+
+  std::unique_ptr<NodalDiffusionDriver> out(new NodalDiffusionDriver());
+
+  std::ifstream file(fname, std::ios_base::binary);
+
+  cereal::PortableBinaryInputArchive arc(file);
+
+  arc(*out);
+
+  return out;
 }
 
 }  // namespace scarabee

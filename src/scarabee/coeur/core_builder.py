@@ -1,6 +1,6 @@
 from .core_tile import CoreTile, SimpleTile, QuadrantsTile
 from .core_form_factors import CoreFormFactors
-from .._scarabee import DiffusionGeometry, NEMDiffusionDriver
+from .._scarabee import DiffusionGeometry, NEM4DiffusionDriver
 import numpy as np
 
 
@@ -215,7 +215,7 @@ class CoreBuilder:
             self.zmin_albedo,
             self.zmax_albedo,
         )
-        self.solver = NEMDiffusionDriver(self.diffusion_geometry)
+        self.solver = NEM4DiffusionDriver(self.diffusion_geometry)
 
         # For full core simulations, better to set a flux tolerance of 1.E-6 to
         # avoid asymmetric errors across the core
