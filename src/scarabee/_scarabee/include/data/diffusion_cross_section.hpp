@@ -39,12 +39,16 @@ class DiffusionCrossSection {
   bool fissile() const { return fissile_; }
 
   double D(std::size_t g) const { return D_(g); }
+  double& D_ref(std::size_t g) { return D_(g); }
 
   double Ea(std::size_t g) const { return Ea_(g); }
+  double& Ea_ref(std::size_t g) { return Ea_(g); }
 
   double Ef(std::size_t g) const { return Ef_(g); }
+  double& Ef_ref(std::size_t g) { return Ef_(g); }
 
   double vEf(std::size_t g) const { return vEf_(g); }
+  double& vEf_ref(std::size_t g) { return vEf_(g); }
 
   double nu(std::size_t g) const {
     const double Efg = Ef_(g);
@@ -57,8 +61,10 @@ class DiffusionCrossSection {
   double Er(std::size_t g) const { return Ea(g) + Es(g) - Es(g, g); }
 
   double chi(std::size_t g) const { return chi_(g); }
+  double& chi_ref(std::size_t g) { return chi_(g); }
 
   double Es(std::size_t gin, std::size_t gout) const { return Es_(gin, gout); }
+  double& Es_ref(std::size_t gin, std::size_t gout) { return Es_(gin, gout); }
 
   double Es(std::size_t gin) const {
     return xt::sum(xt::view(Es_, gin, xt::all()))();
@@ -82,10 +88,6 @@ class DiffusionCrossSection {
   bool fissile_;
 
   void check_xs();
-
-  // This is needed so that the NEM solver can update cross sections for
-  // leakakge durring the solve
-  friend class NEMDiffusionDriver;
 
   friend class cereal::access;
   DiffusionCrossSection() {}

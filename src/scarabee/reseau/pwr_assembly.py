@@ -2450,7 +2450,7 @@ class PWRAssembly:
             scarabee_log(LogLevel.Info, "")
             scarabee_log(LogLevel.Info, "Kinf: {:.5f}".format(self._asmbly_moc.keff))
 
-        self.apply_leakage_model()
+        self.apply_leakage_model(scilent=self.leakage_corrections)
         self.obtain_flux_spectra()
         self.normalize_flux_to_power()
         self.apply_infinite_spectrum()

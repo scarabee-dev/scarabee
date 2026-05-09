@@ -2,22 +2,28 @@
 #define SCARABEE_FINITE_DIFFERENCE_H
 
 #include <diffusion/nodal_method.hpp>
+#include <diffusion/node.hpp>
 #include <data/diffusion_cross_section.hpp>
+
+#include <cereal/cereal.hpp>
 
 #include <array>
 #include <cstddef>
+#include <cmath>
 #include <span>
 
 namespace scarabee {
 
 class FiniteDifference {
  public:
+  FiniteDifference() = default;
   FiniteDifference(std::size_t /*NG*/) {}
 
   static constexpr bool update_currents{false};
+  static constexpr bool reconstruct_flux{false};
 
-  void compute_keff_nonlinear_diffusion_coefficient(
-      std::span<const Node> lnode, const Side side, std::span<const Node> rnode,
+  double compute_keff_nonlinear_diffusion_coefficient(
+      std::span<Node> lnode, const Side side, std::span<Node> rnode,
       std::span<const double> D, const DiffusionCrossSection& lxs,
       const DiffusionCrossSection& rxs, const std::array<double, 3> ld,
       const std::array<double, 3> rd, std::span<double> Dnl,
@@ -30,6 +36,7 @@ class FiniteDifference {
     const double ldx = get_node_width(ld, side);
     const double rdx = get_node_width(rd, side);
 
+    double max_diff = 0.;
     for (std::size_t g = 0; g < Dnl.size(); g++) {
       const double phi_l = lnode[g].phi0();
       const double phi_r = rnode[g].phi0();
@@ -42,16 +49,22 @@ class FiniteDifference {
           ((2. * Dl * Dr) / (rdx * Dr + r * ldx * Dl)) * (phi_r - r * phi_l) -
           D[g] * (phi_r - phi_l);
       const double denom = phi_l + phi_r;
+
+      const double old_Dnlg = Dnl[g];
       Dnl[g] = num / denom;
+      const double diff = std::abs((Dnl[g] - old_Dnlg) / Dnl[g]);
+      if (diff > max_diff) max_diff = diff;
     }
+    return max_diff;
   }
 
-  void compute_keff_nonlinear_diffusion_coefficient(
-      std::span<const Node> /*lnode*/, const Side /*side*/,
+  double compute_keff_nonlinear_diffusion_coefficient(
+      std::span<Node> /*lnode*/, const Side /*side*/,
       std::span<const double> /*D*/, double /*B*/,
       const DiffusionCrossSection& /*lxs*/, const std::array<double, 3> /*ld*/,
       std::span<double> Dnl, const double /*invs_keff*/) {
     for (auto& Dg : Dnl) Dg = 0.;
+    return 0.;
   }
 
  private:
@@ -108,6 +121,12 @@ class FiniteDifference {
         return dx[0];  // Should never get here !
     }
   }
+
+ private:
+  friend class cereal::access;
+
+  template <class Archive>
+  void serialize(Archive& /*arc*/) {}
 };
 
 }  // namespace scarabee

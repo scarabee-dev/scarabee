@@ -724,14 +724,14 @@ void NEMDiffusionDriver::update_node_xs_and_matrices() {
       const double fvEf = lc.vEf(g_in) * LRr;
 
       // Update the cross sections
-      xs.D_(g_in) = (fD + 1.) * sa_xs.D(g_in);
-      xs.Ea_(g_in) = (fEa + 1.) * sa_xs.Ea(g_in);
-      xs.Ef_(g_in) = (fEf + 1.) * sa_xs.Ef(g_in);
-      xs.vEf_(g_in) = (fvEf + 1.) * sa_xs.vEf(g_in);
+      xs.D_ref(g_in) = (fD + 1.) * sa_xs.D(g_in);
+      xs.Ea_ref(g_in) = (fEa + 1.) * sa_xs.Ea(g_in);
+      xs.Ef_ref(g_in) = (fEf + 1.) * sa_xs.Ef(g_in);
+      xs.vEf_ref(g_in) = (fvEf + 1.) * sa_xs.vEf(g_in);
 
       for (std::size_t g_out = g_in + 1; g_out < NG_; g_out++) {
         const double fEs = lc.Es(g_in, g_out) * LRr;
-        xs.Es_(g_in, g_out) = (fEs + 1.) * sa_xs.Es(g_in, g_out);
+        xs.Es_ref(g_in, g_out) = (fEs + 1.) * sa_xs.Es(g_in, g_out);
       }
 
       this->fill_node_coupling_matrices(g_in, m, xs, del_x, del_y, del_z);

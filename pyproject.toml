@@ -1,7 +1,7 @@
 [build-system]
 requires = [
   "scikit-build-core>=0.10",
-  "pybind11==3.0.2",
+  "pybind11==3.0.4",
   "mypy",
   "numpy",
   "scipy"
@@ -11,6 +11,9 @@ build-backend = "scikit_build_core.build"
 [tool.scikit-build]
 sdist.exclude = ["src/scarabee/_scarabee"]
 cmake.build-type = "Release"
+
+[tool.scikit-build.cmake.define]
+NDEBUG = true
 
 [project]
 name = "scarabee"

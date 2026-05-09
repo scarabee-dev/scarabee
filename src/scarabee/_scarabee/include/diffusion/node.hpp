@@ -103,13 +103,33 @@ class Node {
   double adf_zn() const { return data_[24]; }
   double& adf_zn() { return data_[24]; }
 
+  // Surface fluxes
+  double phi_xp() const { return data_[25]; }
+  double& phi_xp() { return data_[25]; }
+
+  double phi_xn() const { return data_[26]; }
+  double& phi_xn() { return data_[26]; }
+
+  double phi_yp() const { return data_[27]; }
+  double& phi_yp() { return data_[27]; }
+
+  double phi_yn() const { return data_[28]; }
+  double& phi_yn() { return data_[28]; }
+
+  double phi_zp() const { return data_[29]; }
+  double& phi_zp() { return data_[29]; }
+
+  double phi_zn() const { return data_[30]; }
+  double& phi_zn() { return data_[30]; }
+
  private:
   // - The average flux phi
   // - Must know 6 Net Currents (each node face)
   // - For each direction, must know transverse leakage coeffs px1, px2, etc
   //   Must know 12 transverse leakage coefficients
   // - Must know 6 ADFs, one for each side
-  std::array<double, 25> data_;
+  // - Must know 6 surface fluxes
+  std::array<double, 31> data_;
 
   friend class cereal::access;
   template <class Archive>
