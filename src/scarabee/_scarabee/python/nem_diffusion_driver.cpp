@@ -13,8 +13,13 @@ void init_NEMDiffusionDriver(py::module& m) {
   py::class_<NEMDiffusionDriver>(
       m, "NEMDiffusionDriver",
       "A NEMDiffusionDriver solves a diffusion problem using the nodal "
-      "expansion method. It is capable of solving 3D problems which are "
-      "defined by providing a :py:class:`DiffusionGeometry` instance.")
+      "expansion method with the response matrix interface current "
+      "formalism. It is capable of solving 3D problems which are "
+      "defined by providing a :py:class:`DiffusionGeometry` instance.\n\n"
+      ".. deprecated:: 0.1.2\n"
+      "   `NEMDiffusionDriver` is deprecated and will be removed in the "
+      "future. It is replaced by `NEM4DiffusionDriver` because the latter "
+      "has better performance.")
 
       .def(py::init<std::shared_ptr<DiffusionGeometry> /*geom*/>(),
            "Initializes a nodal diffusion solver.\n\n"

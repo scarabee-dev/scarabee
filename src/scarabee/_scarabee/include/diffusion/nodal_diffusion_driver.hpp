@@ -1040,9 +1040,9 @@ void NodalDiffusionDriver<NM>::solve_keff() {
     spdlog::info("     keff difference:     {:.5E}", keff_diff);
     spdlog::info("     max flux difference: {:.5E}", flux_diff);
 
-    if (iteration % nonlinear_update_frequency_ == 0 ||
-        (flux_diff < flux_tol_ && D_diff > Dnl_tol_)) {
-      flux_diff = 1.;  // Make sure we do at least one iteration after update
+    if ((iteration % nonlinear_update_frequency_ == 0 ||
+         (flux_diff < flux_tol_ && D_diff > Dnl_tol_)) &&
+        (keff_diff > keff_tol_ || flux_diff > flux_tol_ || D_diff > Dnl_tol_)) {
       spdlog::info("-------------------------------------");
       spdlog::info("");
       spdlog::info("Updating nonlinear diffusion coefficients");
