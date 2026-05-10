@@ -12,16 +12,13 @@ build-backend = "scikit_build_core.build"
 sdist.exclude = ["src/scarabee/_scarabee"]
 cmake.build-type = "Release"
 
-[tool.scikit-build.cmake.define]
-NDEBUG = true
-
 [project]
 name = "scarabee"
 version = "0.1.1"
 authors = [
   {name = "Hunter Belanger", email = "hunter.belanger@gmail.com"},
 ]
-dependencies = ["numpy"]
+dependencies = ["numpy", "scipy"]
 description = "A lattice physics code for LWR analysis."
 readme = "README.md"
 license = "LGPL-3.0-or-later"
