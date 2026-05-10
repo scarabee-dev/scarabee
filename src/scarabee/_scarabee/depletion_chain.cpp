@@ -80,8 +80,7 @@ BranchingTargets::BranchingTargets(const std::vector<Branch>& branches)
     throw ScarabeeException(mssg);
   }
 
-  // Get sum of branch ratios
-  double ratios_sum = 0.;
+  // Make sure ratios are all > 0.
   for (const auto& branch : branches_) {
     if (branch.branch_ratio <= 0.) {
       const auto mssg =
@@ -89,22 +88,15 @@ BranchingTargets::BranchingTargets(const std::vector<Branch>& branches)
       spdlog::error(mssg);
       throw ScarabeeException(mssg);
     }
-
-    ratios_sum += branch.branch_ratio;
   }
 
-  // Make sure sum isn't greater than 1 + a small tolerance
-  if (ratios_sum > 1. + 1.E-5) {
-    const auto mssg = "Sum of branching ratios exceeds unity.";
-    spdlog::error(mssg);
-    throw ScarabeeException(mssg);
-  }
-
-  // We don't normalize the branching ratios and don't care if the sum < 1.
+  // We don't normalize the branching ratios and don't care if the sum != 1.
   // This is due to the fact that if we remove short lived nuclides, and they
   // don't have a decay target, we then the ratios wouldn't sum to unity
   // anymore ! Normalizing after would artificially increase production of the
-  // other possible targets in the branch which we don't want either.
+  // other possible targets in the branch which we don't want either. Also, a
+  // BranchingTargets could come from spontaneous fission, which will have a
+  // ratio sum which is quite different from unity.
 }
 
 void BranchingTargets::initialize_hdf5_group(H5::Group& grp) const {

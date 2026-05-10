@@ -1,3 +1,4 @@
+from pandas.core.array_algos.masked_reductions import prod
 from scarabee import (
     NoTarget,
     SingleTarget,
@@ -58,6 +59,34 @@ def read_fission_yields(node) -> Union[FissionYields, str]:
     return FissionYields(products, energies, yields)
 
 
+def add_spontaneous_fission_products_to_decay_branches(
+    fissyields: FissionYields, sf_branch_ratio: float, branches: list[Branch]
+):
+    Emin = fissyields.incident_energies[0]
+
+    # Go through all fission yield products
+    for i, product in enumerate(fissyields.targets):
+        prod_yield = fissyields.fission_yield(i, Emin)
+
+        if prod_yield == 0.0:
+            continue
+
+        # Check if the product is in the branches
+        found_product = False
+        for branch in branches:
+            if branch.target == product:
+                branch.branch_ratio += sf_branch_ratio * prod_yield
+                found_product = True
+                break
+
+        if not found_product:
+            # Must add a branch for this product
+            branch = Branch()
+            branch.target = product
+            branch.branch_ratio = sf_branch_ratio * prod_yield
+            branches.append(branch)
+
+
 def build_depletion_chain(omc_fname) -> DepletionChain:
     root = ET.parse(omc_fname).getroot()
 
@@ -74,6 +103,19 @@ def build_depletion_chain(omc_fname) -> DepletionChain:
         ):
             nuclide_name = strip_name(nuc.attrib["name"])
             fiss_yields[nuclide_name] = read_fission_yields(nuc[-1])
+
+    # Now we go through them all again, and this time we only add the ones
+    # which refer to the fission yield of another nuclide, which should have
+    # been added in the previous loop.
+    for nuc in root:
+        if (
+            len(nuc) > 0
+            and nuc[-1].tag == "neutron_fission_yields"
+            and "parent" in nuc[-1].attrib
+        ):
+            nuclide_name = strip_name(nuc.attrib["name"])
+            parent = strip_name(nuc[-1].attrib["parent"])
+            fiss_yields[nuclide_name] = fiss_yields[parent]
 
     # Parse all nuclides in the chain
     for nuc in root:
@@ -98,7 +140,15 @@ def build_depletion_chain(omc_fname) -> DepletionChain:
                     branch = Branch()
                     branch.target = strip_name(entry.attrib["target"])
                     branch.branch_ratio = float(entry.attrib["branching_ratio"])
-                    if branch.branch_ratio > 0.0:
+                    if branch.branch_ratio <= 0.0:
+                        continue
+                    if branch.target == nuclide_name:
+                        # Spontaneous Fission. Get the required fission yield
+                        fissyield = fiss_yields[branch.target]
+                        add_spontaneous_fission_products_to_decay_branches(
+                            fissyield, branch.branch_ratio, decay_branches_list
+                        )
+                    else:
                         decay_branches_list.append(branch)
 
             elif entry.tag == "reaction":
@@ -180,10 +230,7 @@ def build_depletion_chain(omc_fname) -> DepletionChain:
                     pass
 
             elif entry.tag == "neutron_fission_yields":
-                parent = nuclide_name
-                if "parent" in entry.attrib:
-                    parent = strip_name(entry.attrib["parent"])
-                n_fission = fiss_yields[parent]
+                n_fission = fiss_yields[nuclide_name]
 
         # Create decay targets (if there are any)
         decay_targets = None
