@@ -97,7 +97,7 @@ mathjax3_config = {
     'packages': {'[+]': ['newcommand', 'physics', 'boldsymbol']},
     'macros': {
       'pos': '\\boldsymbol{r}',
-      'dir': '\\boldsymbol{\hat{\Omega}}',
+      'dir': '\\boldsymbol{\\hat{\\Omega}}',
       'Et': '\\Sigma_t',
       'Es': '\\Sigma_s',
       'Ea': '\\Sigma_a',

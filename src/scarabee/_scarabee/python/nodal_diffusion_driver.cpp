@@ -212,14 +212,15 @@ void init_all_NodalDiffusionDrivers(py::module& m) {
   init_NodalDiffusionDriver<FiniteDifference>(
       m, "FDNodalDiffusionDriver",
       "A FDNodalDiffusionDriver solves a diffusion problem using the finite "
-      "difference formalism, but inside the nodal solver shell. Therefore, a "
-      "spatial discretization compatible with this method should be used. The "
-      "geometry is defined using a :py:class:`DiffusionGeometry` instance.");
+      "difference formalism, but inside the CMFD nodal solver shell. "
+      "Therefore, a spatial discretization compatible with finite differences "
+      "should be used. The geometry is defined with a "
+      ":py:class:`DiffusionGeometry` instance.");
 
   init_NodalDiffusionDriver<NEM4>(
       m, "NEM4DiffusionDriver",
-      "Solves a diffusion problem using the 4th order Nodal Expansion Method. "
-      "Uses a standard quadratic transverse leakage approximation. Can be used "
-      "with assembly or half assembly sized nodes. The geometry is defined "
-      "using a :py:class:`DiffusionGeometry` instance.");
+      "Solves a diffusion problem using the 4th order Nodal Expansion Method "
+      "with CMFD acceleration. Uses a standard quadratic transverse leakage "
+      "approximation. Can be used with assembly or half assembly sized nodes. "
+      "The geometry is defined with a :py:class:`DiffusionGeometry` instance.");
 }

@@ -25,6 +25,10 @@ NEMDiffusionDriver::NEMDiffusionDriver(std::shared_ptr<DiffusionGeometry> geom)
     spdlog::error(mssg);
     throw ScarabeeException(mssg);
   }
+
+  spdlog::warn(
+      "NEMDiffusionDriver is deprecated; please use NEM4DiffusionDriver "
+      "instead.");
 }
 
 void NEMDiffusionDriver::set_flux_tolerance(double ftol) {

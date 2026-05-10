@@ -6,7 +6,7 @@ from .._scarabee import (
     DiffusionData,
     ReflectorSN,
     DiffusionGeometry,
-    NEMDiffusionDriver,
+    NEM4DiffusionDriver,
     FormFactors,
     set_logging_level,
     scarabee_log,
@@ -351,8 +351,10 @@ class Reflector:
             1.0,
             1.0,
         )
-        nem_solver = NEMDiffusionDriver(nem_geom)
-        nem_solver.flux_tolerance = 1.0e-6
+        nem_solver = NEM4DiffusionDriver(nem_geom)
+        nem_solver.nonlinear_update_frequency = 1
+        nem_solver.source_extrapolation_frequency = 100
+        nem_solver.flux_tolerance = 1.0e-7
         set_logging_level(LogLevel.Warning)
         nem_solver.solve()
         set_logging_level(LogLevel.Info)
