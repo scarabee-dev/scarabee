@@ -373,6 +373,7 @@ class KRAMXS:
             return 0
         return len(self.Et)
 
+    @staticmethod
     def __read_line(fl):
         line = fl.readline()
         line = line.strip().split()
@@ -381,6 +382,7 @@ class KRAMXS:
         line = np.array(line)
         return line
 
+    @staticmethod
     def from_file(fname, max_l):
         fl = open(fname, "r")
         fl.readline()  # Skip the XSN 1 header
@@ -470,6 +472,60 @@ class KRAMXS:
         xs.nu = np.divide(vEf, Ef, out=np.zeros_like(vEf), where=Ef != 0.0)
         xs.chi = chi
         return xs
+
+
+class UltraFineGroupTable:
+    """Holds tabulated data from a FRENDY formated Ultra-Fine Group file.
+
+    Attributes
+    ----------
+    energy : np.ndarray
+        1D array with the energies in eV.
+    dilutions : np.ndarray
+        1D array with the dilutions in barns.
+    data : np.ndarray
+        2D array, indexed by dilution then energy.
+    """
+
+    def __init__(self, energy, dilutions, data):
+        self.energy = energy
+        self.dilutions = dilutions
+        self.data = data
+
+    @staticmethod
+    def from_file(fname: str):
+        """Reads an Ultra-Fine Group FRENDY formated table.
+
+        Parameters
+        ----------
+        fname : str
+            Name of file containing the table.
+
+        Returns
+        -------
+        UltraFineGroupTable
+        """
+        with open(fname, "r") as fl:
+            # Read the background cross sections
+            line = fl.readline().split()[5:]
+            dilutions = np.array([float(sig) for sig in line])
+
+            # Skip next 2 line
+            _ = fl.readline()
+            _ = fl.readline()
+
+            data = []
+            energy = []
+
+            # Read all groups
+            for line in fl:
+                line = fl.readline().split()
+                energy.append(float(line[2]))
+                data.append([float(val) for val in line[4:]])
+
+            energy = np.flip(np.array(energy))
+            data = np.flip(np.swapaxes(np.array(data), 0, 1), 1)
+        return UltraFineGroupTable(energy, dilutions, data)
 
 
 class FrendyMG:
