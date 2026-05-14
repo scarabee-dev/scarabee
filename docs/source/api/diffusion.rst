@@ -24,3 +24,5 @@ Diffusion
 .. autoclass:: scarabee.FDNodalDiffusionDriver
 
 .. autoclass:: scarabee.NEM4DiffusionDriver
+
+.. autoclass:: scarabee.SANMDiffusionDriver

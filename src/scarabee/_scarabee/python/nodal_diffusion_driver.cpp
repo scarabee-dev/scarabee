@@ -6,6 +6,7 @@
 #include <diffusion/nodal_diffusion_driver.hpp>
 #include <diffusion/finite_difference.hpp>
 #include <diffusion/nem4.hpp>
+#include <diffusion/sanm.hpp>
 
 #include <string>
 
@@ -220,6 +221,13 @@ void init_all_NodalDiffusionDrivers(py::module& m) {
   init_NodalDiffusionDriver<NEM4>(
       m, "NEM4DiffusionDriver",
       "Solves a diffusion problem using the 4th order Nodal Expansion Method "
+      "with CMFD acceleration. Uses a standard quadratic transverse leakage "
+      "approximation. Can be used with assembly or half assembly sized nodes. "
+      "The geometry is defined with a :py:class:`DiffusionGeometry` instance.");
+
+  init_NodalDiffusionDriver<SANM>(
+      m, "SANMDiffusionDriver",
+      "Solves a diffusion problem using the Semi-Analytical Nodal Method "
       "with CMFD acceleration. Uses a standard quadratic transverse leakage "
       "approximation. Can be used with assembly or half assembly sized nodes. "
       "The geometry is defined with a :py:class:`DiffusionGeometry` instance.");
