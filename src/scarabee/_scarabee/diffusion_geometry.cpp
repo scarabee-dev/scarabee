@@ -827,6 +827,9 @@ double DiffusionGeometry::adf_xp(std::size_t m, std::size_t g) const {
   // Check if we need to correct the reflector DF [1]
   if (mat(m)->reflector() && mat(*n)->reflector() == false) {
     return mat(m)->adf_xp(g) * mat(*n)->adf_xn(g);
+  } else if (mat(m)->reflector() && mat(*n)->reflector()) {
+    // At the interface of 2 reflector nodes, we only use and ADF of 1
+    return 1.;
   }
 
   // We are at the boarder of a tile, so we return the mat ADF.
@@ -861,6 +864,9 @@ double DiffusionGeometry::adf_xn(std::size_t m, std::size_t g) const {
   // Check if we need to correct the reflector DF [1]
   if (mat(m)->reflector() && mat(*n)->reflector() == false) {
     return mat(m)->adf_xn(g) * mat(*n)->adf_xp(g);
+  } else if (mat(m)->reflector() && mat(*n)->reflector()) {
+    // At the interface of 2 reflector nodes, we only use and ADF of 1
+    return 1.;
   }
 
   // We are at the boarder of a tile, so we return the mat ADF.
@@ -895,6 +901,9 @@ double DiffusionGeometry::adf_yp(std::size_t m, std::size_t g) const {
   // Check if we need to correct the reflector DF [1]
   if (mat(m)->reflector() && mat(*n)->reflector() == false) {
     return mat(m)->adf_yp(g) * mat(*n)->adf_yn(g);
+  } else if (mat(m)->reflector() && mat(*n)->reflector()) {
+    // At the interface of 2 reflector nodes, we only use and ADF of 1
+    return 1.;
   }
 
   // We are at the boarder of a tile, so we return the mat ADF.
@@ -929,6 +938,9 @@ double DiffusionGeometry::adf_yn(std::size_t m, std::size_t g) const {
   // Check if we need to correct the reflector DF [1]
   if (mat(m)->reflector() && mat(*n)->reflector() == false) {
     return mat(m)->adf_yn(g) * mat(*n)->adf_yp(g);
+  } else if (mat(m)->reflector() && mat(*n)->reflector()) {
+    // At the interface of 2 reflector nodes, we only use and ADF of 1
+    return 1.;
   }
 
   // We are at the boarder of a tile, so we return the mat ADF.
@@ -963,6 +975,9 @@ double DiffusionGeometry::adf_zp(std::size_t m, std::size_t g) const {
   // Check if we need to correct the reflector DF [1]
   if (mat(m)->reflector() && mat(*n)->reflector() == false) {
     return mat(m)->adf_zp(g) * mat(*n)->adf_zn(g);
+  } else if (mat(m)->reflector() && mat(*n)->reflector()) {
+    // At the interface of 2 reflector nodes, we only use and ADF of 1
+    return 1.;
   }
 
   // We are at the boarder of a tile, so we return the mat ADF.
@@ -997,6 +1012,9 @@ double DiffusionGeometry::adf_zn(std::size_t m, std::size_t g) const {
   // Check if we need to correct the reflector DF [1]
   if (mat(m)->reflector() && mat(*n)->reflector() == false) {
     return mat(m)->adf_zn(g) * mat(*n)->adf_zp(g);
+  } else if (mat(m)->reflector() && mat(*n)->reflector()) {
+    // At the interface of 2 reflector nodes, we only use and ADF of 1
+    return 1.;
   }
 
   // We are at the boarder of a tile, so we return the mat ADF.
