@@ -6,7 +6,7 @@ import numpy as np
 
 class CoreBuilder:
     """
-    The CoreBuilder class facilitates the construction of a NEMDiffusionDriver
+    The CoreBuilder class facilitates the construction of a NEM4DiffusionDriver
     instance and a CoreFormFactors instnace, which are used to perform a full
     core simulation and compute assembly/pin powers. This class not not yet
     fully support defining cores with quarter symmetry in the x-y plane. Users
