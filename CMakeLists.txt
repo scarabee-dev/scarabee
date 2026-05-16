@@ -123,7 +123,7 @@ FetchContent_MakeAvailable(xtensor-python)
 
 #===============================================================================
 # Get HDF5
-message(STATUS "Downloading HDF5 v2.0.0")
+message(STATUS "Downloading HDF5 v2.1.1")
 set(HDF5_EXTERNALLY_CONFIGURED  1)
 set(HDF5_ENABLE_SZIP_SUPPORT  OFF)
 set(HDF5_ENABLE_ZLIB_SUPPORT OFF)
@@ -133,8 +133,8 @@ set(HDF5_BUILD_UTILS          OFF)
 set(HDF5_BUILD_HL_LIB         OFF)
 set(BUILD_SHARED_LIBS         OFF)
 FetchContent_Declare(hdf5
-  URL      https://github.com/HDFGroup/hdf5/releases/download/2.0.0/hdf5-2.0.0.tar.gz
-  URL_HASH MD5=801597eccdf74d7304444fdc18652b75
+  URL      https://github.com/HDFGroup/hdf5/releases/download/2.1.1/hdf5-2.1.1.tar.gz
+  URL_HASH MD5=105d909d2d11374c6e78fda414802e93
   EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(hdf5)
