@@ -1260,9 +1260,7 @@ void CMFD::power_iteration(double keff) {
   // Begin power iteration
   double keff_diff = 100.;
   double flux_diff = 100.;
-  std::size_t iteration = 0;
   while (keff_diff > keff_tol_ || flux_diff > flux_tol_) {
-    iteration++;
     // Compute source vector
     Q = (1. / keff) * QM_ * flux_cmfd_;
 
