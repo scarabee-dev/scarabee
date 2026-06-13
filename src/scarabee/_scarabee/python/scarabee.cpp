@@ -7,6 +7,7 @@
 
 namespace py = pybind11;
 
+extern void init_Tab1(py::module&);
 extern void init_NuclideNameFuncs(py::module&);
 extern void init_XS1D(py::module&);
 extern void init_XS2D(py::module&);
@@ -55,6 +56,7 @@ PYBIND11_MODULE(_scarabee, m, py::mod_gil_not_used()) {
   xt::import_numpy();
 
   init_Logging(m);
+  init_Tab1(m);
   init_NuclideNameFuncs(m);
   init_Vector(m);
   init_Direction(m);
