@@ -729,7 +729,7 @@ class BurnablePoisonRod:
             F2.exponential_product(N)
 
         # Now we can build a new material composition
-        new_mat_comp = MaterialComposition()
+        new_mat_comp = MaterialComposition(name=mat.name)
         for i, nuclide in enumerate(nuclides):
             if N[i] > 0.0:
                 new_mat_comp.add_nuclide(nuclide, N[i])
@@ -823,7 +823,7 @@ class BurnablePoisonRod:
             F4.exponential_product(N)
 
         # Now we can build a new material composition
-        new_mat_comp = MaterialComposition()
+        new_mat_comp = MaterialComposition(name=mat_old.name)
         for i, nuclide in enumerate(nuclides):
             if N[i] > 0.0:
                 new_mat_comp.add_nuclide(nuclide, N[i])
