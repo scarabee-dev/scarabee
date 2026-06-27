@@ -267,25 +267,23 @@ def build_depletion_chain(omc_fname) -> DepletionChain:
 
     # Expunge all short-lives nuclides (i.e. half life less than 24 hrs) that
     # aren't in important chains.
-    nuclide_names = dc.nuclides
-    for nuc_name in nuclide_names:
-        if nuc_name in ["I135", "Xe135"]:
-            continue
-
-        nuc = dc.nuclide_data(nuc_name)
-
-        if nuc.half_life is not None and nuc.half_life < 60.0 * 60.0 * 24.0:
-            print("Removing {:} from chain".format(nuc_name))
-            dc.remove_nuclide(nuc_name)
-        elif nuc_name in [
-            "Cd115",
-            "Rh102",
-            "Rh102m1",
-            "Sb127",
-            "Br82",
-        ]:  # No Evals in ENDF-8.0 for these. RIP
-            print("Removing {:} from chain".format(nuc_name))
-            dc.remove_nuclide(nuc_name)
+    #nuclide_names = dc.nuclides
+    #for nuc_name in nuclide_names:
+    #    if nuc_name in ["I135", "Xe135"]:
+    #        continue
+    #    nuc = dc.nuclide_data(nuc_name)
+    #    if nuc.half_life is not None and nuc.half_life < 60.0 * 60.0 * 24.0:
+    #        print("Removing {:} from chain".format(nuc_name))
+    #        dc.remove_nuclide(nuc_name)
+    #    elif nuc_name in [
+    #        "Cd115",
+    #        "Rh102",
+    #        "Rh102m1",
+    #        "Sb127",
+    #        "Br82",
+    #    ]:  # No Evals in ENDF-8.0 for these. RIP
+    #        print("Removing {:} from chain".format(nuc_name))
+    #        dc.remove_nuclide(nuc_name)
 
     return dc
 

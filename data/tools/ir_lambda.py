@@ -1,7 +1,13 @@
-from scarabee import FluxCalculator, scarabee_log, LogLevel
-import pyPapillonNDL as pndl
+from scarabee import FluxCalculator, scarabee_log, LogLevel, Tab1
 import numpy as np
 
+class NuclideInfo:
+    def __init__(self, awr: float, total_xs: Tab1, elastic_xs: Tab1, capture_xs: Tab1):
+        self.awr = awr
+        # Cross sections should all be tabulated in eV !
+        self.total_xs = total_xs
+        self.elastic_xs = elastic_xs
+        self.capture_xs = capture_xs
 
 class DilutionTable:
     def __init__(self, dilutions, xs):
@@ -107,50 +113,45 @@ class IRLambdaCalculator:
 
     def __init__(
         self,
-        Nr,
-        awr,
-        sig_pot,
-        reference_dilution,
+        Nr: NuclideInfo,
+        awr: float,
+        sig_pot: float,
+        reference_dilution: float,
         mg_energy_boundaries,
         dilution_table=None,
+        verbose: bool = True
     ):
         self.Nr = Nr
         self.mg_energy_boundaries = mg_energy_boundaries
         self.dilution_table = dilution_table
         self.reference_dilution = reference_dilution
         self.ir_lambda = None
+        self.verbose = verbose
 
         # Parameters of nuclide for which we want to generate IR parameters
         self.awr = awr
         self.sig_pot = sig_pot
 
         # Get parameters for the slowing down calculations
-        self.energy_bounds = np.geomspace(1.0e-5, 20.0e6, 500000)
-        self.sig_t = np.zeros(self.energy_bounds.size - 1)
-        self.sig_s = np.zeros(self.energy_bounds.size - 1)
-        for g in range(self.sig_t.size):
-            E = 0.5 * (self.energy_bounds[g + 1] + self.energy_bounds[g]) * 1.0e-6
-            self.sig_t[g] = self.Nr.total_xs()(E)
-            self.sig_s[g] = self.Nr.elastic_xs()(E)
+        self.energy_bounds = np.geomspace(1.0e-5, 20.0E6, 500000)
+        Emids = 0.5 * (self.energy_bounds[1:] + self.energy_bounds[:-1])
+        self.sig_t = self.Nr.total_xs(Emids)
+        self.sig_s = self.Nr.elastic_xs(Emids)
 
         if self.dilution_table is None:
             self.generate_dilution_table()
 
     def compute_H1_capture_xs(self, sig_d):
         # Do slowing down calculation
-        calc = FluxCalculator(self.energy_bounds, self.sig_t, self.sig_s, self.Nr.awr())
+        calc = FluxCalculator(self.energy_bounds, self.sig_t, self.sig_s, self.Nr.awr)
         calc.add_background_nuclide(sig_d, self.AWR_H1)
         calc.solve()
 
-        xs_102 = self.Nr.reaction(102).xs()
-
         # Setup functions and arrays
-        flux = pndl.Tabulated1D(pndl.Interpolation.LinLin, calc.avg_energy, calc.flux)
-        sig_mt102_flx = np.array(xs_102.xs())
-        enrgy = np.array(xs_102.energy()) * 1.0e6  # Convert energies from MeV to eV
-        for i in range(len(enrgy)):
-            sig_mt102_flx[i] *= flux(enrgy[i])
-        xs_flx = pndl.Tabulated1D(pndl.Interpolation.LinLin, enrgy, sig_mt102_flx)
+        flux = Tab1(calc.avg_energy, calc.flux)
+        enrgy = self.Nr.capture_xs.x
+        sig_mt102_flx = flux(enrgy) * self.Nr.capture_xs.y
+        xs_flx = Tab1(enrgy, sig_mt102_flx)
 
         # Do integrations for the xs
         mg_sig = np.zeros(self.mg_energy_boundaries.size - 1)
@@ -162,7 +163,8 @@ class IRLambdaCalculator:
         return mg_sig
 
     def generate_dilution_table(self):
-        scarabee_log(LogLevel.Info, "Generating resonant nuclide dilution table...")
+        if self.verbose:
+            scarabee_log(LogLevel.Info, "Generating resonant nuclide dilution table...")
         dilutions = np.geomspace(0.1, 10000.0, 100)
         xs = np.zeros((dilutions.size, self.mg_energy_boundaries.size - 1))
 
@@ -170,7 +172,8 @@ class IRLambdaCalculator:
             xs[i, :] = self.compute_H1_capture_xs(dilutions[i])
 
         self.dilution_table = DilutionTable(dilutions, xs)
-        scarabee_log(LogLevel.Info, "Resonant nuclide dilution table generated.")
+        if self.verbose:
+            scarabee_log(LogLevel.Info, "Resonant nuclide dilution table generated.")
 
     def solve(self):
         # This ratio is N_H1 / N_r
@@ -181,21 +184,17 @@ class IRLambdaCalculator:
         R_nuc = 0.05 * R_H1_r
 
         # Do slowing down calculation
-        calc = FluxCalculator(self.energy_bounds, self.sig_t, self.sig_s, self.Nr.awr())
+        calc = FluxCalculator(self.energy_bounds, self.sig_t, self.sig_s, self.Nr.awr)
         calc.add_background_nuclide(R_H1 * self.SIG_POT_H1, self.AWR_H1)
         calc.add_background_nuclide(R_nuc * self.sig_pot, self.awr)
         calc.solve()
 
         # From flux, compute the MGXS
-        xs_102 = self.Nr.reaction(102).xs()
-
         # Setup functions and arrays
-        flux = pndl.Tabulated1D(pndl.Interpolation.LinLin, calc.avg_energy, calc.flux)
-        sig_mt102_flx = np.array(xs_102.xs())
-        enrgy = np.array(xs_102.energy()) * 1.0e6  # Convert energies from MeV to eV
-        for i in range(len(enrgy)):
-            sig_mt102_flx[i] *= flux(enrgy[i])
-        xs_flx = pndl.Tabulated1D(pndl.Interpolation.LinLin, enrgy, sig_mt102_flx)
+        flux = Tab1(calc.avg_energy, calc.flux)
+        enrgy = self.Nr.capture_xs.x
+        sig_mt102_flx = flux(enrgy) * self.Nr.capture_xs.y
+        xs_flx = Tab1(enrgy, sig_mt102_flx)
 
         # Do integrations for the xs
         mg_sig = np.zeros(self.mg_energy_boundaries.size - 1)
@@ -219,23 +218,25 @@ class IRLambdaCalculator:
                     )
 
                     if self.ir_lambda[g] < 0.0 or 1.0 < self.ir_lambda[g]:
-                        Ehi = self.mg_energy_boundaries[g]
-                        Elow = self.mg_energy_boundaries[g + 1]
-                        mssg = "Reseting IR parameter in group {:d} with energy interval [{:.5E}, {:.5E}] eV from {:.3f} to 1.".format(
-                            g + 1, Elow, Ehi, self.ir_lambda[g]
+                        self.ir_lambda[g] = 1.0
+                        if self.verbose:
+                            Ehi = self.mg_energy_boundaries[g]
+                            Elow = self.mg_energy_boundaries[g + 1]
+                            mssg = "Reseting IR parameter in group {:d} with energy interval [{:.5E}, {:.5E}] eV from {:.3f} to 1.".format(
+                                g + 1, Elow, Ehi, self.ir_lambda[g]
+                            )
+                            scarabee_log(LogLevel.Warning, mssg)
+                except:
+                    self.ir_lambda[g] = 1.0
+                    if self.verbose:
+                        mssg = "Group {:d} sig_a: {:.5E}, lowest tabulated sig_a: {:.5E}, highest tabulated sig_a: {:.5E}".format(
+                            g + 1,
+                            mg_sig[g],
+                            self.dilution_table.xs[0, g],
+                            self.dilution_table.xs[-1, g],
                         )
                         scarabee_log(LogLevel.Warning, mssg)
-                        self.ir_lambda[g] = 1.0
-                except:
-                    mssg = "Group {:d} sig_a: {:.5E}, lowest tabulated sig_a: {:.5E}, highest tabulated sig_a: {:.5E}".format(
-                        g + 1,
-                        mg_sig[g],
-                        self.dilution_table.xs[0, g],
-                        self.dilution_table.xs[-1, g],
-                    )
-                    scarabee_log(LogLevel.Warning, mssg)
-                    scarabee_log(LogLevel.Warning, "    Setting IR parameter to 1.")
-                    self.ir_lambda[g] = 1.0
+                        scarabee_log(LogLevel.Warning, "    Setting IR parameter to 1.")
             else:
                 # Ehi = self.mg_energy_boundaries[g]
                 # Elow = self.mg_energy_boundaries[g+1]
@@ -245,12 +246,13 @@ class IRLambdaCalculator:
 
 
 def generate_U238_U235_ir_lambda(
-    U238: pndl.STNeutron,
-    U235: pndl.STNeutron,
+    U238: NuclideInfo,
+    U235: NuclideInfo,
     awr: float,
     sig_pot: float,
     mg_energy_bounds: np.ndarray,
     dilution: float = 50.0,
+    verbose: bool = True
 ):
     lmbda_U238 = IRLambdaCalculator(
         U238,
@@ -258,6 +260,7 @@ def generate_U238_U235_ir_lambda(
         sig_pot=sig_pot,
         reference_dilution=dilution,
         mg_energy_boundaries=mg_energy_bounds,
+        verbose=verbose
     )
     lmbda_U238.solve()
 
@@ -267,6 +270,7 @@ def generate_U238_U235_ir_lambda(
         sig_pot=sig_pot,
         reference_dilution=dilution,
         mg_energy_boundaries=mg_energy_bounds,
+        verbose=verbose
     )
     lmbda_U235.solve()
 
