@@ -119,7 +119,7 @@ assembly calculations, you will need a multi-group nuclear data library (NDL).
 To build an NDL for Scarabée you will need a Unix-like operating system (such as
 Linux or macOS). If you are on Windows, you can use the `Windows Subsystem for
 Linux (WSL) <https://learn.microsoft.com/en-us/windows/wsl/install>`_ to
-completethis task.
+complete this task.
 
 You will also need to download the ENDF files you want to use for your library.
 There are many different publicly available libraries, the most popular of which
@@ -127,16 +127,20 @@ are `ENDF <https://www.nndc.bnl.gov/endf/>`_,
 `JEFF <https://www.oecd-nea.org/dbdata/jeff/>`_, and
 `JENDL <https://wwwndc.jaea.go.jp/jendl/jendl.html>`_. The Scarabée source
 repository contains a pre-generated script to produce a library for
-`ENDF/B-VIII.0 <https://www.nndc.bnl.gov/endf-b8.0/download.html>`_. You are
-certainly able to generate a library using a different evaluation should you
-desire. If you do this, please consider contributing your script to the Scarabée
-project ! Download the ENDF files of your choice and store them in a place where
-they can be accessed by the processing script later on.
+`ENDF/B-VIII.0 <https://www.nndc.bnl.gov/endf-b8.0/download.html>`_. This script
+also assumes you have a
+`TENDL <https://tendl.imperial.ac.uk/tendl_2025/tendl2025.html>`_ library on
+your system, as some short-lived nuclides which are not present in ENDF are
+taken from there. You are certainly able to generate a library using a different
+library should you desire. If you do this, please consider contributing your
+script to the Scarabée project ! Download the ENDF files of your choice and
+store them in a place where they can be accessed by the processing script.
 
 In addition to having already installed Scarabée, you also need to install the
-Python packages `ENDFtk <https://github.com/njoy/ENDFtk>`_ and
-`PapillonNDL <https://github.com/HunterBelanger/papillon-ndl>`_. Both must be
-compiled from source.
+`endf <https://github.com/paulromano/endf-python>`_ Python package. While a
+version of this package can be installed from PyPI with pip, you should install
+it from the GitHub source, as Scarabée requires a version that is not yet
+available on PyPI.
 
 To process the ENDF files, the
 `FRENDY <https://rpg.jaea.go.jp/main/en/program_frendy/>`_ nuclear data
@@ -150,27 +154,21 @@ executable is available in your path.
   called ``frendy``, without any extension ! Therefore, you should be sure to
   rename the executable after it has been compiled.
 
-In the `data` folder of the source repository repository, you will find the
-example script to generate a library from ENDF/B-VIII.0 files. You should use
-this script as a base, and modify it to your needs. If you are going to make an
-ENDF/B-VIII.0 library, you should only need to modify the first few lines in
-the block at the top of the file (i.e. the location of the ENDF files, desired
-temperatures, desired group structure, etc.). After this is complete, you can
-run the python script from within the `data` directory, and it should begin to
-process your data library.
+In the `data` folder of the source repository, you will find the example script
+to generate a library from ENDF/B-VIII.0 files. You should use this script as a
+base, and modify it to your needs. If you are going to make an ENDF/B-VIII.0
+library, you should only need to modify the first few lines in the block at the
+top of the file (i.e. the location of the ENDF files, the location of the TENDL
+files, desired temperatures, desired group structure, etc.). After this is
+complete, you can run the python script from within the `data` directory, and
+it should begin to process your data library.
 
 .. Warning::
 
-  Generating a nuclear data library is **extremely** computationally intensive.
-  Depending on the number of nuclides and the number of temperatures, it could 
-  take a dedicated PC up to 1 week to complete processing.
-
-.. Tip::
-
-   If for some reason, the script dies in the middle of processing, you do not
-   need to restart from scratch once you have fixed the problem ! You can
-   simply comment out the library information lines and the nuclides which were
-   processed sucessfully, then re-start the script.
+  Generating a nuclear data library is very computationally intensive.
+  Depending on the number of nuclides, the number of temperatures, and the
+  number of parallel threads used, it could take a dedicated PC approximately
+  24 hours to complete processing.
 
 After the script has completed, you should have a new HDF5 formated file which
 contains the entire nuclear data library and depletion chain.

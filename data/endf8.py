@@ -21,10 +21,10 @@ temperatures = [293.0, 500.0, 600.0, 800.0, 1000.0, 1500.0, 2000.0]
 
 num_threads = 15
 
-lib_fname = "endf8_scale56.h5"
+lib_fname = "endf8_shem281.h5"
 
 # Set the default group strucutre
-fdy.set_default_group_structure("SCALE-56")
+fdy.set_default_group_structure("SHEM-281")
 fdy.set_default_max_legendre_moments(3)
 
 ####################################################################################
@@ -136,17 +136,17 @@ def tsl(
 inf = [1.0E10]
 nuc_args = [("H1",      "n-001_H_001.endf",    inf, chi),
             ("H2",      "n-001_H_002.endf",    inf, chi),
-            ("He3",     "n-002_He_003.endf",   inf, chi),
-            ("He4",     "n-002_He_004.endf",   inf, chi),
-            ("Li6",     "n-003_Li_006.endf",   inf, chi),
-            ("Li7",     "n-003_Li_007.endf",   inf, chi),
+            ("He3",     "n-002_He_003.endf",   inf),
+            ("He4",     "n-002_He_004.endf",   inf),
+            ("Li6",     "n-003_Li_006.endf",   inf),
+            ("Li7",     "n-003_Li_007.endf",   inf),
             ("Be9",     "n-004_Be_009.endf",   inf, chi),
-            ("B10",     "n-005_B_010.endf",    inf, chi),
-            ("B11",     "n-005_B_011.endf",    inf, chi),
+            ("B10",     "n-005_B_010.endf",    inf),
+            ("B11",     "n-005_B_011.endf",    inf),
             ("C12",     "n-006_C_012.endf",    inf, chi),
             ("C13",     "n-006_C_013.endf",    inf, chi),
-            ("N14",     "n-007_N_014.endf",    inf, chi),
-            ("N15",     "n-007_N_015.endf",    inf, chi),
+            ("N14",     "n-007_N_014.endf",    inf),
+            ("N15",     "n-007_N_015.endf",    inf),
             ("O16",     "n-008_O_016.endf",    inf, chi),
             ("O17",     "n-008_O_017.endf",    inf, chi),
             ("O18",     "n-008_O_018.endf",    inf, chi),
@@ -158,6 +158,7 @@ nuc_args = [("H1",      "n-001_H_001.endf",    inf, chi),
             ("Si28",    "n-014_Si_028.endf",   inf),
             ("Si29",    "n-014_Si_029.endf",   inf),
             ("Si30",    "n-014_Si_030.endf",   inf),
+            ("P31",     "n-015_P_031.endf",    inf),
             ("Ar36",    "n-018_Ar_036.endf",   inf),
             ("Ar38",    "n-018_Ar_038.endf",   inf),
             ("Ar40",    "n-018_Ar_040.endf",   inf),
