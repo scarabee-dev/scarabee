@@ -286,6 +286,14 @@ inline NodalDiffusionDriver<NM>::NodalDiffusionDriver(
     if (diff_data->leakage_corrections()) has_leakage_corrections = true;
   }
 
+  if (has_leakage_corrections && NM::update_currents == false) {
+    const auto mssg =
+        "This nodal method does not support leakage corrections, but they are "
+        "present in at least one node.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
   // By default, if there is a node that provides leakage corrections, they
   // will be used in the simulation. The use of leakage corrections can still
   // be disabled after initialization, if desired by the user.

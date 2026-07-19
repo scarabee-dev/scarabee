@@ -4,6 +4,24 @@ Upcoming Release Notes
 
 .. currentmodule:: scarabee
 
+---------------------
+Important API Changes
+---------------------
+
+- Previously, when using the B1 or P1 leakage models, the flux spectrum obtained by the
+  model would be used to condense fine-group diffusion coefficients obtained by
+  homogenizing the assembly's transport cross section, completely disregarding the
+  diffusion coefficients computed by the leakage model. Therefore, while the P1 leakage
+  model was being used by default, it was not being used to compute the diffusion
+  coefficients. This was an intentional design choice, but it is likely not what users
+  expect. Now, when using the B1 or P1 leakage models, the diffusion coefficients
+  produced for the assembly are computed with the fine-group diffusion coefficients
+  calculated by the leakage model. Using the fundamental mode spectrum option, however,
+  was always self consistent as this model directly uses the assembly homogenized
+  transport cross sections to compute fine-group diffusion coefficients. 
+
+- The default leakage model has been changed from P1 to Fundamental-Model.
+
 ------------
 New Features
 ------------
@@ -26,6 +44,11 @@ New Features
 - A new Semi-Analytical Nodal Method solver, called :class:`SANMDiffusionDriver` has been
   added, based on the new nodal diffusion solver shell. This solver uses a flux expansion
   based on a quadratic and hyperbolic functions.
+
+- The :class:`NEMDiffusionDriver`, :class:`NEM4DiffusionDriver`, and
+  :class:`SANMDiffusionDriver` classes can now detect when leakage corrections are
+  present in a problem, and will use them automatically. They can, however, be disabled
+  by the user after construction by setting the leakage_correction attribute to False.
 
 ---------
 Bug Fixes

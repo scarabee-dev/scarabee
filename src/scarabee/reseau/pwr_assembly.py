@@ -512,7 +512,7 @@ class PWRAssembly:
         self._asmbly_moc: Optional[MOCDriver] = None
 
         self._leakage_corrections: bool = False
-        self._leakage_model: CriticalLeakage = CriticalLeakage.P1
+        self._leakage_model: CriticalLeakage = CriticalLeakage.FundamentalMode
         self._infinite_flux_spectrum = (
             None  # To reset to infinite spectrum in MOC driver
         )
@@ -2231,12 +2231,17 @@ class PWRAssembly:
         # Obtain the flux spectrum for condensation
         if self.leakage_corrections or self.leakage_model == CriticalLeakage.NoLeakage:
             flux_spectrum = self._asmbly_moc.homogenize_flux_spectrum()
+            diff_xs = homog_xs.diffusion_xs()
+            return diff_xs.condense(self.condensation_scheme, flux_spectrum)
         elif self.leakage_model == CriticalLeakage.P1:
-            flux_spectrum = P1CriticalitySpectrum(homog_xs).flux
+            crit_spectrum = P1CriticalitySpectrum(homog_xs)
         elif self.leakage_model == CriticalLeakage.B1:
-            flux_spectrum = B1CriticalitySpectrum(homog_xs).flux
+            crit_spectrum = B1CriticalitySpectrum(homog_xs)
         else:
-            flux_spectrum = FundamentalModeCriticalitySpectrum(homog_xs).flux
+            crit_spectrum = FundamentalModeCriticalitySpectrum(homog_xs)
+
+        flux_spectrum = crit_spectrum.flux
+        diff_xs = crit_spectrum.make_diffusion_cross_section()
 
         # Convert xs to diffusion xs, then condense
         diff_xs = homog_xs.diffusion_xs()
@@ -2274,11 +2279,13 @@ class PWRAssembly:
         diff_xs = homog_xs.diffusion_xs()
         for B2 in B2s:
             if self.leakage_model == CriticalLeakage.P1:
-                flux_spectrum = P1CriticalitySpectrum(homog_xs, B2).flux
+                crit_spectrum = P1CriticalitySpectrum(homog_xs, B2)
             elif self.leakage_model == CriticalLeakage.B1:
-                flux_spectrum = B1CriticalitySpectrum(homog_xs, B2).flux
+                crit_spectrum = B1CriticalitySpectrum(homog_xs, B2)
             else:
-                flux_spectrum = FundamentalModeCriticalitySpectrum(homog_xs, B2).flux
+                crit_spectrum = FundamentalModeCriticalitySpectrum(homog_xs, B2)
+            flux_spectrum = crit_spectrum.flux
+            diff_xs = crit_spectrum.make_diffusion_cross_section()
             xss.append(diff_xs.condense(self.condensation_scheme, flux_spectrum))
         xs_ref = xss[int(NB / 2)]
 
