@@ -273,6 +273,7 @@ inline NodalDiffusionDriver<NM>::NodalDiffusionDriver(
 
   // Initialize mats_
   mats_.reserve(NM_);
+  bool has_leakage_corrections = false;
   for (std::size_t m = 0; m < NM_; m++) {
     const auto geom_indx = geom_->geom_indx(m);
     const auto& diff_data = geom_->mat(geom_indx);
@@ -280,7 +281,15 @@ inline NodalDiffusionDriver<NM>::NodalDiffusionDriver(
     // Save hard copy of cross section that can be modified !
     mats_.emplace_back(diff_data,
                        std::make_shared<DiffusionCrossSection>(*xs_ptr));
+
+    // Check if we have leakage corrections present at all
+    if (diff_data->leakage_corrections()) has_leakage_corrections = true;
   }
+
+  // By default, if there is a node that provides leakage corrections, they
+  // will be used in the simulation. The use of leakage corrections can still
+  // be disabled after initialization, if desired by the user.
+  this->leakage_corrections_ = has_leakage_corrections;
 
   // Initialize neighbors
   neighbors_.resize({NM_, 6});

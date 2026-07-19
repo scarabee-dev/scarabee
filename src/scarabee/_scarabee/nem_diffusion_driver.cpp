@@ -29,6 +29,19 @@ NEMDiffusionDriver::NEMDiffusionDriver(std::shared_ptr<DiffusionGeometry> geom)
   spdlog::warn(
       "NEMDiffusionDriver is deprecated; please use NEM4DiffusionDriver "
       "instead.");
+
+  bool has_leakage_corrections = false;
+  for (std::size_t m = 0; m < NM_; m++) {
+    const auto geom_indx = geom_->geom_indx(m);
+    const auto& diff_data = geom_->mat(geom_indx);
+    // Check if we have leakage corrections present at all
+    if (diff_data->leakage_corrections()) has_leakage_corrections = true;
+  }
+
+  // By default, if there is a node that provides leakage corrections, they
+  // will be used in the simulation. The use of leakage corrections can still
+  // be disabled after initialization, if desired by the user.
+  this->leakage_corrections_ = has_leakage_corrections;
 }
 
 void NEMDiffusionDriver::set_flux_tolerance(double ftol) {
