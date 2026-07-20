@@ -19,6 +19,7 @@ build:
     - libwayland-dev
     - libxkbcommon-dev
     - xorg-dev
+    - libhdf5-dev
   jobs:
     pre_build:
       - python -m pip install --no-cache-dir -v .

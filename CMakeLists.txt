@@ -5,6 +5,13 @@ project(${SKBUILD_PROJECT_NAME}
 
 option(SCARABEE_USE_OMP "Compile Scarabée with OpenMP for shared memory parallelism" ON)
 
+# Check if we are on read-the-docs
+set(SCARABEE_ON_RTD OFF) # Building on ReadTheDocs. If true, uses system HDF5.
+if(DEFINED ENV{READTHEDOCS})
+  message("-- On ReadTheDocs. Using system HDF5.")
+  set(SCARABEE_ON_RTD ON)
+endif()
+
 # Warning if the user invokes CMake directly
 if (NOT SKBUILD)
   message(WARNING "\
@@ -123,21 +130,25 @@ FetchContent_MakeAvailable(xtensor-python)
 
 #===============================================================================
 # Get HDF5
-message(STATUS "Downloading HDF5 v2.1.1")
-set(HDF5_EXTERNALLY_CONFIGURED  1)
-set(HDF5_ENABLE_SZIP_SUPPORT  OFF)
-set(HDF5_ENABLE_ZLIB_SUPPORT OFF)
-set(HDF5_BUILD_EXAMPLES       OFF)
-set(HDF5_BUILD_TOOLS          OFF)
-set(HDF5_BUILD_UTILS          OFF)
-set(HDF5_BUILD_HL_LIB         OFF)
-set(BUILD_SHARED_LIBS         OFF)
-FetchContent_Declare(hdf5
-  URL      https://github.com/HDFGroup/hdf5/releases/download/2.1.1/hdf5-2.1.1.tar.gz
-  URL_HASH MD5=105d909d2d11374c6e78fda414802e93
-  EXCLUDE_FROM_ALL
-)
-FetchContent_MakeAvailable(hdf5)
+if (SCARABEE_ON_RTD)
+  find_package(HDF5 REQUIRED)
+else()
+  message(STATUS "Downloading HDF5 v2.1.1")
+  set(HDF5_EXTERNALLY_CONFIGURED  1)
+  set(HDF5_ENABLE_SZIP_SUPPORT  OFF)
+  set(HDF5_ENABLE_ZLIB_SUPPORT OFF)
+  set(HDF5_BUILD_EXAMPLES       OFF)
+  set(HDF5_BUILD_TOOLS          OFF)
+  set(HDF5_BUILD_UTILS          OFF)
+  set(HDF5_BUILD_HL_LIB         OFF)
+  set(BUILD_SHARED_LIBS         OFF)
+  FetchContent_Declare(hdf5
+    URL      https://github.com/HDFGroup/hdf5/releases/download/2.1.1/hdf5-2.1.1.tar.gz
+    URL_HASH MD5=105d909d2d11374c6e78fda414802e93
+    EXCLUDE_FROM_ALL
+  )
+  FetchContent_MakeAvailable(hdf5)
+endif()
 
 #===============================================================================
 # Get HighFive
@@ -267,7 +278,11 @@ pybind11_add_module(_scarabee src/scarabee/_scarabee/constants.cpp
                               src/scarabee/_scarabee/python/depletion_matrix.cpp
                             )
 target_compile_features(_scarabee PRIVATE cxx_std_20)
-target_link_libraries(_scarabee PUBLIC xtl xtensor xtensor-python htl HighFive hdf5-static Eigen3::Eigen spdlog::spdlog ImApp::ImApp cereal::cereal)
+if (SCARABEE_ON_RTD)
+  target_link_libraries(_scarabee PUBLIC xtl xtensor xtensor-python htl HighFive HDF5::HDF5 Eigen3::Eigen spdlog::spdlog ImApp::ImApp cereal::cereal)
+else()
+  target_link_libraries(_scarabee PUBLIC xtl xtensor xtensor-python htl HighFive hdf5-static Eigen3::Eigen spdlog::spdlog ImApp::ImApp cereal::cereal)
+endif()
 target_include_directories(_scarabee PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/scarabee/_scarabee/include>
 )
