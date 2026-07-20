@@ -8,7 +8,7 @@ option(SCARABEE_USE_OMP "Compile Scarabée with OpenMP for shared memory paralle
 # Check if we are on read-the-docs
 set(SCARABEE_ON_RTD OFF) # Building on ReadTheDocs. If true, uses system HDF5.
 if(DEFINED ENV{READTHEDOCS})
-  message("-- On ReadTheDocs. Using system HDF5.")
+  message(STATUS "On ReadTheDocs. Using system HDF5. No plotting.")
   set(SCARABEE_ON_RTD ON)
 endif()
 
@@ -167,13 +167,15 @@ FetchContent_MakeAvailable(HighFive)
 
 #===============================================================================
 # Get ImApp
-message(STATUS "Downloading ImApp")
-FetchContent_Declare(ImApp
-  URL      https://github.com/HunterBelanger/ImApp/archive/a57eca8f4e837a4179395dcffa054e1019df6729.tar.gz
-  URL_HASH MD5=c290a15983be94c499927c505d7827ec
-  EXCLUDE_FROM_ALL
-)
-FetchContent_MakeAvailable(ImApp)
+if (NOT SCARABEE_ON_RTD)
+  message(STATUS "Downloading ImApp")
+  FetchContent_Declare(ImApp
+    URL      https://github.com/HunterBelanger/ImApp/archive/a57eca8f4e837a4179395dcffa054e1019df6729.tar.gz
+    URL_HASH MD5=c290a15983be94c499927c505d7827ec
+    EXCLUDE_FROM_ALL
+  )
+  FetchContent_MakeAvailable(ImApp)
+endif()
 
 #===============================================================================
 # Get Cereal
@@ -189,99 +191,108 @@ FetchContent_Declare(cereal
 FetchContent_MakeAvailable(cereal)
 
 #===============================================================================
+# Define source files
+set(SCARABEE_SOURCES src/scarabee/_scarabee/constants.cpp
+                     src/scarabee/_scarabee/nuclide_names.cpp
+                     src/scarabee/_scarabee/water.cpp
+                     src/scarabee/_scarabee/logging.cpp
+                     src/scarabee/_scarabee/gauss_legendre.cpp
+                     src/scarabee/_scarabee/gauss_kronrod.cpp
+                     src/scarabee/_scarabee/chebyshev.cpp
+                     src/scarabee/_scarabee/math.cpp
+                     src/scarabee/_scarabee/tab1.cpp
+                     src/scarabee/_scarabee/homogenization.cpp
+                     src/scarabee/_scarabee/cross_section.cpp
+                     src/scarabee/_scarabee/diffusion_cross_section.cpp
+                     src/scarabee/_scarabee/material.cpp
+                     src/scarabee/_scarabee/nd_library.cpp
+                     src/scarabee/_scarabee/flux_calculator.cpp
+                     src/scarabee/_scarabee/cylindrical_cell.cpp
+                     src/scarabee/_scarabee/cylindrical_flux_solver.cpp
+                     src/scarabee/_scarabee/surface.cpp
+                     src/scarabee/_scarabee/flat_source_region.cpp
+                     src/scarabee/_scarabee/cell.cpp
+                     src/scarabee/_scarabee/empty_cell.cpp
+                     src/scarabee/_scarabee/simple_pin_cell.cpp
+                     src/scarabee/_scarabee/pin_cell.cpp
+                     src/scarabee/_scarabee/simple_bwr_corner_pin_cell.cpp
+                     src/scarabee/_scarabee/bwr_corner_pin_cell.cpp
+                     src/scarabee/_scarabee/cartesian_2d.cpp
+                     src/scarabee/_scarabee/cmfd.cpp
+                     src/scarabee/_scarabee/track.cpp
+                     src/scarabee/_scarabee/legendre.cpp
+                     src/scarabee/_scarabee/yamamoto_tabuchi.cpp
+                     src/scarabee/_scarabee/moc_driver.cpp
+                     src/scarabee/_scarabee/criticality_spectrum.cpp
+                     src/scarabee/_scarabee/leakage_corrections.cpp
+                     src/scarabee/_scarabee/diffusion_data.cpp
+                     src/scarabee/_scarabee/form_factors.cpp
+                     src/scarabee/_scarabee/diffusion_geometry.cpp
+                     src/scarabee/_scarabee/fd_diffusion_driver.cpp
+                     src/scarabee/_scarabee/nem_diffusion_driver.cpp
+                     src/scarabee/_scarabee/reflector_sn.cpp
+                     src/scarabee/_scarabee/spherical_harmonics.cpp
+                     src/scarabee/_scarabee/depletion_chain.cpp
+                     src/scarabee/_scarabee/depletion_matrix.cpp
+                     #=================================================
+                     src/scarabee/_scarabee/python/scarabee.cpp
+                     src/scarabee/_scarabee/python/nuclide_names.cpp
+                     src/scarabee/_scarabee/python/tab1.cpp
+                     src/scarabee/_scarabee/python/vector.cpp
+                     src/scarabee/_scarabee/python/direction.cpp
+                     src/scarabee/_scarabee/python/logging.cpp
+                     src/scarabee/_scarabee/python/xs1d.cpp
+                     src/scarabee/_scarabee/python/xs2d.cpp
+                     src/scarabee/_scarabee/python/cross_section.cpp
+                     src/scarabee/_scarabee/python/diffusion_cross_section.cpp
+                     src/scarabee/_scarabee/python/micro_cross_sections.cpp
+                     src/scarabee/_scarabee/python/material.cpp
+                     src/scarabee/_scarabee/python/nd_library.cpp
+                     src/scarabee/_scarabee/python/flux_calculator.cpp
+                     src/scarabee/_scarabee/python/cylindrical_cell.cpp
+                     src/scarabee/_scarabee/python/cylindrical_flux_solver.cpp
+                     src/scarabee/_scarabee/python/polar_quadrature.cpp
+                     src/scarabee/_scarabee/python/boundary_condition.cpp
+                     src/scarabee/_scarabee/python/simulation_mode.cpp
+                     src/scarabee/_scarabee/python/track.cpp 
+                     src/scarabee/_scarabee/python/cell.cpp
+                     src/scarabee/_scarabee/python/empty_cell.cpp
+                     src/scarabee/_scarabee/python/pin_cell_type.cpp
+                     src/scarabee/_scarabee/python/simple_pin_cell.cpp
+                     src/scarabee/_scarabee/python/pin_cell.cpp
+                     src/scarabee/_scarabee/python/simple_bwr_corner_pin_cell.cpp
+                     src/scarabee/_scarabee/python/bwr_corner_pin_cell.cpp
+                     src/scarabee/_scarabee/python/cartesian_2d.cpp
+                     src/scarabee/_scarabee/python/cmfd.cpp
+                     src/scarabee/_scarabee/python/moc_driver.cpp
+                     src/scarabee/_scarabee/python/criticality_spectrum.cpp
+                     src/scarabee/_scarabee/python/leakage_corrections.cpp
+                     src/scarabee/_scarabee/python/diffusion_data.cpp
+                     src/scarabee/_scarabee/python/form_factors.cpp
+                     src/scarabee/_scarabee/python/diffusion_geometry.cpp
+                     src/scarabee/_scarabee/python/fd_diffusion_driver.cpp
+                     src/scarabee/_scarabee/python/nem_diffusion_driver.cpp
+                     src/scarabee/_scarabee/python/nodal_diffusion_driver.cpp
+                     src/scarabee/_scarabee/python/reflector_sn.cpp
+                     src/scarabee/_scarabee/python/water.cpp
+                     src/scarabee/_scarabee/python/depletion_chain.cpp
+                     src/scarabee/_scarabee/python/depletion_matrix.cpp
+                   )
+
+if (NOT SCARABEE_ON_RTD)
+  list(APPEND SCARABEE_SOURCES src/scarabee/_scarabee/moc_plotter.cpp)
+endif() 
+
 # Make python library
-pybind11_add_module(_scarabee src/scarabee/_scarabee/constants.cpp
-                              src/scarabee/_scarabee/nuclide_names.cpp
-                              src/scarabee/_scarabee/water.cpp
-                              src/scarabee/_scarabee/logging.cpp
-                              src/scarabee/_scarabee/gauss_legendre.cpp
-                              src/scarabee/_scarabee/gauss_kronrod.cpp
-                              src/scarabee/_scarabee/chebyshev.cpp
-                              src/scarabee/_scarabee/math.cpp
-                              src/scarabee/_scarabee/tab1.cpp
-                              src/scarabee/_scarabee/homogenization.cpp
-                              src/scarabee/_scarabee/cross_section.cpp
-                              src/scarabee/_scarabee/diffusion_cross_section.cpp
-                              src/scarabee/_scarabee/material.cpp
-                              src/scarabee/_scarabee/nd_library.cpp
-                              src/scarabee/_scarabee/flux_calculator.cpp
-                              src/scarabee/_scarabee/cylindrical_cell.cpp
-                              src/scarabee/_scarabee/cylindrical_flux_solver.cpp
-                              src/scarabee/_scarabee/surface.cpp
-                              src/scarabee/_scarabee/flat_source_region.cpp
-                              src/scarabee/_scarabee/cell.cpp
-                              src/scarabee/_scarabee/empty_cell.cpp
-                              src/scarabee/_scarabee/simple_pin_cell.cpp
-                              src/scarabee/_scarabee/pin_cell.cpp
-                              src/scarabee/_scarabee/simple_bwr_corner_pin_cell.cpp
-                              src/scarabee/_scarabee/bwr_corner_pin_cell.cpp
-                              src/scarabee/_scarabee/cartesian_2d.cpp
-                              src/scarabee/_scarabee/cmfd.cpp
-                              src/scarabee/_scarabee/track.cpp
-                              src/scarabee/_scarabee/legendre.cpp
-                              src/scarabee/_scarabee/yamamoto_tabuchi.cpp
-                              src/scarabee/_scarabee/moc_driver.cpp
-                              src/scarabee/_scarabee/moc_plotter.cpp
-                              src/scarabee/_scarabee/criticality_spectrum.cpp
-                              src/scarabee/_scarabee/leakage_corrections.cpp
-                              src/scarabee/_scarabee/diffusion_data.cpp
-                              src/scarabee/_scarabee/form_factors.cpp
-                              src/scarabee/_scarabee/diffusion_geometry.cpp
-                              src/scarabee/_scarabee/fd_diffusion_driver.cpp
-                              src/scarabee/_scarabee/nem_diffusion_driver.cpp
-                              src/scarabee/_scarabee/reflector_sn.cpp
-                              src/scarabee/_scarabee/spherical_harmonics.cpp
-                              src/scarabee/_scarabee/depletion_chain.cpp
-                              src/scarabee/_scarabee/depletion_matrix.cpp
-                              #=================================================
-                              src/scarabee/_scarabee/python/scarabee.cpp
-                              src/scarabee/_scarabee/python/nuclide_names.cpp
-                              src/scarabee/_scarabee/python/tab1.cpp
-                              src/scarabee/_scarabee/python/vector.cpp
-                              src/scarabee/_scarabee/python/direction.cpp
-                              src/scarabee/_scarabee/python/logging.cpp
-                              src/scarabee/_scarabee/python/xs1d.cpp
-                              src/scarabee/_scarabee/python/xs2d.cpp
-                              src/scarabee/_scarabee/python/cross_section.cpp
-                              src/scarabee/_scarabee/python/diffusion_cross_section.cpp
-                              src/scarabee/_scarabee/python/micro_cross_sections.cpp
-                              src/scarabee/_scarabee/python/material.cpp
-                              src/scarabee/_scarabee/python/nd_library.cpp
-                              src/scarabee/_scarabee/python/flux_calculator.cpp
-                              src/scarabee/_scarabee/python/cylindrical_cell.cpp
-                              src/scarabee/_scarabee/python/cylindrical_flux_solver.cpp
-                              src/scarabee/_scarabee/python/polar_quadrature.cpp
-                              src/scarabee/_scarabee/python/boundary_condition.cpp
-                              src/scarabee/_scarabee/python/simulation_mode.cpp
-                              src/scarabee/_scarabee/python/track.cpp 
-                              src/scarabee/_scarabee/python/cell.cpp
-                              src/scarabee/_scarabee/python/empty_cell.cpp
-                              src/scarabee/_scarabee/python/pin_cell_type.cpp
-                              src/scarabee/_scarabee/python/simple_pin_cell.cpp
-                              src/scarabee/_scarabee/python/pin_cell.cpp
-                              src/scarabee/_scarabee/python/simple_bwr_corner_pin_cell.cpp
-                              src/scarabee/_scarabee/python/bwr_corner_pin_cell.cpp
-                              src/scarabee/_scarabee/python/cartesian_2d.cpp
-                              src/scarabee/_scarabee/python/cmfd.cpp
-                              src/scarabee/_scarabee/python/moc_driver.cpp
-                              src/scarabee/_scarabee/python/criticality_spectrum.cpp
-                              src/scarabee/_scarabee/python/leakage_corrections.cpp
-                              src/scarabee/_scarabee/python/diffusion_data.cpp
-                              src/scarabee/_scarabee/python/form_factors.cpp
-                              src/scarabee/_scarabee/python/diffusion_geometry.cpp
-                              src/scarabee/_scarabee/python/fd_diffusion_driver.cpp
-                              src/scarabee/_scarabee/python/nem_diffusion_driver.cpp
-                              src/scarabee/_scarabee/python/nodal_diffusion_driver.cpp
-                              src/scarabee/_scarabee/python/reflector_sn.cpp
-                              src/scarabee/_scarabee/python/water.cpp
-                              src/scarabee/_scarabee/python/depletion_chain.cpp
-                              src/scarabee/_scarabee/python/depletion_matrix.cpp
-                            )
+pybind11_add_module(_scarabee ${SCARABEE_SOURCES})
 target_compile_features(_scarabee PRIVATE cxx_std_20)
-if (SCARABEE_ON_RTD)
-  target_link_libraries(_scarabee PUBLIC xtl xtensor xtensor-python htl HighFive HDF5::HDF5 Eigen3::Eigen spdlog::spdlog ImApp::ImApp cereal::cereal)
-else()
+if (NOT SCARABEE_ON_RTD)
+  # Standard build
   target_link_libraries(_scarabee PUBLIC xtl xtensor xtensor-python htl HighFive hdf5-static Eigen3::Eigen spdlog::spdlog ImApp::ImApp cereal::cereal)
+else()
+  # Docs build
+  target_link_libraries(_scarabee PUBLIC xtl xtensor xtensor-python htl HighFive HDF5::HDF5 Eigen3::Eigen spdlog::spdlog cereal::cereal)
+  target_compile_definitions(_scarabee PRIVATE SCARABEE_ON_RTD=ON)
 endif()
 target_include_directories(_scarabee PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/scarabee/_scarabee/include>

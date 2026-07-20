@@ -2,12 +2,15 @@
 #include <pybind11/stl.h>
 
 #include <xtensor-python/pytensor.hpp>
-#include <ImApp/imapp.hpp>
 
 #include <moc/moc_driver.hpp>
-#include <moc/moc_plotter.hpp>
 #include <utils/logging.hpp>
 #include <utils/scarabee_exception.hpp>
+
+#ifndef SCARABEE_ON_RTD
+#include <moc/moc_plotter.hpp>
+#include <ImApp/imapp.hpp>
+#endif
 
 #include <tuple>
 
@@ -470,6 +473,7 @@ void init_MOCDriver(py::module& m) {
 
       .def(
           "plot",
+#ifndef SCARABEE_ON_RTD
           [](const MOCDriver& md) {
             ImApp::App guiplotter(1920, 1080, "Scarabee MOC Plotter");
             guiplotter.io().IniFilename = "scarabee_moc_plotter.ini";
@@ -477,6 +481,13 @@ void init_MOCDriver(py::module& m) {
             guiplotter.push_layer(std::make_unique<MOCPlotter>(&md));
             guiplotter.run();
           },
+#else
+          [](const MOCDriver& /*md*/) {
+            const auto mssg = "Not built with plotting capabilities.";
+            spdlog::error(mssg);
+            throw ScarabeeException(mssg);
+          },
+#endif
           "Open the graphical MOC geometry plotting window.")
 
       .def(

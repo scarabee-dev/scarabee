@@ -7,18 +7,7 @@ build:
   apt_packages:
     - cmake
     - g++
-    - libx11-dev
-    - libxrandr-dev
-    - libxinerama-dev
-    - libxcursor-dev
-    - libxi-dev
     - libomp-dev 
-    - mesa-common-dev
-    - libgl1-mesa-dev
-    - libglu1-mesa-dev
-    - libwayland-dev
-    - libxkbcommon-dev
-    - xorg-dev
     - libhdf5-dev
   jobs:
     pre_build:
