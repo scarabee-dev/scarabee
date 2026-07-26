@@ -176,7 +176,7 @@ solve for :math:`\varphi(E)`, obtaining
 .. math::
 
     \varphi_{_{NR}}(E) = \frac{N_r\sigma_{p,r} +
-    \displaystyle\sum_{m\ne r}N_m\sigma_{p,m}}{E\left(\sigma_{t,r}(E) +
+    \displaystyle\sum_{m\ne r}N_m\sigma_{p,m}}{E\left(N_r\sigma_{t,r}(E) +
     \displaystyle\sum_{m\ne r}N_m\sigma_{p,m}\right)}.
 
 Dividing the numerator and denominator by :math:`N_r`, and making the
