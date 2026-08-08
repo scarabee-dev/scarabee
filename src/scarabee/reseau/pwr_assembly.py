@@ -18,8 +18,6 @@ from .._scarabee import (
     NDLibrary,
     DepletionChain,
     PinCellType,
-    Vector,
-    Direction,
     Cartesian2D,
     MOCDriver,
     CMFD,
@@ -30,8 +28,6 @@ from .._scarabee import (
     P1CriticalitySpectrum,
     B1CriticalitySpectrum,
     FundamentalModeCriticalitySpectrum,
-    ADF,
-    CDF,
     DiffusionCrossSection,
     DiffusionData,
     FormFactors,
@@ -144,6 +140,8 @@ class PWRAssembly:
         scattering data.
     moderator : Material
         Material representing the assembly moderator.
+    moderator_xs : CrossSection
+        Cross sections for the moderator.
     spacer_grid_width : optional float
         Width of the spacer grid material between pin cells.
     spacer_grid : optional Material
@@ -183,6 +181,9 @@ class PWRAssembly:
         modeled. Default value is False. **If you wish to turn anisotropic
         scattering on, you must set this attribute before calling the solve
         method for the first time.**
+    moc : MOCDriver
+        Provides the MOCDriver instance used for the assembly calculation. It is
+        only available after the solve method has been called.
     cmfd : bool
         If True, Coarse Mesh Finite Difference diffusion will be used to
         accelerate the assembly calculation. If True, a CMFD energy
@@ -232,18 +233,17 @@ class PWRAssembly:
         1D Numpy array of the total assembly burn-up times at which material
         information is available, in units of days. Default value is an empty
         array before solve has been called.
-    keff : float or ndarray
-        If depletion was not performed, this is a single float with keff for
-        the infinite assembly. If depletion was performed, this is a 1D Numpy
-        array for the values of keff at the tabulated burn-up exposures/times.
-        Default value is 1 before solve has been called.
-    depletion_data : optional DiffusionData or list of DiffusionData
-        If a single assembly calculation is being performed without depletion,
-        this attribute will the resulting DiffusionData instance based on the
-        few-group condensation_scheme attribute. If a depletion calculation is
-        performed, this attribute will be a list of DiffusionData instances,
-        with one for each burn-up point. Before solve has been called, this
-        attribute is None.
+    keff : ndarray
+        1D Numpy array for the values of keff at the tabulated burn-up
+        exposures/times. If only a single transport calculation was performed,
+        the array contains a single value. Default value is an empty array
+        before solve has been called.
+    depletion_data : list of DiffusionData
+        A list of DiffusionData instances for each burn-up point. Default value
+        is an empty list before solve has been called.
+    form_factors : list of FormFactors
+        A list of FormFactor instances for each burn-up point. Default value is
+        an empty list before solve has been called.
     """
 
     def __init__(
@@ -530,8 +530,8 @@ class PWRAssembly:
         # performed per time step.
         self._corrector_transport: bool = True
 
-        # Either a single value or list of values (for each depletion step)
-        self._keff: Union[float, List[float]] = 1.0
+        # A list of values (for each depletion step)
+        self._keff: np.ndarray = np.array([])
 
         # Condensation scheme to make few-group cross sections
         self._condensation_scheme: Optional[List[List[int]]] = (
@@ -547,8 +547,8 @@ class PWRAssembly:
         # contain a single DiffusionData instance. If a depletion calculation
         # is performed, a DiffusionData instance will be generated for each
         # burn-up step.
-        self._diffusion_data: Optional[Union[DiffusionData, List[DiffusionData]]] = None
-        self._form_factors: Optional[Union[FormFactors, List[FormFactors]]] = None
+        self._diffusion_data: List[DiffusionData] = []
+        self._form_factors: List[FormFactors] = []
 
     @property
     def shape(self) -> Tuple[int, int]:
@@ -621,6 +621,10 @@ class PWRAssembly:
     @property
     def moderator(self) -> Material:
         return self._moderator
+
+    @property
+    def moderator_xs(self) -> CrossSection:
+        return self._moderator_xs
 
     @property
     def dancoff_moc_track_spacing(self) -> float:
@@ -743,6 +747,14 @@ class PWRAssembly:
         self._anisotropic = aniso
 
     @property
+    def moc(self) -> MOCDriver:
+        if self._asmbly_moc is None:
+            mssg = "The MOCDriver instance for the assembly has not yet been created; please call solve before accessing."
+            scarabee_log(LogLevel.Error, mssg)
+            raise RuntimeError(mssg)
+        return self._asmbly_moc
+
+    @property
     def cmfd(self) -> bool:
         return self._cmfd
 
@@ -849,7 +861,7 @@ class PWRAssembly:
         self._corrector_transport = val
 
     @property
-    def keff(self) -> Union[float, List[float]]:
+    def keff(self) -> np.ndarray:
         return self._keff
 
     @property
@@ -971,11 +983,11 @@ class PWRAssembly:
         self._cmfd_condensation_scheme = copy.deepcopy(cs)
 
     @property
-    def diffusion_data(self) -> Optional[Union[DiffusionData, List[DiffusionData]]]:
+    def diffusion_data(self) -> List[DiffusionData]:
         return self._diffusion_data
 
     @property
-    def form_factors(self) -> Optional[Union[FormFactors, List[FormFactors]]]:
+    def form_factors(self) -> List[FormFactors]:
         return self._form_factors
 
     def _set_cells(self, cells: List[List[Union[FuelPin, GuideTube]]]) -> None:
@@ -2579,10 +2591,12 @@ class PWRAssembly:
         if self.depletion_exposure_steps is None:
             # Single one-off calulcation
             self._run_assembly_calculation(True)
-            self._keff = self._asmbly_moc.keff
-            self._diffusion_data, self._form_factors = (
-                self._compute_diffusion_data_and_form_factors()
-            )
+            self._diffusion_data = []
+            self._form_factors = []
+            self._keff = np.array([self._asmbly_moc.keff])
+            dd, ff = self._compute_diffusion_data_and_form_factors()
+            self._diffusion_data.append(dd)
+            self._form_factors.append(ff)
         else:
             # Run depletion steps
             self._run_depletion_steps()

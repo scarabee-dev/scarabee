@@ -22,6 +22,16 @@ Important API Changes
 
 - The default leakage model has been changed from P1 to Fundamental-Model.
 
+- The keff attribute of the :class:`PWRAssembly` class is now a Numpy array, even if
+  only a single transport calculation was performed. This change was made to make the
+  API to access simulation results more consistent between the different simulation
+  modes (with / without depletion).
+
+- The diffusion_data, and form_factors attributes of the :class:`PWRAssembly` class are
+  now lists, even if only a single transport calculation was performed. This change was
+  made to make the API to access simulation results more consistent between the
+  different simulation modes (with / without depletion).
+
 ------------
 New Features
 ------------
@@ -49,6 +59,10 @@ New Features
   :class:`SANMDiffusionDriver` classes can now detect when leakage corrections are
   present in a problem, and will use them automatically. They can, however, be disabled
   by the user after construction by setting the leakage_correction attribute to False.
+
+- The :class:`PWRAssembly` class now has the new attributes moderator_xs and moc, to
+  access the :class:`CrossSection` used for the moderator and the :class:`MOCDriver`
+  used for the assembly calculation.
 
 ---------
 Bug Fixes
