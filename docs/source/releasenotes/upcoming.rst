@@ -22,15 +22,15 @@ Important API Changes
 
 - The default leakage model has been changed from P1 to Fundamental-Model.
 
-- The keff attribute of the :class:`PWRAssembly` class is now a Numpy array, even if
-  only a single transport calculation was performed. This change was made to make the
-  API to access simulation results more consistent between the different simulation
-  modes (with / without depletion).
+- The keff attribute of the :class:`reseau.PWRAssembly` class is now a Numpy array, even
+  if only a single transport calculation was performed. This change was made to make the
+  API to access simulation results more consistent between the different simulation modes
+  (with / without depletion).
 
-- The diffusion_data, and form_factors attributes of the :class:`PWRAssembly` class are
-  now lists, even if only a single transport calculation was performed. This change was
-  made to make the API to access simulation results more consistent between the
-  different simulation modes (with / without depletion).
+- The diffusion_data, and form_factors attributes of the :class:`reseau.PWRAssembly`
+  class are now lists, even if only a single transport calculation was performed. This
+  change was made to make the API to access simulation results more consistent between
+  the different simulation modes (with / without depletion).
 
 ------------
 New Features
@@ -60,13 +60,13 @@ New Features
   present in a problem, and will use them automatically. They can, however, be disabled
   by the user after construction by setting the leakage_correction attribute to False.
 
-- The :class:`PWRAssembly` class now has the new attributes moderator_xs and moc, to
-  access the :class:`CrossSection` used for the moderator and the :class:`MOCDriver`
+- The :class:`reseau.PWRAssembly` class now has the new attributes moderator_xs and moc,
+  to access the :class:`CrossSection` used for the moderator and the :class:`MOCDriver`
   used for the assembly calculation.
 
 - The support scripts used to produce nuclear data libraries have been updated. ENDFtk
   and PapillonNDL are not longer required, but the
-  `endf <https://github.com/paulromano/endf-python>`_ Python library is now needed.
+  `endf <https://github.com/paulromano/endf-python>`__ Python library is now needed.
   Library processing is now performed in parallel, greatly reducing the run times.
   Several bugs were also corrected (such as not saving IR-lambda factors). The default
   script to produce an ENDF/B-VIII.0 library now also requires TENDL ENDF files for

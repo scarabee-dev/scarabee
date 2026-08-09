@@ -41,8 +41,8 @@ Installation from Source
 If you are a developer, want the most recent development version of Scarabée,
 or are running on a system for which pre-built wheels do not exist, then you
 will have to compile Scarabée from source. Before you can do this, you will
-need to ensure that you have installed `CMake <https://cmake.org/>`_ and
-`git <https://git-scm.com/>`_. Additionally, you will also need a C++20
+need to ensure that you have installed `CMake <https://cmake.org/>`__ and
+`git <https://git-scm.com/>`__. Additionally, you will also need a C++20
 compiler. On Windows, this means you should install the community version of
 Visual Studio, and on Linux you should install a recent version of g++ (you
 will have to look for online for details regarding your particular Linux
@@ -118,18 +118,18 @@ To use all features of Scarabée, particularly if you want to perform PWR
 assembly calculations, you will need a multi-group nuclear data library (NDL).
 To build an NDL for Scarabée you will need a Unix-like operating system (such as
 Linux or macOS). If you are on Windows, you can use the `Windows Subsystem for
-Linux (WSL) <https://learn.microsoft.com/en-us/windows/wsl/install>`_ to
+Linux (WSL) <https://learn.microsoft.com/en-us/windows/wsl/install>`__ to
 complete this task.
 
 You will also need to download the ENDF files you want to use for your library.
 There are many different publicly available libraries, the most popular of which
-are `ENDF <https://www.nndc.bnl.gov/endf/>`_,
-`JEFF <https://www.oecd-nea.org/dbdata/jeff/>`_, and
-`JENDL <https://wwwndc.jaea.go.jp/jendl/jendl.html>`_. The Scarabée source
+are `ENDF <https://www.nndc.bnl.gov/endf/>`__,
+`JEFF <https://www.oecd-nea.org/dbdata/jeff/>`__, and
+`JENDL <https://wwwndc.jaea.go.jp/jendl/jendl.html>`__. The Scarabée source
 repository contains a pre-generated script to produce a library for
-`ENDF/B-VIII.0 <https://www.nndc.bnl.gov/endf-b8.0/download.html>`_. This script
+`ENDF/B-VIII.0 <https://www.nndc.bnl.gov/endf-b8.0/download.html>`__. This script
 also assumes you have a
-`TENDL <https://tendl.imperial.ac.uk/tendl_2025/tendl2025.html>`_ library on
+`TENDL <https://tendl.imperial.ac.uk/tendl_2025/tendl2025.html>`__ library on
 your system, as some short-lived nuclides which are not present in ENDF are
 taken from there. You are certainly able to generate a library using a different
 library should you desire. If you do this, please consider contributing your
@@ -137,13 +137,13 @@ script to the Scarabée project ! Download the ENDF files of your choice and
 store them in a place where they can be accessed by the processing script.
 
 In addition to having already installed Scarabée, you also need to install the
-`endf <https://github.com/paulromano/endf-python>`_ Python package. While a
+`endf <https://github.com/paulromano/endf-python>`__ Python package. While a
 version of this package can be installed from PyPI with pip, you should install
 it from the GitHub source, as Scarabée requires a version that is not yet
 available on PyPI.
 
 To process the ENDF files, the
-`FRENDY <https://rpg.jaea.go.jp/main/en/program_frendy/>`_ nuclear data
+`FRENDY <https://rpg.jaea.go.jp/main/en/program_frendy/>`__ nuclear data
 processing code is used. You should build the program and make sure that the
 executable is available in your path.
 
