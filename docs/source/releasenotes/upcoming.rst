@@ -64,6 +64,14 @@ New Features
   access the :class:`CrossSection` used for the moderator and the :class:`MOCDriver`
   used for the assembly calculation.
 
+- The support scripts used to produce nuclear data libraries have been updated. ENDFtk
+  and PapillonNDL are not longer required, but the
+  `endf <https://github.com/paulromano/endf-python>`_ Python library is now needed.
+  Library processing is now performed in parallel, greatly reducing the run times.
+  Several bugs were also corrected (such as not saving IR-lambda factors). The default
+  script to produce an ENDF/B-VIII.0 library now also requires TENDL ENDF files for
+  several short lived nucleides which appear in the depletion chain.
+
 ---------
 Bug Fixes
 ---------
