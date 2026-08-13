@@ -1,4 +1,5 @@
 #include <diffusion/nem_diffusion_driver.hpp>
+#include <utils/check_signals.hpp>
 #include <utils/logging.hpp>
 #include <utils/scarabee_exception.hpp>
 #include <utils/timer.hpp>
@@ -814,6 +815,8 @@ void NEMDiffusionDriver::solve() {
     iteration_timer.reset();
     iteration_timer.start();
     iteration++;
+
+    check_for_signals();
 
     // Copy current flux into old flux
     old_flux = flux_;

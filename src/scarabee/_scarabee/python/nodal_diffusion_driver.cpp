@@ -49,7 +49,9 @@ void init_NodalDiffusionDriver(py::module& m, const char* class_name,
                "geom : DiffusionGeometry\n"
                "       Problem deffinition to solve.")
 
-          .def("solve", &NodalSolver::solve, "Solves the diffusion problem.")
+          .def("solve", &NodalSolver::solve,
+               py::call_guard<py::gil_scoped_release>(),
+               "Solves the diffusion problem.")
 
           .def_property_readonly(
               "geometry", &NodalSolver::geometry,

@@ -8,6 +8,7 @@
 #include <diffusion/node.hpp>
 #include <diffusion/nodal_cmfd_surface.hpp>
 #include <diffusion/nodal_method.hpp>
+#include <utils/check_signals.hpp>
 #include <utils/serialization.hpp>
 #include <utils/logging.hpp>
 #include <utils/scarabee_exception.hpp>
@@ -1017,6 +1018,9 @@ void NodalDiffusionDriver<NM>::solve_keff() {
   std::size_t iteration = 0;
   while (keff_diff > keff_tol_ || flux_diff > flux_tol_ || D_diff > Dnl_tol_) {
     iteration++;
+
+    check_for_signals();
+
     // Compute source vector
     Q = F * flux_;
     Q *= 1. / keff_;

@@ -1,6 +1,8 @@
 #include <diffusion/fd_diffusion_driver.hpp>
+#include <utils/check_signals.hpp>
 #include <utils/logging.hpp>
 #include <utils/scarabee_exception.hpp>
+#include <utils/simulation_mode.hpp>
 #include <utils/timer.hpp>
 
 #include <Eigen/Sparse>
@@ -12,7 +14,6 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
-#include "utils/simulation_mode.hpp"
 
 namespace scarabee {
 
@@ -839,6 +840,8 @@ void FDDiffusionDriver::power_iteration() {
     throw ScarabeeException(mssg.str());
   }
 
+  check_for_signals();
+
   // Begin power iteration
   double keff_diff = 100.;
   double flux_diff = 100.;
@@ -848,6 +851,8 @@ void FDDiffusionDriver::power_iteration() {
     iteration_timer.reset();
     iteration_timer.start();
     iteration++;
+
+    check_for_signals();
 
     // Compute source vector
     Q = (1. / keff_) * QM * flux_;

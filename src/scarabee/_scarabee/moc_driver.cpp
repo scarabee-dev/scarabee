@@ -1,4 +1,5 @@
 #include <moc/moc_driver.hpp>
+#include <utils/check_signals.hpp>
 #include <utils/constants.hpp>
 #include <utils/homogenization.hpp>
 #include <utils/scarabee_exception.hpp>
@@ -346,6 +347,8 @@ void MOCDriver::solve_isotropic() {
     iteration_timer.start();
     iteration++;
 
+    check_for_signals();
+
     fill_source(src, flux_);
     src += extern_src_;
 
@@ -497,6 +500,8 @@ void MOCDriver::solve_anisotropic() {
     iteration_timer.start();
     iteration++;
     cmfd_time = 0.;
+
+    check_for_signals();
 
     fill_source_anisotropic(src, flux_);
     xt::view(src, xt::all(), xt::all(), 0) += extern_src_;

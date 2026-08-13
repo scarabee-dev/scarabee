@@ -32,7 +32,9 @@ void init_ReflectorSN(py::module& m) {
            py::arg("xs"), py::arg("dx"), py::arg("nangles"),
            py::arg("anisotropic") = true)
 
-      .def("solve", &ReflectorSN::solve)
+      .def("solve", &ReflectorSN::solve,
+           py::call_guard<py::gil_scoped_release>(),
+           "Begins iterations to solve problem.")
 
       .def_property_readonly("nangles", &ReflectorSN::nangles,
                              "Number of discrete angles tracked.")

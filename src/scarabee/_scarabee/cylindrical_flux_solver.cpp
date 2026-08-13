@@ -1,4 +1,5 @@
 #include <cylindrical_flux_solver.hpp>
+#include <utils/check_signals.hpp>
 #include <utils/homogenization.hpp>
 #include <utils/scarabee_exception.hpp>
 #include <utils/logging.hpp>
@@ -225,6 +226,8 @@ void CylindricalFluxSolver::solve_single_thread() {
     while (max_inner_flux_diff > flux_tol_) {
       inner_iter++;
 
+      check_for_signals();
+
       // At the begining of an inner iteration, we calculate the fission source
       fill_scatter_source(scat_source, next_flux);
 
@@ -335,6 +338,8 @@ void CylindricalFluxSolver::solve_parallel() {
     // Inner Iterations
     while (max_inner_flux_diff > flux_tol_) {
       inner_iter++;
+
+      check_for_signals();
 
       // At the begining of an inner iteration, we calculate the fission source
       fill_scatter_source(scat_source, next_flux);

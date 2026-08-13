@@ -1,4 +1,5 @@
 #include <reflector_sn.hpp>
+#include <utils/check_signals.hpp>
 #include <utils/gauss_legendre.hpp>
 #include <utils/homogenization.hpp>
 #include <utils/math.hpp>
@@ -226,6 +227,8 @@ void ReflectorSN::solve_iso() {
     iteration_timer.start();
     iteration++;
 
+    check_for_signals();
+
     old_flux = flux_;
 
     fill_source_iso(Q, flux_);
@@ -444,6 +447,8 @@ void ReflectorSN::solve_aniso() {
     iteration_timer.reset();
     iteration_timer.start();
     iteration++;
+
+    check_for_signals();
 
     old_flux = flux_;
 

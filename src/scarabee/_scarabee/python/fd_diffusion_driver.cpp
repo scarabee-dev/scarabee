@@ -24,7 +24,9 @@ void init_FDDiffusionDriver(py::module& m) {
            "geom : DiffusionGeometry\n"
            "       Problem deffinition to solve.")
 
-      .def("solve", &FDDiffusionDriver::solve, "Solves the diffusion problem.")
+      .def("solve", &FDDiffusionDriver::solve,
+           py::call_guard<py::gil_scoped_release>(),
+           "Solves the diffusion problem.")
 
       .def_property_readonly(
           "geometry", &FDDiffusionDriver::geometry,
