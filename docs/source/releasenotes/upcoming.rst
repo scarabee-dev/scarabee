@@ -72,6 +72,9 @@ New Features
   script to produce an ENDF/B-VIII.0 library now also requires TENDL ENDF files for
   several short lived nucleides which appear in the depletion chain.
 
+- All of the solvers now check for interrupt signals (like Ctrl-c) from Python to stop
+  a long running calculation. This makes it easier to force stop long simulations.
+
 ---------
 Bug Fixes
 ---------

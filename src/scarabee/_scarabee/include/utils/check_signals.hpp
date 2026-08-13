@@ -14,7 +14,7 @@ inline void check_for_signals() {
   py::gil_scoped_acquire acquire;
 
   if (PyErr_CheckSignals() != 0) {
-    spdlog::error("Received interupt signal...");
+    spdlog::error("Received interrupt signal...");
     throw py::error_already_set();
   }
 }
