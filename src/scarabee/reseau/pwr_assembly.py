@@ -2255,8 +2255,7 @@ class PWRAssembly:
         flux_spectrum = crit_spectrum.flux
         diff_xs = crit_spectrum.make_diffusion_cross_section()
 
-        # Convert xs to diffusion xs, then condense
-        diff_xs = homog_xs.diffusion_xs()
+        # Condense diffusion cross section
         return diff_xs.condense(self.condensation_scheme, flux_spectrum)
 
     def _compute_leakage_corrections(self) -> LeakageCorrections:
