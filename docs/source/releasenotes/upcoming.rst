@@ -8,6 +8,10 @@ Upcoming Release Notes
 Important API Changes
 ---------------------
 
+- Classes like :class:`CrossSection`, :class:`DiffusionCrossSection`,
+  :class:`DiffusionData`, :class:`MOCDriver`, etc., can no longer be saved/loaded
+  into/from a binary file. You should now use pickles to save and load objects.
+
 - Previously, when using the B1 or P1 leakage models, the flux spectrum obtained by the
   model would be used to condense fine-group diffusion coefficients obtained by
   homogenizing the assembly's transport cross section, completely disregarding the
@@ -35,6 +39,9 @@ Important API Changes
 ------------
 New Features
 ------------
+
+- All classes should now be picklable. If you find a class which is not picklable, this
+  is a bug and should be reported as an issue.
 
 - A new nodal diffusion solver based on the nodal CMFD method with 2-node current
   calculations has been added. This new solver, called :class:`NEM4DiffusionDriver` is

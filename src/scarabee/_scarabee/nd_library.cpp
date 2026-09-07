@@ -234,7 +234,8 @@ void NuclideHandle::unload() {
 }
 
 NDLibrary::NDLibrary()
-    : nuclide_handles_(),
+    : fname_(),
+      nuclide_handles_(),
       group_bounds_(),
       condensation_scheme_(std::nullopt),
       cmfd_condensation_scheme_(std::nullopt),
@@ -268,10 +269,14 @@ NDLibrary::NDLibrary()
   h5_ = std::make_shared<H5::File>(fname, H5::File::ReadOnly);
 
   this->init();
+
+  // Save file name
+  fname_ = fname;
 }
 
 NDLibrary::NDLibrary(const std::string& fname)
-    : nuclide_handles_(),
+    : fname_(fname),
+      nuclide_handles_(),
       group_bounds_(),
       condensation_scheme_(std::nullopt),
       cmfd_condensation_scheme_(std::nullopt),
@@ -281,17 +286,17 @@ NDLibrary::NDLibrary(const std::string& fname)
       h5_(nullptr),
       depletion_chain_(nullptr) {
   // Make sure HDF5 file exists
-  if (std::filesystem::exists(fname) == false) {
+  if (std::filesystem::exists(fname_) == false) {
     std::stringstream mssg;
-    mssg << "The file \"" << fname << "\" does not exist.";
+    mssg << "The file \"" << fname_ << "\" does not exist.";
     spdlog::error(mssg.str());
     throw ScarabeeException(mssg.str());
   }
 
-  spdlog::info("Loading Nuclear Data Library from {}", fname);
+  spdlog::info("Loading Nuclear Data Library from {}", fname_);
 
   // Open the HDF5 file
-  h5_ = std::make_shared<H5::File>(fname, H5::File::ReadOnly);
+  h5_ = std::make_shared<H5::File>(fname_, H5::File::ReadOnly);
 
   this->init();
 }

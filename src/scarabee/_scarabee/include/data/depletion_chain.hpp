@@ -6,7 +6,6 @@
 #include <optional>
 #include <set>
 #include <string>
-#include <utility>
 #include <variant>
 #include <vector>
 
@@ -23,6 +22,8 @@
 namespace H5 = HighFive;
 
 #include <utils/serialization.hpp>
+
+struct DepletionChainPickler;
 
 namespace scarabee {
 
@@ -290,6 +291,7 @@ class DepletionChain {
   std::map<std::string, ChainEntry> data_;
 
   friend class cereal::access;
+  friend struct ::DepletionChainPickler;
 
   template <class Archive>
   void serialize(Archive& arc) {

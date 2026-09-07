@@ -17,11 +17,10 @@
 #include <cereal/types/vector.hpp>
 #include <cereal/types/map.hpp>
 
-#include <cmath>
 #include <map>
 #include <memory>
 #include <optional>
-#include <set>
+#include <tuple>
 #include <variant>
 #include <vector>
 #include <utility>
@@ -37,6 +36,8 @@ class Cartesian2D {
       std::variant<std::shared_ptr<Cartesian2D>, std::shared_ptr<Cell>>;
 
   struct Tile {
+    using Tuple =
+        std::tuple<std::shared_ptr<Cartesian2D>, std::shared_ptr<Cell>>;
     std::shared_ptr<Cartesian2D> c2d;
     std::shared_ptr<Cell> cell;
 
@@ -51,6 +52,15 @@ class Cartesian2D {
 
     std::size_t get_num_fsr_instances(std::size_t id) const;
 
+    Tuple to_tuple() const { return {c2d, cell}; }
+
+    static Tile from_tuple(const Tuple& t) {
+      Tile out;
+      out.c2d = std::get<0>(t);
+      out.cell = std::get<1>(t);
+      return out;
+    }
+
    private:
     friend class cereal::access;
     template <class Archive>
@@ -58,6 +68,12 @@ class Cartesian2D {
       arc(CEREAL_NVP(c2d), CEREAL_NVP(cell));
     }
   };
+
+  using Tuple = std::tuple<std::vector<std::shared_ptr<Surface>>,
+                           std::vector<std::shared_ptr<Surface>>,
+                           std::vector<Tile::Tuple>,
+                           std::vector<std::map<std::size_t, std::size_t>>,
+                           std::size_t, std::size_t>;
 
   struct TileIndex {
     std::size_t i, j;
@@ -67,6 +83,8 @@ class Cartesian2D {
               const std::vector<std::shared_ptr<Surface>>& y_bounds);
 
   Cartesian2D(const std::vector<double>& dx, const std::vector<double>& dy);
+
+  Cartesian2D(const Tuple& t);
 
   std::size_t nx() const { return nx_; }
   std::size_t ny() const { return ny_; }
@@ -206,6 +224,8 @@ class Cartesian2D {
 
   double y_min() const { return y_bounds_.front()->y0(); }
   double y_max() const { return y_bounds_.back()->y0(); }
+
+  Tuple to_tuple() const;
 
  private:
   std::vector<std::shared_ptr<Surface>> x_bounds_;

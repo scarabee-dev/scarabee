@@ -2,11 +2,40 @@
 #include <pybind11/stl.h>
 #include <pybind11/eigen.h>
 
+#include <cereal/archives/portable_binary.hpp>
+
 #include <moc/cmfd.hpp>
+
+#include <sstream>
 
 namespace py = pybind11;
 
 using namespace scarabee;
+
+struct CMFDPickler {
+  static std::shared_ptr<CMFD> from_state(py::tuple t) {
+    std::shared_ptr<CMFD> c(new CMFD);
+    py::bytes bytes = t[0].cast<py::bytes>();
+    std::istringstream bits_stream(bytes,
+                                   std::ios_base::binary | std::ios_base::in);
+    {
+      cereal::PortableBinaryInputArchive ar(bits_stream);
+      ar(*c);
+    }
+
+    return c;
+  }
+
+  static py::tuple to_state(const std::shared_ptr<CMFD>& c) {
+    std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
+    {
+      cereal::PortableBinaryOutputArchive ar(bits_stream);
+      ar(*c);
+    }
+    py::bytes bytes(bits_stream.str());
+    return py::make_tuple(bytes);
+  }
+};
 
 void init_CMFD(py::module& m) {
   py::enum_<CMFDSurfaceCrossing::Type>(m, "CMFDSurfaceCrossingType")
@@ -249,5 +278,7 @@ void init_CMFD(py::module& m) {
            "-------\n"
            "float\n"
            "    The CMFD scalar flux at cell (i,j) in group g.\n",
-           py::arg("i"), py::arg("j"), py::arg("g"));
+           py::arg("i"), py::arg("j"), py::arg("g"))
+
+      .def(py::pickle(&CMFDPickler::to_state, &CMFDPickler::from_state));
 }

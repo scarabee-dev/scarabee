@@ -2,9 +2,36 @@
 
 #include <diffusion/leakage_corrections.hpp>
 
+#include <cereal/archives/portable_binary.hpp>
+
+#include <sstream>
+
 namespace py = pybind11;
 
 using namespace scarabee;
+
+struct LeakageCorrectionsPickler {
+  static LeakageCorrections from_state(py::tuple t) {
+    LeakageCorrections lc;
+    py::bytes bytes = t[0].cast<py::bytes>();
+    std::istringstream bits_stream(bytes,
+                                   std::ios_base::binary | std::ios_base::in);
+    {
+      cereal::PortableBinaryInputArchive ar(bits_stream);
+      ar(lc);
+    }
+    return lc;
+  }
+
+  static py::tuple to_state(const LeakageCorrections& lc) {
+    std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
+    {
+      cereal::PortableBinaryOutputArchive ar(bits_stream);
+      ar(lc);
+    }
+    return py::make_tuple(py::bytes(bits_stream.str()));
+  }
+};
 
 void init_LeakageCorrections(py::module& m) {
   py::class_<LeakageCorrections>(m, "LeakageCorrections")
@@ -140,5 +167,8 @@ void init_LeakageCorrections(py::module& m) {
            "    Outgoing energy group index\n"
            "val : float\n"
            "    New value of the correction coefficient\n\n",
-           py::arg("g_in"), py::arg("g_out"), py::arg("val"));
+           py::arg("g_in"), py::arg("g_out"), py::arg("val"))
+
+      .def(py::pickle(&LeakageCorrectionsPickler::to_state,
+                      &LeakageCorrectionsPickler::from_state));
 }

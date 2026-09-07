@@ -20,6 +20,8 @@
 #include <optional>
 #include <utility>
 
+struct NEMDiffusionDriverPickler;
+
 namespace scarabee {
 
 class NEMDiffusionDriver {
@@ -55,9 +57,6 @@ class NEMDiffusionDriver {
                                const xt::xtensor<double, 1>& y,
                                const xt::xtensor<double, 1>& z) const;
   xt::xtensor<double, 3> avg_power() const;
-
-  void save(const std::string& fname);
-  static std::unique_ptr<NEMDiffusionDriver> load(const std::string& fname);
 
  private:
   //----------------------------------------------------------------------------
@@ -119,7 +118,6 @@ class NEMDiffusionDriver {
   xt::xtensor<double, 3> adf_;  // m, group, side
 
   double keff_ = 1.;
-  double kshift_ = 1.;
   double flux_tol_ = 1.E-5;
   double keff_tol_ = 1.E-5;
   bool leakage_corrections_{false};
@@ -243,6 +241,7 @@ class NEMDiffusionDriver {
   double avg_xy_corner_flux(std::size_t g, std::size_t m, Corner c) const;
 
   friend class cereal::access;
+  friend struct ::NEMDiffusionDriverPickler;
   NEMDiffusionDriver() {}
   template <class Archive>
   void serialize(Archive& arc) {

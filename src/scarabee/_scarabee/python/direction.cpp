@@ -96,5 +96,11 @@ void init_Direction(py::module& m) {
             mssg << "<<" << d.x() << "," << d.y() << ">>";
             return mssg.str();
           },
-          "String representation of a Direction.");
+          "String representation of a Direction.")
+
+      .def(py::pickle(
+          [](const Direction& d) { return py::make_tuple(d.x(), d.y()); },
+          [](py::tuple t) {
+            return Direction(t[0].cast<double>(), t[1].cast<double>());
+          }));
 }

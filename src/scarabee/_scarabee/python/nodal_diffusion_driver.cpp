@@ -1,6 +1,8 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
+#include <cereal/archives/portable_binary.hpp>
+
 #include <xtensor-python/pytensor.hpp>
 
 #include <diffusion/nodal_diffusion_driver.hpp>
@@ -8,36 +10,97 @@
 #include <diffusion/nem4.hpp>
 #include <diffusion/sanm.hpp>
 
-#include <string>
+#include <sstream>
 
 namespace py = pybind11;
 
 using namespace scarabee;
 
 template <NodalMethod NM>
+struct NodalDiffusionDriverPickler {
+  using NeighborInfo = NodalDiffusionDriver<NM>::NeighborInfo;
+
+  static NodalDiffusionDriver<NM> from_state(py::tuple t) {
+    NodalDiffusionDriver<NM> nd;
+
+    // Load the binary portion of the tuple
+    std::size_t n0, n1;
+    py::bytes bytes = t[3].cast<py::bytes>();
+    std::istringstream bits_stream(bytes,
+                                   std::ios_base::binary | std::ios_base::in);
+    {
+      cereal::PortableBinaryInputArchive ar(bits_stream);
+      ar(n0, n1, nd.nodes_, nd.reconstructed_flux_params_, nd.nodal_solver_,
+         nd.surface_indices_, nd.surface_diffusion_coefficients_, nd.flux_,
+         nd.NG_, nd.NM_, nd.nonlinear_update_frequency_,
+         nd.source_extrapolation_frequency_, nd.max_bicgstab_iterations_,
+         nd.keff_, nd.flux_tol_, nd.keff_tol_, nd.Dnl_tol_,
+         nd.leakage_corrections_, nd.solved_);
+    }
+
+    nd.geom_ = t[0].cast<std::shared_ptr<DiffusionGeometry>>();
+
+    std::vector<NeighborInfo> flat_neighbors =
+        t[1].cast<std::vector<NeighborInfo>>();
+
+    std::vector<std::pair<std::shared_ptr<DiffusionData>,
+                          std::shared_ptr<DiffusionCrossSection>>>
+        temp_mats = t[2].cast<
+            std::vector<std::pair<std::shared_ptr<DiffusionData>,
+                                  std::shared_ptr<DiffusionCrossSection>>>>();
+
+    // Fill mats_ again
+    nd.mats_.resize(temp_mats.size());
+    for (std::size_t i = 0; i < temp_mats.size(); i++)
+      nd.mats_[i] = {temp_mats[i].first, temp_mats[i].second};
+
+    // Fill neighbors_ again
+    nd.neighbors_.resize({n0, n1});
+    for (std::size_t i = 0; i < nd.neighbors_.size(); i++) {
+      nd.neighbors_.flat(i) = flat_neighbors[i];
+    }
+
+    return nd;
+  }
+
+  static py::tuple to_state(const NodalDiffusionDriver<NM>& nd) {
+    // Mats contains pointers to XS objects that could be in Python, so it
+    // shouldn't be serialized with cereal. We make a picklable copy here.
+    std::vector<std::pair<std::shared_ptr<DiffusionData>,
+                          std::shared_ptr<DiffusionCrossSection>>>
+        temp_mats;
+    temp_mats.reserve(nd.mats_.size());
+    for (const auto& p : nd.mats_) temp_mats.push_back({p.dd, p.xs});
+
+    // We also can't serialize directly an array of NeighborInfo
+    const std::size_t n0 = nd.neighbors_.shape()[0];
+    const std::size_t n1 = nd.neighbors_.shape()[1];
+    std::vector<NeighborInfo> flat_neighbors;
+    flat_neighbors.reserve(nd.neighbors_.size());
+    for (std::size_t i = 0; i < nd.neighbors_.size(); i++)
+      flat_neighbors.push_back(nd.neighbors_.flat(i));
+
+    // Make a binary of things we don't need in the tuple
+    std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
+    {
+      cereal::PortableBinaryOutputArchive ar(bits_stream);
+      ar(n0, n1, nd.nodes_, nd.reconstructed_flux_params_, nd.nodal_solver_,
+         nd.surface_indices_, nd.surface_diffusion_coefficients_, nd.flux_,
+         nd.NG_, nd.NM_, nd.nonlinear_update_frequency_,
+         nd.source_extrapolation_frequency_, nd.max_bicgstab_iterations_,
+         nd.keff_, nd.flux_tol_, nd.keff_tol_, nd.Dnl_tol_,
+         nd.leakage_corrections_, nd.solved_);
+    }
+    py::bytes bytes(bits_stream.str());
+
+    return py::make_tuple(nd.geom_, flat_neighbors, temp_mats, bytes);
+  }
+};
+
+template <NodalMethod NM>
 void init_NodalDiffusionDriver(py::module& m, const char* class_name,
                                const char* description) {
   using NodalSolver = NodalDiffusionDriver<NM>;
-
-  std::string save_doc_str = std::string("Saves the ") + class_name +
-                             std::string(
-                                 " to a binary file.\n\n"
-                                 "Parameters\n"
-                                 "----------\n"
-                                 "fname : str\n"
-                                 "  Name of the file.\n");
-
-  std::string load_doc_str = std::string("Loads a previously saved ") +
-                             class_name +
-                             std::string(
-                                 " from a binary file.\n\n"
-                                 "Parameters\n"
-                                 "----------\n"
-                                 "fname : str\n"
-                                 "  Name of the file.\n\n"
-                                 "Returns\n"
-                                 "-------\n") +
-                             class_name;
 
   auto solver =
       py::class_<NodalSolver>(m, class_name, description)
@@ -205,10 +268,8 @@ void init_NodalDiffusionDriver(py::module& m, const char* class_name,
            "array of float\n"
            "      Value of the average power density in each node.\n")
 
-      .def("save", &NodalSolver::save, save_doc_str.c_str(), py::arg("fname"))
-
-      .def_static("load", &NodalSolver::load, load_doc_str.c_str(),
-                  py::arg("fname"));
+      .def(py::pickle(&NodalDiffusionDriverPickler<NM>::to_state,
+                      &NodalDiffusionDriverPickler<NM>::from_state));
 }
 
 void init_all_NodalDiffusionDrivers(py::module& m) {

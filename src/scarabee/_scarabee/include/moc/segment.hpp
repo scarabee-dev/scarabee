@@ -11,12 +11,16 @@
 #include <cereal/types/memory.hpp>
 
 #include <memory>
-#include <optional>
+#include <tuple>
 
 namespace scarabee {
 
 class Segment {
  public:
+  using Tuple =
+      std::tuple<std::shared_ptr<CrossSection>, double, double, std::size_t,
+                 CMFDSurfaceCrossing::Tuple, CMFDSurfaceCrossing::Tuple>;
+
   Segment(const FlatSourceRegion* fsr, double length, std::size_t indx)
       : xs_(fsr->xs()),
         volume_(fsr->volume()),
@@ -24,6 +28,14 @@ class Segment {
         fsr_indx_(indx),
         entry_cmfd_surface_(),
         exit_cmfd_surface_() {}
+
+  Segment(const Tuple& t)
+      : xs_(std::get<0>(t)),
+        volume_(std::get<1>(t)),
+        length_(std::get<2>(t)),
+        fsr_indx_(std::get<3>(t)),
+        entry_cmfd_surface_(CMFDSurfaceCrossing::from_tuple(std::get<4>(t))),
+        exit_cmfd_surface_(CMFDSurfaceCrossing::from_tuple(std::get<5>(t))) {}
 
   // Here for use with cereal and std::vector
   Segment() {}
@@ -46,6 +58,15 @@ class Segment {
   CMFDSurfaceCrossing& exit_cmfd_surface() { return exit_cmfd_surface_; }
   const CMFDSurfaceCrossing& exit_cmfd_surface() const {
     return exit_cmfd_surface_;
+  }
+
+  Tuple to_tuple() const {
+    return {xs_,
+            volume_,
+            length_,
+            fsr_indx_,
+            entry_cmfd_surface_.to_tuple(),
+            exit_cmfd_surface_.to_tuple()};
   }
 
  private:

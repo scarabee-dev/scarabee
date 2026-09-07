@@ -1,12 +1,47 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+
 #include <xtensor-python/pytensor.hpp>
 
+#include <cereal/archives/portable_binary.hpp>
+
 #include <cylindrical_cell.hpp>
+
+#include <sstream>
 
 namespace py = pybind11;
 
 using namespace scarabee;
+
+struct CylindricalCellPickler {
+  static std::shared_ptr<CylindricalCell> from_state(py::tuple t) {
+    std::shared_ptr<CylindricalCell> cc(new CylindricalCell);
+
+    cc->mats_ = t[0].cast<std::vector<std::shared_ptr<CrossSection>>>();
+
+    py::bytes bytes = t[1].cast<py::bytes>();
+    std::istringstream bits_stream(bytes,
+                                   std::ios_base::binary | std::ios_base::in);
+    {
+      cereal::PortableBinaryInputArchive ar(bits_stream);
+      ar(cc->p_, cc->X_, cc->Y_, cc->Gamma_, cc->radii_, cc->vols_,
+         cc->ngroups_, cc->solved_);
+    }
+
+    return cc;
+  }
+
+  static py::tuple to_state(const std::shared_ptr<CylindricalCell>& cc) {
+    std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
+    {
+      cereal::PortableBinaryOutputArchive ar(bits_stream);
+      ar(cc->p_, cc->X_, cc->Y_, cc->Gamma_, cc->radii_, cc->vols_,
+         cc->ngroups_, cc->solved_);
+    }
+    py::bytes bytes(bits_stream.str());
+    return py::make_tuple(cc->mats_, bytes);
+  }
+};
 
 void init_CylindricalCell(py::module& m) {
   py::class_<CylindricalCell, std::shared_ptr<CylindricalCell>>(
@@ -170,7 +205,6 @@ void init_CylindricalCell(py::module& m) {
            "            Cross section in region i.",
            py::arg("i"))
 
-      .def("__deepcopy__", [](const CylindricalCell& cell, py::dict) {
-        return CylindricalCell(cell);
-      });
+      .def(py::pickle(&CylindricalCellPickler::to_state,
+                      &CylindricalCellPickler::from_state));
 }
