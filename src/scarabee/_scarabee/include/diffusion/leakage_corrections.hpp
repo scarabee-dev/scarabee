@@ -6,6 +6,8 @@
 
 #include <vector>
 
+struct LeakageCorrectionsPickler;
+
 namespace scarabee {
 
 class LeakageCorrections {
@@ -41,6 +43,7 @@ class LeakageCorrections {
   // each group. The next entries store all down scattering coefficients.
 
   friend class cereal::access;
+  friend struct ::LeakageCorrectionsPickler;
   template <class Archive>
   void serialize(Archive& arc) {
     arc(CEREAL_NVP(ngroups_), CEREAL_NVP(data_));

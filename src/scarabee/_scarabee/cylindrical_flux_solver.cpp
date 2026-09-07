@@ -7,6 +7,8 @@
 
 #include <xtensor/generators/xbuilder.hpp>
 
+#include <sstream>
+
 namespace scarabee {
 
 CylindricalFluxSolver::CylindricalFluxSolver(

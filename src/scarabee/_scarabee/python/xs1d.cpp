@@ -4,12 +4,38 @@
 
 #include <data/xs1d.hpp>
 
+#include <cereal/types/memory.hpp>
+#include <cereal/archives/portable_binary.hpp>
+
 #include <sstream>
 #include <iomanip>
 
 namespace py = pybind11;
 
 using namespace scarabee;
+
+struct XS1DPickler {
+  static std::shared_ptr<XS1D> from_state(py::tuple t) {
+    py::bytes bytes = t[0].cast<py::bytes>();
+    std::istringstream bits_stream(bytes,
+                                   std::ios_base::binary | std::ios_base::in);
+    std::shared_ptr<XS1D> p;
+    {
+      cereal::PortableBinaryInputArchive ar(bits_stream);
+      ar(p);
+    }
+    return p;
+  }
+
+  static py::tuple to_state(const std::shared_ptr<XS1D>& xs) {
+    std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
+    {
+      cereal::PortableBinaryOutputArchive ar(bits_stream);
+      ar(xs);
+    }
+    return py::make_tuple(py::bytes(bits_stream.str()));
+  }
+};
 
 void init_XS1D(py::module& m) {
   py::class_<XS1D, std::shared_ptr<XS1D>>(
@@ -85,15 +111,18 @@ void init_XS1D(py::module& m) {
              return out.str();
            })
 
-      .def("__repr__", [](const XS1D& xs) {
-        std::stringstream out;
-        out << std::scientific;
-        out << '[';
-        for (std::size_t i = 0; i < xs.ngroups(); i++) {
-          out << xs(i);
-          if (i < xs.ngroups() - 1) out << ", ";
-        }
-        out << ']';
-        return out.str();
-      });
+      .def("__repr__",
+           [](const XS1D& xs) {
+             std::stringstream out;
+             out << std::scientific;
+             out << '[';
+             for (std::size_t i = 0; i < xs.ngroups(); i++) {
+               out << xs(i);
+               if (i < xs.ngroups() - 1) out << ", ";
+             }
+             out << ']';
+             return out.str();
+           })
+
+      .def(py::pickle(&XS1DPickler::to_state, &XS1DPickler::from_state));
 }

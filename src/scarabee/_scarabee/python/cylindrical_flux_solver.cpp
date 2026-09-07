@@ -1,14 +1,46 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+
+#include <cereal/archives/portable_binary.hpp>
+
 #include <xtensor-python/pytensor.hpp>
 
 #include <cylindrical_flux_solver.hpp>
-#include "spdlog/spdlog.h"
-#include "utils/logging.hpp"
+
+#include <sstream>
 
 namespace py = pybind11;
 
 using namespace scarabee;
+
+struct CylindricalFluxSolverPickler {
+  static std::shared_ptr<CylindricalFluxSolver> from_state(py::tuple t) {
+    std::shared_ptr<CylindricalFluxSolver> cf(new CylindricalFluxSolver);
+
+    cf->cell_ = t[0].cast<std::shared_ptr<CylindricalCell>>();
+    py::bytes bytes = t[1].cast<py::bytes>();
+    std::istringstream bits_stream(bytes,
+                                   std::ios_base::binary | std::ios_base::in);
+    {
+      cereal::PortableBinaryInputArchive ar(bits_stream);
+      ar(cf->flux_, cf->extern_source_, cf->j_ext_, cf->x_, cf->k_, cf->a_,
+         cf->k_tol_, cf->flux_tol_, cf->mode_, cf->solved_);
+    }
+
+    return cf;
+  }
+
+  static py::tuple to_state(const std::shared_ptr<CylindricalFluxSolver>& cf) {
+    std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
+    {
+      cereal::PortableBinaryOutputArchive ar(bits_stream);
+      ar(cf->flux_, cf->extern_source_, cf->j_ext_, cf->x_, cf->k_, cf->a_,
+         cf->k_tol_, cf->flux_tol_, cf->mode_, cf->solved_);
+    }
+    py::bytes bytes(bits_stream.str());
+    return py::make_tuple(cf->cell_, bytes);
+  }
+};
 
 void init_CylindricalFluxSolver(py::module& m) {
   py::class_<CylindricalFluxSolver, std::shared_ptr<CylindricalFluxSolver>>(
@@ -274,28 +306,6 @@ void init_CylindricalFluxSolver(py::module& m) {
           "solved", &CylindricalFluxSolver::solved,
           "True if the system has been solved, False otherwise.")
 
-      .def("__deepcopy__", [](const CylindricalFluxSolver& cfs, py::dict) {
-        CylindricalFluxSolver out(
-            std::make_shared<CylindricalCell>(*cfs.cell()));
-        out.set_flux_tolerance(cfs.flux_tolerance());
-        out.set_keff_tolerance(cfs.keff_tolerance());
-        out.sim_mode() = cfs.sim_mode();
-        out.set_albedo(cfs.albedo());
-        for (std::size_t g = 0; g < cfs.ngroups(); g++) {
-          out.set_j_ext(g, cfs.j_ext(g));
-
-          for (std::size_t i = 0; i < cfs.nregions(); i++) {
-            out.set_extern_src(i, g, cfs.extern_src(i, g));
-          }
-        }
-
-        if (cfs.solved()) {
-          const auto orig_level = spdlog::get_level();
-          spdlog::set_level(LogLevel::off);
-          out.solve();
-          spdlog::set_level(orig_level);
-        }
-
-        return out;
-      });
+      .def(py::pickle(&CylindricalFluxSolverPickler::to_state,
+                      &CylindricalFluxSolverPickler::from_state));
 }

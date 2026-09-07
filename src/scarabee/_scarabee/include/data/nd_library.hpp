@@ -82,6 +82,8 @@ class NDLibrary {
   NDLibrary();
   NDLibrary(const std::string& fname);
 
+  const std::string& fname() const { return fname_; }
+
   std::size_t ngroups() const { return ngroups_; }
 
   std::size_t first_resonant_group() const { return first_resonant_group_; }
@@ -135,6 +137,7 @@ class NDLibrary {
   void unload();
 
  private:
+  std::string fname_;
   std::map<std::string, NuclideHandle> nuclide_handles_;
   std::vector<double> group_bounds_;
   std::optional<std::vector<std::pair<std::size_t, std::size_t>>>

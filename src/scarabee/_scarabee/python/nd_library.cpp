@@ -244,5 +244,13 @@ void init_NDLibrary(py::module& m) {
 
       .def_property_readonly(
           "depletion_chain", &NDLibrary::depletion_chain,
-          "The DepletionChain intended for use with the library.");
+          "The DepletionChain intended for use with the library.")
+
+      .def(py::pickle(
+          [](const std::shared_ptr<NDLibrary>& ndl) {
+            return py::make_tuple(ndl->fname());
+          },
+          [](py::tuple t) {
+            return std::make_shared<NDLibrary>(t[0].cast<std::string>());
+          }));
 }

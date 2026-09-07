@@ -2,14 +2,29 @@
 #include <pybind11/stl.h>
 #include <xtensor-python/pytensor.hpp>
 
-#include <cereal/types/memory.hpp>
-#include <cereal/archives/portable_binary.hpp>
-
 #include <diffusion/diffusion_data.hpp>
 
 namespace py = pybind11;
 
 using namespace scarabee;
+
+struct DiffusionDataPickler {
+  static std::shared_ptr<DiffusionData> from_state(py::tuple t) {
+    std::shared_ptr<DiffusionData> dd(new DiffusionData);
+    dd->xs_ = t[0].cast<std::shared_ptr<DiffusionCrossSection>>();
+    dd->adf_ = t[1].cast<xt::xtensor<double, 2>>();
+    dd->cdf_ = t[2].cast<xt::xtensor<double, 2>>();
+    dd->name_ = t[3].cast<std::string>();
+    dd->leakage_corrections_ = t[4].cast<std::optional<LeakageCorrections>>();
+    dd->reflector_ = t[5].cast<bool>();
+    return dd;
+  }
+
+  static py::tuple to_state(const std::shared_ptr<DiffusionData>& dd) {
+    return py::make_tuple(dd->xs_, dd->adf_, dd->cdf_, dd->name_,
+                          dd->leakage_corrections_, dd->reflector_);
+  }
+};
 
 void init_DiffusionData(py::module& m) {
   py::enum_<DiffusionData::ADF>(m, "ADF")
@@ -268,54 +283,6 @@ void init_DiffusionData(py::module& m) {
            "are swapped.",
            py::return_value_policy::reference_internal)
 
-      .def("save", &DiffusionData::save,
-           "Saves the diffuion data to a binary file.\n\n"
-           "Parameters\n"
-           "----------\n"
-           "fname : str\n"
-           "        Name of file in which to save data.",
-           py::arg("fname"))
-
-      .def_static("load", &DiffusionData::load,
-                  "Loads diffusion data from a binary file.\n\n"
-                  "Parameters\n"
-                  "----------\n"
-                  "fname : str\n"
-                  "        Name of file from which to load data.\n\n"
-                  "Returns\n"
-                  "-------\n"
-                  "DiffusionData\n"
-                  "    Diffusion cross sections and ADF from the file.\n",
-                  py::arg("fname"))
-
-      .def("__deepcopy__",
-           [](const DiffusionData& dd, py::dict) {
-             DiffusionData out(
-                 std::make_shared<DiffusionCrossSection>(*dd.xs()));
-             out.set_adf(dd.adf());
-             out.set_cdf(dd.cdf());
-             out.set_leakage_corrections(dd.leakage_corrections());
-             return out;
-           })
-
-      .def(py::pickle(
-          [](const std::shared_ptr<DiffusionData>& p) {
-            std::ostringstream bits_stream(std::ios_base::binary |
-                                           std::ios_base::out);
-            {
-              cereal::PortableBinaryOutputArchive ar(bits_stream);
-              ar(p);
-            }
-            return py::bytes(bits_stream.str());
-          },
-          [](py::bytes bites) {
-            std::istringstream bits_stream(
-                bites, std::ios_base::binary | std::ios_base::in);
-            std::shared_ptr<DiffusionData> p;
-            {
-              cereal::PortableBinaryInputArchive ar(bits_stream);
-              ar(p);
-            }
-            return p;
-          }));
+      .def(py::pickle(&DiffusionDataPickler::to_state,
+                      &DiffusionDataPickler::from_state));
 }

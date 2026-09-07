@@ -15,6 +15,8 @@
 
 #include <vector>
 
+struct TrackPickler;
+
 namespace scarabee {
 
 class Track {
@@ -117,6 +119,7 @@ class Track {
   std::size_t cmfd_exit_cell_;
 
   friend class cereal::access;
+  friend struct ::TrackPickler;
   template <class Archive>
   void serialize(Archive& arc) {
     arc(CEREAL_NVP(entry_flux_), CEREAL_NVP(exit_flux_), CEREAL_NVP(segments_),

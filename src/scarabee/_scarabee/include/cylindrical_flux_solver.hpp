@@ -15,6 +15,8 @@
 #include <memory>
 #include <vector>
 
+struct CylindricalFluxSolverPickler;
+
 namespace scarabee {
 
 class CylindricalFluxSolver {
@@ -26,7 +28,6 @@ class CylindricalFluxSolver {
   std::size_t ngroups() const { return cell_->ngroups(); }
   std::size_t nregions() const { return cell_->nregions(); }
   std::size_t size() const { return this->nregions(); }
-
   void solve(bool parallel = false);
   bool solved() const { return solved_; }
 
@@ -115,6 +116,7 @@ class CylindricalFluxSolver {
   void solve_parallel();
 
   friend class cereal::access;
+  friend struct ::CylindricalFluxSolverPickler;
   CylindricalFluxSolver() {}
   template <class Archive>
   void serialize(Archive& arc) {

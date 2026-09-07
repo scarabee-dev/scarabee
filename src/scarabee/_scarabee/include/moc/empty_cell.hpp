@@ -10,12 +10,18 @@
 #include <cereal/types/base_class.hpp>
 
 #include <memory>
+#include <tuple>
 
 namespace scarabee {
 
 class EmptyCell : public Cell {
  public:
+  using Tuple = std::tuple<Cell::Tuple, std::shared_ptr<CrossSection>>;
+
   EmptyCell(const std::shared_ptr<CrossSection>& mat, double dx, double dy);
+  EmptyCell(const Tuple& t) : Cell(std::get<0>(t)), mat_(std::get<1>(t)) {}
+
+  Tuple to_tuple() const { return {Cell::to_tuple(), mat_}; }
 
  private:
   std::shared_ptr<CrossSection> mat_;

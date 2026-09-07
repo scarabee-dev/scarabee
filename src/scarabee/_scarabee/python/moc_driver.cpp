@@ -1,6 +1,8 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
+#include <cereal/archives/portable_binary.hpp>
+
 #include <xtensor-python/pytensor.hpp>
 
 #include <moc/moc_driver.hpp>
@@ -12,11 +14,118 @@
 #include <ImApp/imapp.hpp>
 #endif
 
+#include <sstream>
 #include <tuple>
 
 namespace py = pybind11;
 
 using namespace scarabee;
+
+struct TrackPickler {
+  static Track from_state(py::tuple t) {
+    Track trk;
+    std::vector<Segment::Tuple> segment_tuples =
+        t[0].cast<std::vector<Segment::Tuple>>();
+    trk.segments_.reserve(segment_tuples.size());
+    for (const auto& segment_tuple : segment_tuples)
+      trk.segments_.push_back(Segment(segment_tuple));
+
+    py::bytes bytes = t[1].cast<py::bytes>();
+    std::istringstream bits_stream(bytes,
+                                   std::ios_base::binary | std::ios_base::in);
+    {
+      cereal::PortableBinaryInputArchive ar(bits_stream);
+      ar(trk.entry_flux_, trk.exit_flux_, trk.entry_, trk.exit_, trk.dir_,
+         trk.wgt_, trk.width_, trk.phi_, trk.entry_bc_, trk.exit_bc_,
+         trk.forward_phi_index_, trk.backward_phi_index_, trk.cmfd_entry_cell_,
+         trk.cmfd_exit_cell_);
+    }
+
+    return trk;
+  }
+
+  static py::tuple to_state(const Track& t) {
+    std::vector<Segment::Tuple> segment_tuples;
+    segment_tuples.reserve(t.segments_.size());
+    for (const auto& segment : t.segments_)
+      segment_tuples.push_back(segment.to_tuple());
+
+    std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
+    {
+      cereal::PortableBinaryOutputArchive ar(bits_stream);
+      ar(t.entry_flux_, t.exit_flux_, t.entry_, t.exit_, t.dir_, t.wgt_,
+         t.width_, t.phi_, t.entry_bc_, t.exit_bc_, t.forward_phi_index_,
+         t.backward_phi_index_, t.cmfd_entry_cell_, t.cmfd_exit_cell_);
+    }
+
+    return py::make_tuple(segment_tuples, py::bytes(bits_stream.str()));
+  }
+};
+
+struct MOCDriverPickler {
+  static std::shared_ptr<MOCDriver> from_state(py::tuple t) {
+    std::shared_ptr<MOCDriver> m(new MOCDriver);
+
+    std::vector<std::vector<py::tuple>> track_tuples =
+        t[0].cast<std::vector<std::vector<py::tuple>>>();
+
+    m->tracks_.reserve(track_tuples.size());
+    for (std::size_t i = 0; i < track_tuples.size(); i++) {
+      m->tracks_.emplace_back();
+      m->tracks_.back().reserve(track_tuples[i].size());
+      for (std::size_t j = 0; j < track_tuples[i].size(); j++) {
+        m->tracks_[i].push_back(TrackPickler::from_state(track_tuples[i][j]));
+      }
+    }
+
+    m->geometry_ = t[1].cast<std::shared_ptr<Cartesian2D>>();
+    m->cmfd_ = t[2].cast<std::shared_ptr<CMFD>>();
+
+    py::bytes bytes = t[3].cast<py::bytes>();
+    std::istringstream bits_stream(bytes,
+                                   std::ios_base::binary | std::ios_base::in);
+    {
+      cereal::PortableBinaryInputArchive ar(bits_stream);
+      ar(m->angle_info_, m->polar_quad_, m->sph_harm_, m->flux_, m->extern_src_,
+         m->fsr_offsets_, m->ngroups_, m->nfsrs_, m->n_pol_angles_,
+         m->flux_tol_, m->keff_tol_, m->keff_, m->check_fsr_areas_,
+         m->fsr_area_tol_, m->x_min_bc_, m->x_max_bc_, m->y_min_bc_,
+         m->y_max_bc_, m->max_L_, m->N_lj_, m->anisotropic_, m->mode_,
+         m->solved_);
+    }
+
+    // Need to reset internal pointers
+    m->allocate_fsr_data();
+    m->set_bcs();
+
+    return m;
+  }
+
+  static py::tuple to_state(const std::shared_ptr<MOCDriver>& md) {
+    std::vector<std::vector<py::tuple>> track_tuples;
+    track_tuples.reserve(md->tracks_.size());
+    for (std::size_t i = 0; i < md->tracks_.size(); i++) {
+      track_tuples.emplace_back();
+      track_tuples.back().reserve(md->tracks_[i].size());
+      for (std::size_t j = 0; j < md->tracks_[i].size(); j++) {
+        track_tuples[i].push_back(TrackPickler::to_state(md->tracks_[i][j]));
+      }
+    }
+
+    std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
+    {
+      cereal::PortableBinaryOutputArchive ar(bits_stream);
+      ar(md->angle_info_, md->polar_quad_, md->sph_harm_, md->flux_,
+         md->extern_src_, md->fsr_offsets_, md->ngroups_, md->nfsrs_,
+         md->n_pol_angles_, md->flux_tol_, md->keff_tol_, md->keff_,
+         md->check_fsr_areas_, md->fsr_area_tol_, md->x_min_bc_, md->x_max_bc_,
+         md->y_min_bc_, md->y_max_bc_, md->max_L_, md->N_lj_, md->anisotropic_,
+         md->mode_, md->solved_);
+    }
+    py::bytes bytes(bits_stream.str());
+    return py::make_tuple(track_tuples, md->geometry_, md->cmfd_, bytes);
+  }
+};
 
 void init_MOCDriver(py::module& m) {
   py::class_<MOCDriver, std::shared_ptr<MOCDriver>>(m, "MOCDriver")
@@ -49,6 +158,7 @@ void init_MOCDriver(py::module& m) {
            py::arg("anisotropic") = false)
 
       .def("generate_tracks", &MOCDriver::generate_tracks,
+           py::call_guard<py::gil_scoped_release>(),
            "Traces tracks across the geometry for the calculation.\n\n"
            "Parameters\n"
            "----------\n"
@@ -570,19 +680,6 @@ void init_MOCDriver(py::module& m) {
           "    Array of bounding y values.\n",
           py::arg("nx"), py::arg("ny"))
 
-      .def("save", &MOCDriver::save_bin,
-           "Saves MOCDriver to a binary file.\n\n"
-           "Parameters\n"
-           "----------\n"
-           "fname : str\n"
-           "        Name of file.\n",
-           py::arg("fname"))
-
-      .def_static("load", &MOCDriver::load_bin,
-                  "Loads MOCDriver from a binary file.\n\n"
-                  "Parameters\n"
-                  "----------\n"
-                  "fname : str\n"
-                  "        Name of file.\n",
-                  py::arg("fname"));
+      .def(py::pickle(&MOCDriverPickler::to_state,
+                      &MOCDriverPickler::from_state));
 }

@@ -6,9 +6,58 @@
 #include <data/material.hpp>
 #include <data/nd_library.hpp>
 
+#include <cereal/types/memory.hpp>
+#include <cereal/archives/portable_binary.hpp>
+
 namespace py = pybind11;
 
 using namespace scarabee;
+
+struct MaterialCompositionPickler {
+  static std::shared_ptr<MaterialComposition> from_state(py::tuple t) {
+    py::bytes bytes = t[0].cast<py::bytes>();
+    std::istringstream bits_stream(bytes,
+                                   std::ios_base::binary | std::ios_base::in);
+    std::shared_ptr<MaterialComposition> p;
+    {
+      cereal::PortableBinaryInputArchive ar(bits_stream);
+      ar(p);
+    }
+    return p;
+  }
+
+  static py::tuple to_state(const std::shared_ptr<MaterialComposition>& mc) {
+    std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
+    {
+      cereal::PortableBinaryOutputArchive ar(bits_stream);
+      ar(mc);
+    }
+    return py::make_tuple(py::bytes(bits_stream.str()));
+  }
+};
+
+struct MaterialPickler {
+  static std::shared_ptr<Material> from_state(py::tuple t) {
+    py::bytes bytes = t[0].cast<py::bytes>();
+    std::istringstream bits_stream(bytes,
+                                   std::ios_base::binary | std::ios_base::in);
+    std::shared_ptr<Material> p;
+    {
+      cereal::PortableBinaryInputArchive ar(bits_stream);
+      ar(p);
+    }
+    return p;
+  }
+
+  static py::tuple to_state(const std::shared_ptr<Material>& m) {
+    std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
+    {
+      cereal::PortableBinaryOutputArchive ar(bits_stream);
+      ar(m);
+    }
+    return py::make_tuple(py::bytes(bits_stream.str()));
+  }
+};
 
 void init_Nuclide(py::module& m) {
   py::class_<Nuclide>(
@@ -24,7 +73,13 @@ void init_Nuclide(py::module& m) {
 
       .def_readwrite("fraction", &Nuclide::fraction,
                      "Fraction of the material (by atoms or weight) that is "
-                     "occupied by this nuclide.");
+                     "occupied by this nuclide.")
+
+      .def(py::pickle(
+          [](const Nuclide& n) { return py::make_tuple(n.name, n.fraction); },
+          [](py::tuple t) {
+            return Nuclide{t[0].cast<std::string>(), t[1].cast<double>()};
+          }));
 }
 
 void init_MaterialComposition(py::module& m) {
@@ -105,9 +160,8 @@ void init_MaterialComposition(py::module& m) {
           "      :py:class:`Nuclide` giving the nuclide name and fraction.\n\n",
           py::arg("nuc"))
 
-      .def("__deepcopy__", [](const MaterialComposition& comp) {
-        return MaterialComposition(comp);
-      });
+      .def(py::pickle(&MaterialCompositionPickler::to_state,
+                      &MaterialCompositionPickler::from_state));
 }
 
 void init_Material(py::module& m) {
@@ -406,8 +460,12 @@ void init_Material(py::module& m) {
       .def_property("name", &Material::name, &Material::set_name,
                     "String with the name of the Material.")
 
-      .def("__deepcopy__",
-           [](const Material& mat, py::dict) { return Material(mat); });
+      // Since Material holds a copy of a MaterialCompositon, we don't need to
+      // worry about sending back a py::tuple to ensure pickling maintains
+      // references on the Python side. Therefore, we do a raw serialization
+      // using Cereal here.
+      .def(
+          py::pickle(&MaterialPickler::to_state, &MaterialPickler::from_state));
 
   py::enum_<MixingFraction>(m, "MixingFraction")
       .value("Atoms", MixingFraction::Atoms,

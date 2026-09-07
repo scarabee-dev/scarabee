@@ -252,7 +252,7 @@ double Tab1::integrate(const double ia, const double ib) const {
   if (x_.back() < b) b = x_.back();
 
   // Check for this special case
-  if (a == b) return 0.;
+  if (a >= b) return 0.;
 
   // Now we can start to perform the real integral
   double integral = 0.;
@@ -351,22 +351,24 @@ double Tab1::integrate(const int p, const double x0, const double y0,
       {
         const double logx = std::log(x1 / x0);
         const double m = (y1 - y0) / logx;
-        return y0 + m * (x1 * (logx - 1.) + x0);
+        return y0 * (x1 - x0) + m * (x1 * (logx - 1.) + x0);
       }
       break;
     case 4:
       // Log-Lin
       {
-        const double m = std::log(y1 / y0) / (x1 - x0);
-        return y0 / m * (std::exp(m * (x1 - x0)) - 1.);
+        const double logy = std::log(y1 / y0);
+        const double m = (logy == 0. ? 1. : std::expm1(logy) / logy);
+        return y0 * (x1 - x0) * m;
       }
       break;
     case 5:
       // Log-Log
       {
-        const double m = std::log(y1 / y0) / std::log(x1 / x0);
-        return y0 / ((m + 1) * std::pow(x0, m)) *
-               (std::pow(x1, (m + 1)) - std::pow(x0, (m + 1)));
+        const double logx = std::log(x1 / x0);
+        const double z = std::log(y1 / y0) + logx;
+        const double m = (z == 0. ? 1. : std::expm1(z) / z);
+        return y0 * x0 * logx * m;
       }
       break;
   }

@@ -8,6 +8,8 @@
 #include <span>
 #include <memory>
 
+struct ReflectorSNPickler;
+
 namespace scarabee {
 
 class ReflectorSN {
@@ -79,8 +81,14 @@ class ReflectorSN {
                    const xt::xtensor<double, 3>& new_flux,
                    const double keff) const;
 
+  void set_quadrature(std::size_t nangles);
+
   std::span<const double> mu_;
   std::span<const double> wgt_;
+
+  friend struct ::ReflectorSNPickler;
+
+  ReflectorSN() = default;
 };
 
 }  // namespace scarabee

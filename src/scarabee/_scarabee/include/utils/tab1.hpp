@@ -1,10 +1,17 @@
 #ifndef SCARABEE_TAB1_H
 #define SCARABEE_TAB1_H
 
+#include <utils/serialization.hpp>
+
 #include <xtensor/containers/xtensor.hpp>
 #include <xtensor-python/pytensor.hpp>
 
+#include <cereal/cereal.hpp>
+#include <cereal/types/vector.hpp>
+
 #include <vector>
+
+struct Tab1Pickler;
 
 namespace scarabee {
 
@@ -45,6 +52,15 @@ class Tab1 {
   int get_interpolation(const std::size_t indx) const;
 
   void check_sign_interpolation_compatability() const;
+
+  friend class cereal::access;
+  friend struct ::Tab1Pickler;
+  Tab1() = default;
+
+  template <class Archive>
+  void serialize(Archive& arc) {
+    arc(x_, y_, breakpoints_, interpolations_);
+  }
 };
 
 }  // namespace scarabee

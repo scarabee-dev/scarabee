@@ -1,10 +1,17 @@
 #ifndef SCARABEE_FLUX_CALCULATOR_H
 #define SCARABEE_FLUX_CALCULATOR_H
 
+#include <utils/serialization.hpp>
+
 #include <xtensor/containers/xtensor.hpp>
 
-#include <cstdint>
+#include <cereal/cereal.hpp>
+#include <cereal/types/vector.hpp>
+
+#include <cstddef>
 #include <vector>
+
+struct FluxCalculatorPickler;
 
 namespace scarabee {
 
@@ -15,6 +22,11 @@ class FluxCalculator {
     double a;
     double sig_b;
     std::size_t g_max;
+
+    template <class Archive>
+    void serialize(Archive& ar) {
+      ar(CEREAL_NVP(A), CEREAL_NVP(a), CEREAL_NVP(sig_b), CEREAL_NVP(g_max));
+    }
   };
 
   FluxCalculator(const xt::xtensor<double, 1>& energy_boundaries,
@@ -54,6 +66,19 @@ class FluxCalculator {
   std::vector<BackgroundNuclide> background_nuclides_;
   double A_r_, a_r_;
   std::size_t g_max_r;
+
+  friend class cereal::access;
+  friend struct ::FluxCalculatorPickler;
+
+  FluxCalculator() = default;
+
+  template <class Archive>
+  void serialize(Archive& ar) {
+    ar(CEREAL_NVP(energy_boundaries_), CEREAL_NVP(avg_energy_),
+       CEREAL_NVP(dlt_energy_), CEREAL_NVP(flux_), CEREAL_NVP(sig_t_r_),
+       CEREAL_NVP(sig_s_r_), CEREAL_NVP(chi_), CEREAL_NVP(background_nuclides_),
+       CEREAL_NVP(A_r_), CEREAL_NVP(a_r_), CEREAL_NVP(g_max_r));
+  }
 
   double a_from_awr(double A) const {
     double res = (A - 1.) / (A + 1.);

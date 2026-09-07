@@ -19,12 +19,21 @@
 #include <map>
 #include <memory>
 #include <sstream>
+#include <tuple>
 #include <vector>
 
 namespace scarabee {
 
 class Cell {
  public:
+  using Tuple = std::tuple<std::vector<FlatSourceRegion::Tuple>,
+                           std::shared_ptr<Surface>, std::shared_ptr<Surface>,
+                           std::shared_ptr<Surface>, std::shared_ptr<Surface>>;
+
+  // Must provide a virtual destructor so that Pybind11 can use RTTI to down
+  // cast the specific type of Cell (i.e. PinCell) which is picklable.
+  virtual ~Cell() = default;
+
   bool inside(const Vector& r, const Direction& u) const {
     if (x_min_->side(r, u) == Surface::Side::Negative) return false;
     if (y_min_->side(r, u) == Surface::Side::Negative) return false;
@@ -76,9 +85,26 @@ class Cell {
   double dx() const { return x_max_->x0() - x_min_->x0(); }
   double dy() const { return y_max_->y0() - y_min_->y0(); }
 
+  Tuple to_tuple() const {
+    std::vector<FlatSourceRegion::Tuple> fsr_list;
+    for (const auto& fsr : fsrs_) fsr_list.push_back(fsr.to_tuple());
+    return {fsr_list, x_min_, y_min_, x_max_, y_max_};
+  }
+
  protected:
   std::vector<FlatSourceRegion> fsrs_;
   std::shared_ptr<Surface> x_min_, y_min_, x_max_, y_max_;
+
+  Cell(const Tuple& t) {
+    std::vector<FlatSourceRegion::Tuple> fsr_list = std::get<0>(t);
+    fsrs_.reserve(fsr_list.size());
+    for (std::size_t i = 0; i < fsr_list.size(); i++)
+      fsrs_.push_back(FlatSourceRegion(fsr_list[i]));
+    x_min_ = std::get<1>(t);
+    y_min_ = std::get<2>(t);
+    x_max_ = std::get<3>(t);
+    y_max_ = std::get<4>(t);
+  }
 
   Cell(double dx, double dy);
   void check_surfaces() const;
