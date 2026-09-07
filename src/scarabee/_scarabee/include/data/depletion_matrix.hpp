@@ -7,8 +7,13 @@
 #include <data/micro_cross_sections.hpp>
 #include <utils/logging.hpp>
 #include <utils/scarabee_exception.hpp>
+#include <utils/serialization.hpp>
 
 #include <Eigen/SparseCore>
+
+#include <cereal/cereal.hpp>
+#include <cereal/types/vector.hpp>
+#include <cereal/types/string.hpp>
 
 #include <array>
 #include <complex>
@@ -102,6 +107,15 @@ class DepletionMatrix {
  private:
   std::vector<std::string> nuclides_;
   Eigen::SparseMatrix<double> matrix_;
+
+  friend class cereal::access;
+
+  DepletionMatrix() = default;
+
+  template <class Archive>
+  void serialize(Archive& ar) {
+    ar(CEREAL_NVP(nuclides_), CEREAL_NVP(matrix_));
+  }
 
   bool same_nuclides(const std::vector<std::string>& n1,
                      const std::vector<std::string>& n2) const {

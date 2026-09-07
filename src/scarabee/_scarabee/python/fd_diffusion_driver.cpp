@@ -277,5 +277,8 @@ void init_FDDiffusionDriver(py::module& m) {
           "Returns\n"
           "-------\n"
           "FDDiffusionDriver",
-          py::arg("fname"));
+          py::arg("fname"))
+
+      .def(py::pickle([](const FDDiffusionDriver& d) { return d.to_tuple(); },
+                      [](py::tuple t) { return FDDiffusionDriver(t); }));
 }

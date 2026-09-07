@@ -6,6 +6,11 @@
 #include <utils/logging.hpp>
 #include <utils/scarabee_exception.hpp>
 
+#include <cereal/types/memory.hpp>
+#include <cereal/archives/portable_binary.hpp>
+
+#include <sstream>
+
 namespace py = pybind11;
 
 using namespace scarabee;
@@ -254,5 +259,26 @@ void init_DepletionChain(py::module& m) {
                   "-------\n"
                   "DepletionChain\n"
                   "    Depletion chain from the file.\n",
-                  py::arg("fname"));
+                  py::arg("fname"))
+
+      .def(py::pickle(
+          [](const std::shared_ptr<DepletionChain>& p) {
+            std::ostringstream bits_stream(std::ios_base::binary |
+                                           std::ios_base::out);
+            {
+              cereal::PortableBinaryOutputArchive ar(bits_stream);
+              ar(p);
+            }
+            return py::bytes(bits_stream.str());
+          },
+          [](py::bytes bites) {
+            std::istringstream bits_stream(
+                bites, std::ios_base::binary | std::ios_base::in);
+            std::shared_ptr<DepletionChain> p;
+            {
+              cereal::PortableBinaryInputArchive ar(bits_stream);
+              ar(p);
+            }
+            return p;
+          }));
 }

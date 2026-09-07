@@ -140,5 +140,8 @@ void init_LeakageCorrections(py::module& m) {
            "    Outgoing energy group index\n"
            "val : float\n"
            "    New value of the correction coefficient\n\n",
-           py::arg("g_in"), py::arg("g_out"), py::arg("val"));
+           py::arg("g_in"), py::arg("g_out"), py::arg("val"))
+
+      .def(py::pickle([](const LeakageCorrections& l) { return l.to_tuple(); },
+                      [](py::tuple t) { return LeakageCorrections(t); }));
 }

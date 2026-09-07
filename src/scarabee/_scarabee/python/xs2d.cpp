@@ -4,6 +4,9 @@
 
 #include <data/xs2d.hpp>
 
+#include <cereal/types/memory.hpp>
+#include <cereal/archives/portable_binary.hpp>
+
 #include <sstream>
 #include <iomanip>
 
@@ -143,26 +146,48 @@ void init_XS2D(py::module& m) {
              return out.str();
            })
 
-      .def("__str__", [](const XS2D& xs) {
-        std::stringstream out;
-        out << std::scientific;
-        out << '[';
-        for (std::size_t l = 0; l < xs.max_legendre_order() + 1; l++) {
-          out << '[';
-          for (std::size_t g = 0; g < xs.ngroups(); g++) {
-            out << '[';
-            for (std::size_t gg = 0; gg < xs.ngroups(); gg++) {
-              out << xs(l, g, gg);
-              if (gg < xs.ngroups() - 1) out << ", ";
-            }
-            out << ']';
-            if (g < xs.ngroups() - 1) out << ",\n  ";
-          }
-          out << ']';
-          if (l != xs.max_legendre_order()) out << ",\n ";
-        }
-        out << ']';
+      .def("__str__",
+           [](const XS2D& xs) {
+             std::stringstream out;
+             out << std::scientific;
+             out << '[';
+             for (std::size_t l = 0; l < xs.max_legendre_order() + 1; l++) {
+               out << '[';
+               for (std::size_t g = 0; g < xs.ngroups(); g++) {
+                 out << '[';
+                 for (std::size_t gg = 0; gg < xs.ngroups(); gg++) {
+                   out << xs(l, g, gg);
+                   if (gg < xs.ngroups() - 1) out << ", ";
+                 }
+                 out << ']';
+                 if (g < xs.ngroups() - 1) out << ",\n  ";
+               }
+               out << ']';
+               if (l != xs.max_legendre_order()) out << ",\n ";
+             }
+             out << ']';
 
-        return out.str();
-      });
+             return out.str();
+           })
+
+      .def(py::pickle(
+          [](const std::shared_ptr<XS2D>& p) {
+            std::ostringstream bits_stream(std::ios_base::binary |
+                                           std::ios_base::out);
+            {
+              cereal::PortableBinaryOutputArchive ar(bits_stream);
+              ar(p);
+            }
+            return py::bytes(bits_stream.str());
+          },
+          [](py::bytes bites) {
+            std::istringstream bits_stream(
+                bites, std::ios_base::binary | std::ios_base::in);
+            std::shared_ptr<XS2D> p;
+            {
+              cereal::PortableBinaryInputArchive ar(bits_stream);
+              ar(p);
+            }
+            return p;
+          }));
 }

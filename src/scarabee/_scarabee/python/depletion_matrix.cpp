@@ -4,7 +4,11 @@
 
 #include <data/depletion_matrix.hpp>
 
+#include <cereal/types/memory.hpp>
+#include <cereal/archives/portable_binary.hpp>
+
 #include <memory>
+#include <sstream>
 
 namespace py = pybind11;
 
@@ -113,7 +117,27 @@ void init_DepletionMatrix(py::module& m) {
       .def("__sub__", &DepletionMatrix::operator-)
       .def("__mul__", &DepletionMatrix::operator*)
       .def("__rmul__", [](const DepletionMatrix& M, double c) { return M * c; })
-      .def("__truediv__", &DepletionMatrix::operator/);
+      .def("__truediv__", &DepletionMatrix::operator/)
+      .def(py::pickle(
+          [](const std::shared_ptr<DepletionMatrix>& p) {
+            std::ostringstream bits_stream(std::ios_base::binary |
+                                           std::ios_base::out);
+            {
+              cereal::PortableBinaryOutputArchive ar(bits_stream);
+              ar(p);
+            }
+            return py::bytes(bits_stream.str());
+          },
+          [](py::bytes bites) {
+            std::istringstream bits_stream(
+                bites, std::ios_base::binary | std::ios_base::in);
+            std::shared_ptr<DepletionMatrix> p;
+            {
+              cereal::PortableBinaryInputArchive ar(bits_stream);
+              ar(p);
+            }
+            return p;
+          }));
 
   // Module function to build a depletion matrix.
   m.def(

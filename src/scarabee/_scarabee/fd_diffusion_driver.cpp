@@ -8,6 +8,7 @@
 #include <Eigen/Sparse>
 #include <Eigen/IterativeLinearSolvers>
 
+#include <cereal/types/memory.hpp>
 #include <cereal/archives/portable_binary.hpp>
 
 #include <cmath>
@@ -426,6 +427,26 @@ FDDiffusionDriver::FDDiffusionDriver(std::shared_ptr<DiffusionGeometry> geom)
 
   extern_src_.resize(geom_->ngroups() * geom_->nmats());
   extern_src_.fill(0.);
+}
+
+FDDiffusionDriver::FDDiffusionDriver(py::tuple t)
+    : geom_(),
+      flux_(),
+      extern_src_(),
+      mode_(),
+      keff_(),
+      flux_tol_(),
+      keff_tol_(),
+      solved_() {
+  geom_ = t[0].cast<std::shared_ptr<DiffusionGeometry>>();
+  py::bytes bytes = t[1].cast<py::bytes>();
+
+  std::istringstream bits_stream(bytes,
+                                 std::ios_base::binary | std::ios_base::in);
+  {
+    cereal::PortableBinaryInputArchive ar(bits_stream);
+    ar(flux_, extern_src_, mode_, keff_, flux_tol_, keff_tol_, solved_);
+  }
 }
 
 void FDDiffusionDriver::set_flux_tolerance(double ftol) {
@@ -1115,6 +1136,17 @@ std::unique_ptr<FDDiffusionDriver> FDDiffusionDriver::load(
   arc(*out);
 
   return out;
+}
+
+py::tuple FDDiffusionDriver::to_tuple() const {
+  std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
+  {
+    cereal::PortableBinaryOutputArchive ar(bits_stream);
+    ar(flux_, extern_src_, mode_, keff_, flux_tol_, keff_tol_, solved_);
+  }
+  py::bytes bytes(bits_stream.str());
+
+  return py::make_tuple(geom_, bytes);
 }
 
 }  // namespace scarabee

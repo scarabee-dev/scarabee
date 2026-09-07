@@ -4,6 +4,9 @@
 
 #include <data/xs1d.hpp>
 
+#include <cereal/types/memory.hpp>
+#include <cereal/archives/portable_binary.hpp>
+
 #include <sstream>
 #include <iomanip>
 
@@ -85,15 +88,37 @@ void init_XS1D(py::module& m) {
              return out.str();
            })
 
-      .def("__repr__", [](const XS1D& xs) {
-        std::stringstream out;
-        out << std::scientific;
-        out << '[';
-        for (std::size_t i = 0; i < xs.ngroups(); i++) {
-          out << xs(i);
-          if (i < xs.ngroups() - 1) out << ", ";
-        }
-        out << ']';
-        return out.str();
-      });
+      .def("__repr__",
+           [](const XS1D& xs) {
+             std::stringstream out;
+             out << std::scientific;
+             out << '[';
+             for (std::size_t i = 0; i < xs.ngroups(); i++) {
+               out << xs(i);
+               if (i < xs.ngroups() - 1) out << ", ";
+             }
+             out << ']';
+             return out.str();
+           })
+
+      .def(py::pickle(
+          [](const std::shared_ptr<XS1D>& p) {
+            std::ostringstream bits_stream(std::ios_base::binary |
+                                           std::ios_base::out);
+            {
+              cereal::PortableBinaryOutputArchive ar(bits_stream);
+              ar(p);
+            }
+            return py::bytes(bits_stream.str());
+          },
+          [](py::bytes bites) {
+            std::istringstream bits_stream(
+                bites, std::ios_base::binary | std::ios_base::in);
+            std::shared_ptr<XS1D> p;
+            {
+              cereal::PortableBinaryInputArchive ar(bits_stream);
+              ar(p);
+            }
+            return p;
+          }));
 }

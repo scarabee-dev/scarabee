@@ -12,6 +12,10 @@
 #include <cereal/types/memory.hpp>
 #include <cereal/types/optional.hpp>
 
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+namespace py = pybind11;
+
 #include <memory>
 #include <optional>
 #include <string>
@@ -35,6 +39,14 @@ class DiffusionData {
   DiffusionData(std::shared_ptr<DiffusionCrossSection> xs,
                 const xt::xtensor<double, 2>& adf,
                 const xt::xtensor<double, 2>& cdf);
+
+  DiffusionData(py::tuple t)
+      : xs_(t[0].cast<std::shared_ptr<DiffusionCrossSection>>()),
+        adf_(t[1].cast<xt::xtensor<double, 2>>()),
+        cdf_(t[2].cast<xt::xtensor<double, 2>>()),
+        name_(t[3].cast<std::string>()),
+        leakage_corrections_(t[4].cast<std::optional<LeakageCorrections>>()),
+        reflector_(t[5].cast<bool>()) {};
 
   std::size_t ngroups() const { return xs_->ngroups(); }
 
@@ -152,6 +164,11 @@ class DiffusionData {
 
   void save(const std::string& fname) const;
   static std::shared_ptr<DiffusionData> load(const std::string& fname);
+
+  py::tuple to_tuple() const {
+    return py::make_tuple(xs_, adf_, cdf_, name_, leakage_corrections_,
+                          reflector_);
+  }
 
  private:
   std::shared_ptr<DiffusionCrossSection> xs_;

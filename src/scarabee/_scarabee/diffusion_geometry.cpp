@@ -591,6 +591,57 @@ DiffusionGeometry::DiffusionGeometry(
   fill_z_bounds();
 }
 
+DiffusionGeometry::DiffusionGeometry(py::tuple t)
+    : tiles_(),
+      xn_(t[4].cast<Tile>()),
+      xp_(t[5].cast<Tile>()),
+      yn_(t[6].cast<Tile>()),
+      yp_(t[7].cast<Tile>()),
+      zn_(t[8].cast<Tile>()),
+      zp_(t[9].cast<Tile>()),
+      tile_dx_(t[10].cast<std::vector<double>>()),
+      x_divs_per_tile_(t[11].cast<std::vector<std::size_t>>()),
+      tile_dy_(t[12].cast<std::vector<double>>()),
+      y_divs_per_tile_(t[13].cast<std::vector<std::size_t>>()),
+      tile_dz_(t[14].cast<std::vector<double>>()),
+      z_divs_per_tile_(t[15].cast<std::vector<std::size_t>>()),
+      x_bounds_(t[16].cast<std::vector<double>>()),
+      y_bounds_(t[17].cast<std::vector<double>>()),
+      z_bounds_(t[18].cast<std::vector<double>>()),
+      nmats_(t[19].cast<std::size_t>()),
+      mat_indx_to_flat_geom_indx_(t[20].cast<std::vector<std::size_t>>()),
+      nx_(t[21].cast<std::size_t>()),
+      ny_(t[22].cast<std::size_t>()),
+      nz_(t[23].cast<std::size_t>()),
+      geom_shape_() {
+  // Must rebuild tiles_ array
+  const std::size_t tsx = t[0].cast<std::size_t>();
+  const std::size_t tsy = t[1].cast<std::size_t>();
+  const std::size_t tsz = t[2].cast<std::size_t>();
+  std::vector<Tile> flat_tiles = t[3].cast<std::vector<Tile>>();
+  if (tsz > 0)
+    tiles_.resize({tsx, tsy, tsz});
+  else if (tsy > 0)
+    tiles_.resize({tsx, tsy});
+  else
+    tiles_.resize({tsx});
+
+  if (tiles_.size() != flat_tiles.size()) {
+    const auto mssg = "Could not reconstruct tiles_ array from provided tuple.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  for (std::size_t j = 0; j < flat_tiles.size(); j++)
+    tiles_.flat(j) = flat_tiles[j];
+
+  // Rebuild shape
+  const std::size_t ndims = t[24].cast<std::size_t>();
+  if (ndims >= 1) geom_shape_.push_back(nx_);
+  if (ndims >= 2) geom_shape_.push_back(ny_);
+  if (ndims >= 3) geom_shape_.push_back(nz_);
+}
+
 std::size_t DiffusionGeometry::ngroups() const {
   return this->mat(0)->ngroups();
 }

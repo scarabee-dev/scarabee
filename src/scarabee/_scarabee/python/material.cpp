@@ -6,6 +6,9 @@
 #include <data/material.hpp>
 #include <data/nd_library.hpp>
 
+#include <cereal/types/memory.hpp>
+#include <cereal/archives/portable_binary.hpp>
+
 namespace py = pybind11;
 
 using namespace scarabee;
@@ -24,7 +27,13 @@ void init_Nuclide(py::module& m) {
 
       .def_readwrite("fraction", &Nuclide::fraction,
                      "Fraction of the material (by atoms or weight) that is "
-                     "occupied by this nuclide.");
+                     "occupied by this nuclide.")
+
+      .def(py::pickle(
+          [](const Nuclide& n) { return py::make_tuple(n.name, n.fraction); },
+          [](py::tuple t) {
+            return Nuclide{t[0].cast<std::string>(), t[1].cast<double>()};
+          }));
 }
 
 void init_MaterialComposition(py::module& m) {
@@ -105,9 +114,26 @@ void init_MaterialComposition(py::module& m) {
           "      :py:class:`Nuclide` giving the nuclide name and fraction.\n\n",
           py::arg("nuc"))
 
-      .def("__deepcopy__", [](const MaterialComposition& comp) {
-        return MaterialComposition(comp);
-      });
+      .def(py::pickle(
+          [](const std::shared_ptr<MaterialComposition>& p) {
+            std::ostringstream bits_stream(std::ios_base::binary |
+                                           std::ios_base::out);
+            {
+              cereal::PortableBinaryOutputArchive ar(bits_stream);
+              ar(p);
+            }
+            return py::bytes(bits_stream.str());
+          },
+          [](py::bytes bites) {
+            std::istringstream bits_stream(
+                bites, std::ios_base::binary | std::ios_base::in);
+            std::shared_ptr<MaterialComposition> p;
+            {
+              cereal::PortableBinaryInputArchive ar(bits_stream);
+              ar(p);
+            }
+            return p;
+          }));
 }
 
 void init_Material(py::module& m) {
@@ -406,8 +432,30 @@ void init_Material(py::module& m) {
       .def_property("name", &Material::name, &Material::set_name,
                     "String with the name of the Material.")
 
-      .def("__deepcopy__",
-           [](const Material& mat, py::dict) { return Material(mat); });
+      // Since Material holds a copy of a MaterialCompositon, we don't need to
+      // worry about sending back a py::tuple to ensure pickling maintains
+      // references on the Python side. Therefore, we do a raw serialization
+      // using Cereal here.
+      .def(py::pickle(
+          [](const std::shared_ptr<Material>& p) {
+            std::ostringstream bits_stream(std::ios_base::binary |
+                                           std::ios_base::out);
+            {
+              cereal::PortableBinaryOutputArchive ar(bits_stream);
+              ar(p);
+            }
+            return py::bytes(bits_stream.str());
+          },
+          [](py::bytes bites) {
+            std::istringstream bits_stream(
+                bites, std::ios_base::binary | std::ios_base::in);
+            std::shared_ptr<Material> p;
+            {
+              cereal::PortableBinaryInputArchive ar(bits_stream);
+              ar(p);
+            }
+            return p;
+          }));
 
   py::enum_<MixingFraction>(m, "MixingFraction")
       .value("Atoms", MixingFraction::Atoms,

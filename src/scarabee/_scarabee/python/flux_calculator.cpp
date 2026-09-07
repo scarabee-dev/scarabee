@@ -5,12 +5,17 @@
 
 #include <data/flux_calculator.hpp>
 
+#include <cereal/types/memory.hpp>
+#include <cereal/archives/portable_binary.hpp>
+
+#include <sstream>
+
 namespace py = pybind11;
 
 using namespace scarabee;
 
 void init_FluxCalculator(py::module& m) {
-  py::class_<FluxCalculator>(
+  py::class_<FluxCalculator, std::shared_ptr<FluxCalculator>>(
       m, "FluxCalculator",
       "A FluxCalculator solves the neutron slowing down equation for a single "
       "resonant isotope plus any number of background isotopes which have "
@@ -83,5 +88,26 @@ void init_FluxCalculator(py::module& m) {
 
       .def_property_readonly("alpha", &FluxCalculator::awr,
                              "Slowing down parameter of the resonant nuclide "
-                             "((awr - 1)/(awr + 1))^2.");
+                             "((awr - 1)/(awr + 1))^2.")
+
+      .def(py::pickle(
+          [](const std::shared_ptr<FluxCalculator>& p) {
+            std::ostringstream bits_stream(std::ios_base::binary |
+                                           std::ios_base::out);
+            {
+              cereal::PortableBinaryOutputArchive ar(bits_stream);
+              ar(p);
+            }
+            return py::bytes(bits_stream.str());
+          },
+          [](py::bytes bites) {
+            std::istringstream bits_stream(
+                bites, std::ios_base::binary | std::ios_base::in);
+            std::shared_ptr<FluxCalculator> p;
+            {
+              cereal::PortableBinaryInputArchive ar(bits_stream);
+              ar(p);
+            }
+            return p;
+          }));
 }

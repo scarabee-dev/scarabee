@@ -298,24 +298,6 @@ void init_DiffusionData(py::module& m) {
              return out;
            })
 
-      .def(py::pickle(
-          [](const std::shared_ptr<DiffusionData>& p) {
-            std::ostringstream bits_stream(std::ios_base::binary |
-                                           std::ios_base::out);
-            {
-              cereal::PortableBinaryOutputArchive ar(bits_stream);
-              ar(p);
-            }
-            return py::bytes(bits_stream.str());
-          },
-          [](py::bytes bites) {
-            std::istringstream bits_stream(
-                bites, std::ios_base::binary | std::ios_base::in);
-            std::shared_ptr<DiffusionData> p;
-            {
-              cereal::PortableBinaryInputArchive ar(bits_stream);
-              ar(p);
-            }
-            return p;
-          }));
+      .def(py::pickle([](const DiffusionData& d) { return d.to_tuple(); },
+                      [](py::tuple t) { return DiffusionData(t); }));
 }

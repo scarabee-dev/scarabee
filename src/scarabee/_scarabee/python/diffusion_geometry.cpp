@@ -1,6 +1,8 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
+#include <xtensor-python/pyarray.hpp>
+
 #include <diffusion/diffusion_geometry.hpp>
 
 namespace py = pybind11;
@@ -19,7 +21,17 @@ void init_DiffusionGeometry(py::module& m) {
                      "The albedo if the tile is a boundary condition.")
 
       .def_readwrite("xs", &DiffusionGeometry::Tile::xs,
-                     "The DiffusionData if the tile represents a material.");
+                     "The DiffusionData if the tile represents a material.")
+
+      .def(py::pickle(
+          [](const DiffusionGeometry::Tile tile) {
+            return py::make_tuple(tile.albedo, tile.xs);
+          },
+          [](py::tuple t) {
+            return DiffusionGeometry::Tile{
+                t[0].cast<std::optional<double>>(),
+                t[1].cast<std::shared_ptr<DiffusionData>>()};
+          }));
 
   py::enum_<DiffusionGeometry::Neighbor>(m, "Neighbor")
       .value("XN", DiffusionGeometry::Neighbor::XN,
@@ -248,5 +260,8 @@ void init_DiffusionGeometry(py::module& m) {
                              "Number of tiles along the y-axis.")
 
       .def_property_readonly("nz", &DiffusionGeometry::nz,
-                             "Number of tiles along the z-axis.");
+                             "Number of tiles along the z-axis.")
+
+      .def(py::pickle([](const DiffusionGeometry& d) { return d.to_tuple(); },
+                      [](py::tuple t) { return DiffusionGeometry(t); }));
 }
