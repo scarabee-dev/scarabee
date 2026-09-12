@@ -2,9 +2,6 @@
 #include <pybind11/stl.h>
 #include <xtensor-python/pytensor.hpp>
 
-#include <cereal/types/memory.hpp>
-#include <cereal/archives/portable_binary.hpp>
-
 #include <diffusion/diffusion_data.hpp>
 
 namespace py = pybind11;
@@ -267,36 +264,6 @@ void init_DiffusionData(py::module& m) {
            "axis. A reflection across the y axis means that the +x and -x ADFs "
            "are swapped.",
            py::return_value_policy::reference_internal)
-
-      .def("save", &DiffusionData::save,
-           "Saves the diffuion data to a binary file.\n\n"
-           "Parameters\n"
-           "----------\n"
-           "fname : str\n"
-           "        Name of file in which to save data.",
-           py::arg("fname"))
-
-      .def_static("load", &DiffusionData::load,
-                  "Loads diffusion data from a binary file.\n\n"
-                  "Parameters\n"
-                  "----------\n"
-                  "fname : str\n"
-                  "        Name of file from which to load data.\n\n"
-                  "Returns\n"
-                  "-------\n"
-                  "DiffusionData\n"
-                  "    Diffusion cross sections and ADF from the file.\n",
-                  py::arg("fname"))
-
-      .def("__deepcopy__",
-           [](const DiffusionData& dd, py::dict) {
-             DiffusionData out(
-                 std::make_shared<DiffusionCrossSection>(*dd.xs()));
-             out.set_adf(dd.adf());
-             out.set_cdf(dd.cdf());
-             out.set_leakage_corrections(dd.leakage_corrections());
-             return out;
-           })
 
       .def(py::pickle([](const DiffusionData& d) { return d.to_tuple(); },
                       [](py::tuple t) { return DiffusionData(t); }));

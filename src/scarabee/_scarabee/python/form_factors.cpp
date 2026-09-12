@@ -170,9 +170,6 @@ void init_FormFactors(py::module& m) {
            "FormFactors\n"
            "    Form factors on the IV quadrant.\n")
 
-      .def("__deepcopy__",
-           [](const FormFactors& ff, py::dict) { return FormFactors(ff); })
-
       .def(py::pickle(
           [](const std::shared_ptr<FormFactors>& p) {
             std::ostringstream bits_stream(std::ios_base::binary |

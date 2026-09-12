@@ -15,6 +15,9 @@
 
 #include <xtensor/containers/xtensor.hpp>
 
+#include <pybind11/pybind11.h>
+namespace py = pybind11;
+
 #include <cmath>
 #include <memory>
 #include <optional>
@@ -25,6 +28,7 @@ namespace scarabee {
 class NEMDiffusionDriver {
  public:
   NEMDiffusionDriver(std::shared_ptr<DiffusionGeometry> geom);
+  NEMDiffusionDriver(py::tuple t);
 
   std::shared_ptr<DiffusionGeometry> geometry() const { return geom_; }
 
@@ -56,8 +60,7 @@ class NEMDiffusionDriver {
                                const xt::xtensor<double, 1>& z) const;
   xt::xtensor<double, 3> avg_power() const;
 
-  void save(const std::string& fname);
-  static std::unique_ptr<NEMDiffusionDriver> load(const std::string& fname);
+  py::tuple to_tuple() const;
 
  private:
   //----------------------------------------------------------------------------
@@ -119,7 +122,6 @@ class NEMDiffusionDriver {
   xt::xtensor<double, 3> adf_;  // m, group, side
 
   double keff_ = 1.;
-  double kshift_ = 1.;
   double flux_tol_ = 1.E-5;
   double keff_tol_ = 1.E-5;
   bool leakage_corrections_{false};

@@ -1,15 +1,14 @@
 #include <diffusion/nem_diffusion_driver.hpp>
 #include <utils/check_signals.hpp>
 #include <utils/logging.hpp>
+#include <utils/serialization.hpp>
 #include <utils/scarabee_exception.hpp>
 #include <utils/timer.hpp>
 #include <utils/constants.hpp>
 
-#include <cereal/archives/portable_binary.hpp>
-
 #include <array>
 #include <cmath>
-#include <fstream>
+#include <sstream>
 
 namespace scarabee {
 
@@ -43,6 +42,32 @@ NEMDiffusionDriver::NEMDiffusionDriver(std::shared_ptr<DiffusionGeometry> geom)
   // will be used in the simulation. The use of leakage corrections can still
   // be disabled after initialization, if desired by the user.
   this->leakage_corrections_ = has_leakage_corrections;
+}
+
+NEMDiffusionDriver::NEMDiffusionDriver(py::tuple t) {
+  // Flat neighbors array
+  std::vector<NeighborInfo> flat_neighbors;
+  std::size_t n0 = neighbors_.shape()[0];
+  std::size_t n1 = neighbors_.shape()[0];
+
+  geom_ = t[0].cast<std::shared_ptr<DiffusionGeometry>>();
+  flat_neighbors = t[1].cast<std::vector<NeighborInfo>>();
+  py::bytes bytes = t[2].cast<py::bytes>();
+
+  // Make a binary of things we don't need in the tuple
+  std::istringstream bits_stream(bytes,
+                                 std::ios_base::binary | std::ios_base::in);
+  {
+    cereal::PortableBinaryInputArchive ar(bits_stream);
+    ar(n0, n1, NG_, NM_, flux_, j_in_out_, Rmats_, Pmats_, Q_, geom_inds_,
+       mats_, diff_datas_, adf_, keff_, flux_tol_, leakage_corrections_,
+       solved_);
+  }
+
+  // Must re-fill neighbors array
+  neighbors_.resize({n0, n1});
+  for (std::size_t i = 0; i < neighbors_.size(); i++)
+    neighbors_.flat(i) = flat_neighbors[i];
 }
 
 void NEMDiffusionDriver::set_flux_tolerance(double ftol) {
@@ -1507,36 +1532,26 @@ double NEMDiffusionDriver::avg_xy_corner_flux(std::size_t g, std::size_t m,
   return avg_het_flx / CDF;
 }
 
-void NEMDiffusionDriver::save(const std::string& fname) {
-  if (std::filesystem::exists(fname)) {
-    std::filesystem::remove(fname);
+py::tuple NEMDiffusionDriver::to_tuple() const {
+  // Make a flat neighbors array
+  std::vector<NeighborInfo> flat_neighbors;
+  const std::size_t n0 = neighbors_.shape()[0];
+  const std::size_t n1 = neighbors_.shape()[0];
+  flat_neighbors.reserve(neighbors_.size());
+  for (std::size_t i = 0; i < neighbors_.size(); i++)
+    flat_neighbors.push_back(neighbors_.flat(i));
+
+  // Make a binary of things we don't need in the tuple
+  std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
+  {
+    cereal::PortableBinaryOutputArchive ar(bits_stream);
+    ar(n0, n1, NG_, NM_, flux_, j_in_out_, Rmats_, Pmats_, Q_, geom_inds_,
+       mats_, diff_datas_, adf_, keff_, flux_tol_, leakage_corrections_,
+       solved_);
   }
+  py::bytes bytes(bits_stream.str());
 
-  std::ofstream file(fname, std::ios_base::binary);
-
-  cereal::PortableBinaryOutputArchive arc(file);
-
-  arc(*this);
-}
-
-std::unique_ptr<NEMDiffusionDriver> NEMDiffusionDriver::load(
-    const std::string& fname) {
-  if (std::filesystem::exists(fname) == false) {
-    std::stringstream mssg;
-    mssg << "The file \"" << fname << "\" does not exist.";
-    spdlog::error(mssg.str());
-    throw ScarabeeException(mssg.str());
-  }
-
-  std::unique_ptr<NEMDiffusionDriver> out(new NEMDiffusionDriver());
-
-  std::ifstream file(fname, std::ios_base::binary);
-
-  cereal::PortableBinaryInputArchive arc(file);
-
-  arc(*out);
-
-  return out;
+  return py::make_tuple(geom_, flat_neighbors, bytes);
 }
 
 }  // namespace scarabee

@@ -30,5 +30,9 @@ void init_SimplePinCell(py::module& m) {
            "     Wether is a full or half or quarter pin cell. Default is "
            "Full.\n",
            py::arg("radii"), py::arg("mats"), py::arg("dx"), py::arg("dy"),
-           py::arg("pin_type") = PinCellType::Full);
+           py::arg("pin_type") = PinCellType::Full)
+
+      .def(py::pickle(
+          [](std::shared_ptr<SimplePinCell> c) { return c->to_tuple(); },
+          [](py::tuple t) { return std::make_shared<SimplePinCell>(t); }));
 }

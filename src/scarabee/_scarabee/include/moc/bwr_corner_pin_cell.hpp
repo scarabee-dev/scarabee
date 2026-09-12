@@ -25,6 +25,28 @@ class BWRCornerPinCell : public Cell {
                    std::shared_ptr<CrossSection> box_mat,
                    std::shared_ptr<CrossSection> outer_mod, double dx,
                    double dy, BWRCornerType corner_type);
+  BWRCornerPinCell(py::tuple t)
+      : Cell(t[0].cast<py::tuple>()),
+        pin_radii_(t[1].cast<std::vector<double>>()),
+        pin_mats_(t[2].cast<std::vector<std::shared_ptr<CrossSection>>>()),
+        surfs_(t[3].cast<std::vector<std::shared_ptr<Surface>>>()),
+        inner_mod_(t[4].cast<std::shared_ptr<CrossSection>>()),
+        inner_gap_(t[5].cast<double>()),
+        box_width_(t[6].cast<double>()),
+        box_mat_(t[7].cast<std::shared_ptr<CrossSection>>()),
+        outer_mod_(t[8].cast<std::shared_ptr<CrossSection>>()),
+        xm_(t[9].cast<std::shared_ptr<Surface>>()),
+        pd_(t[10].cast<std::shared_ptr<Surface>>()),
+        ym_(t[11].cast<std::shared_ptr<Surface>>()),
+        nd_(t[12].cast<std::shared_ptr<Surface>>()),
+        rc_(t[13].cast<double>()),
+        corner_type_(t[14].cast<BWRCornerType>()) {}
+
+  py::tuple to_tuple() const {
+    return py::make_tuple(Cell::to_tuple(), pin_radii_, pin_mats_, surfs_,
+                          inner_mod_, inner_gap_, box_width_, box_mat_,
+                          outer_mod_, xm_, pd_, ym_, nd_, rc_, corner_type_);
+  }
 
  private:
   std::vector<double> pin_radii_;

@@ -170,7 +170,7 @@ void init_CylindricalCell(py::module& m) {
            "            Cross section in region i.",
            py::arg("i"))
 
-      .def("__deepcopy__", [](const CylindricalCell& cell, py::dict) {
-        return CylindricalCell(cell);
-      });
+      .def(py::pickle(
+          [](std::shared_ptr<CylindricalCell> p) { return p->to_tuple(); },
+          [](py::tuple t) { return std::make_shared<CylindricalCell>(t); }));
 }

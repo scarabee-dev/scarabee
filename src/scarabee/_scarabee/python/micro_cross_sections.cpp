@@ -20,7 +20,10 @@ void init_MicroCrossSectionStructs(py::module& m) {
       .def_readonly("n_3n", &MicroDepletionXS::n_3n, "(n,3n) cross section.")
       .def_readonly("n_alpha", &MicroDepletionXS::n_alpha,
                     "(n,alpha) cross section.")
-      .def_readonly("n_p", &MicroDepletionXS::n_p, "(n,p) cross section.");
+      .def_readonly("n_p", &MicroDepletionXS::n_p, "(n,p) cross section.")
+      .def(py::pickle(
+          [](const MicroDepletionXS& m) { return m.to_tuple(); },
+          [](py::tuple t) { return MicroDepletionXS::from_tuple(t); }));
 
   py::class_<MicroNuclideXS>(
       m, "MicroNuclideXS",
@@ -31,7 +34,10 @@ void init_MicroCrossSectionStructs(py::module& m) {
       .def_readonly("Ea", &MicroNuclideXS::Ea, "Absorption cross section.")
       .def_readonly("Ef", &MicroNuclideXS::Ef, "Fission cross section.")
       .def_readonly("nu", &MicroNuclideXS::nu, "Fission yield.")
-      .def_readonly("chi", &MicroNuclideXS::chi, "Fission spectrum.");
+      .def_readonly("chi", &MicroNuclideXS::chi, "Fission spectrum.")
+      .def(py::pickle(
+          [](const MicroNuclideXS& m) { return m.to_tuple(); },
+          [](py::tuple t) { return MicroNuclideXS::from_tuple(t); }));
 
   py::class_<ResonantOneGroupXS>(m, "ResonantOneGroupXS",
                                  "Single group resonant cross sections.")
@@ -42,7 +48,10 @@ void init_MicroCrossSectionStructs(py::module& m) {
       .def_readonly("gout_min", &ResonantOneGroupXS::gout_min,
                     "First outgoing energy group.")
       .def_readonly("n_gamma", &ResonantOneGroupXS::n_gamma,
-                    "Capture cross section.");
+                    "Capture cross section.")
+      .def(py::pickle(
+          [](const ResonantOneGroupXS& m) { return m.to_tuple(); },
+          [](py::tuple t) { return ResonantOneGroupXS::from_tuple(t); }));
 
   py::class_<DepletionReactionRates>(
       m, "DepletionReactionRates",
@@ -76,5 +85,8 @@ void init_MicroCrossSectionStructs(py::module& m) {
                      "in units of 1/s.")
       .def_readwrite("average_fission_energy",
                      &DepletionReactionRates::average_fission_energy,
-                     "Average energy, in eV, of a neutron inducing fission.");
+                     "Average energy, in eV, of a neutron inducing fission.")
+      .def(py::pickle(
+          [](const DepletionReactionRates& m) { return m.to_tuple(); },
+          [](py::tuple t) { return DepletionReactionRates::from_tuple(t); }));
 }

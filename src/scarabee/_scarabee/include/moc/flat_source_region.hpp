@@ -6,6 +6,9 @@
 #include <moc/direction.hpp>
 #include <data/cross_section.hpp>
 #include <utils/constants.hpp>
+#include <utils/logging.hpp>
+#include <utils/serialization.hpp>
+#include <utils/scarabee_exception.hpp>
 
 #include <htl/static_vector.hpp>
 
@@ -15,8 +18,11 @@
 #include <cereal/types/memory.hpp>
 #include <cereal/types/vector.hpp>
 
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+namespace py = pybind11;
+
 #include <memory>
-#include <vector>
 
 namespace scarabee {
 
@@ -27,6 +33,17 @@ struct RegionToken {
   bool inside(const Vector& r, const Direction& u) const {
     const auto current_side = surface->side(r, u);
     return current_side == side;
+  }
+
+  static RegionToken from_tuple(py::tuple t) {
+    RegionToken rt;
+    rt.surface = t[0].cast<std::shared_ptr<Surface>>();
+    rt.side = static_cast<Surface::Side>(t[1].cast<bool>());
+    return rt;
+  }
+
+  py::tuple to_tuple() const {
+    return py::make_tuple(surface, static_cast<bool>(side));
   }
 
  private:
@@ -40,6 +57,30 @@ struct RegionToken {
 class FlatSourceRegion {
  public:
   FlatSourceRegion() : tokens_(), xs_(), volume_(), id_(id_counter++) {}
+
+  FlatSourceRegion(py::tuple t) {
+    // Fill tokens
+    py::list tokens_list = t[0].cast<py::list>();
+
+    if (tokens_list.size() > tokens_.capacity()) {
+      auto mssg = "Cannot unpickle FlatSourceRegion. Too many RegionTokens.";
+      spdlog::error(mssg);
+      throw ScarabeeException(mssg);
+    }
+
+    for (std::size_t i = 0; i < tokens_list.size(); i++)
+      tokens_.push_back(
+          RegionToken::from_tuple(tokens_list[i].cast<py::tuple>()));
+
+    // Get the xs, volume, and id
+    xs_ = t[1].cast<std::shared_ptr<CrossSection>>();
+    volume_ = t[2].cast<double>();
+    id_ = t[3].cast<std::size_t>();
+
+    // If the id is greater than the know id, we increment to avoid any id
+    // collisions.
+    if (id_ >= id_counter) id_counter = id_ + 1;
+  }
 
   bool inside(const Vector& r, const Direction& u) const {
     for (const auto& t : tokens_) {
@@ -69,6 +110,14 @@ class FlatSourceRegion {
 
   double& volume() { return volume_; }
   const double& volume() const { return volume_; }
+
+  py::tuple to_tuple() const {
+    py::list tokens_list;
+    for (const auto& token : tokens_) {
+      tokens_list.append(token.to_tuple());
+    }
+    return py::make_tuple(tokens_list, xs_, volume_, id_);
+  }
 
  private:
   htl::static_vector<RegionToken, MAX_SURFS> tokens_;

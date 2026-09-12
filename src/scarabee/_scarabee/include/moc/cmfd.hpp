@@ -6,6 +6,7 @@
 #include <moc/direction.hpp>
 #include <moc/boundary_condition.hpp>
 #include <data/diffusion_cross_section.hpp>
+#include <utils/serialization.hpp>
 #include <utils/simulation_mode.hpp>
 
 #include <htl/static_vector.hpp>
@@ -16,7 +17,11 @@
 #include <cereal/types/vector.hpp>
 #include <cereal/types/memory.hpp>
 #include <cereal/types/utility.hpp>
-#include <utils/serialization.hpp>
+#include <cereal/archives/portable_binary.hpp>
+
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+namespace py = pybind11;
 
 #include <array>
 #include <functional>
@@ -26,6 +31,7 @@
 #include <variant>
 #include <vector>
 #include <set>
+#include <sstream>
 
 namespace scarabee {
 
@@ -39,6 +45,19 @@ struct CMFDSurfaceCrossing {
 
   constexpr explicit operator bool() const noexcept { return is_valid; }
 
+  static CMFDSurfaceCrossing from_tuple(py::tuple t) {
+    CMFDSurfaceCrossing out;
+    out.cell_index = t[0].cast<std::size_t>();
+    out.is_valid = t[1].cast<bool>();
+    out.crossing = static_cast<Type>(t[2].cast<std::uint8_t>());
+    return out;
+  }
+
+  py::tuple to_tuple() const {
+    return py::make_tuple(cell_index, is_valid,
+                          static_cast<std::uint8_t>(crossing));
+  }
+
   template <class Archive>
   void serialize(Archive& arc) {
     arc(CEREAL_NVP(cell_index), CEREAL_NVP(is_valid), CEREAL_NVP(crossing));
@@ -49,6 +68,16 @@ class CMFD {
  public:
   CMFD(const std::vector<double>& dx, const std::vector<double>& dy,
        const std::vector<std::pair<std::size_t, std::size_t>>& groups);
+
+  CMFD(py::tuple t) {
+    py::bytes bytes = t[0].cast<py::bytes>();
+    std::istringstream bits_stream(bytes,
+                                   std::ios_base::binary | std::ios_base::in);
+    {
+      cereal::PortableBinaryInputArchive ar(bits_stream);
+      ar(*this);
+    }
+  }
 
   std::size_t nx() const { return nx_; };
   std::size_t ny() const { return ny_; };
@@ -156,6 +185,16 @@ class CMFD {
 
   const double& solve_time() const { return solve_time_; }
   bool solved() const { return solved_; }
+
+  py::tuple to_tuple() const {
+    std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
+    {
+      cereal::PortableBinaryOutputArchive ar(bits_stream);
+      ar(*this);
+    }
+    py::bytes bytes(bits_stream.str());
+    return py::make_tuple(bytes);
+  }
 
  private:
   std::vector<double> dx_, dy_;

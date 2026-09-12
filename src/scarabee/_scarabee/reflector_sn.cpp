@@ -5,9 +5,15 @@
 #include <utils/math.hpp>
 #include <utils/logging.hpp>
 #include <utils/scarabee_exception.hpp>
+#include <utils/serialization.hpp>
 #include <utils/timer.hpp>
 
 #include <xtensor/io/xio.hpp>
+
+#include <cereal/cereal.hpp>
+#include <cereal/archives/portable_binary.hpp>
+
+#include <pybind11/stl.h>
 
 #include <sstream>
 
@@ -129,6 +135,19 @@ ReflectorSN::ReflectorSN(const std::vector<std::shared_ptr<CrossSection>>& xs,
       spdlog::error(mssg.str());
       throw ScarabeeException(mssg.str());
     } break;
+  }
+}
+
+ReflectorSN::ReflectorSN(py::tuple t) {
+  xs_ = t[0].cast<std::vector<std::shared_ptr<CrossSection>>>();
+
+  py::bytes bytes = t[1].cast<py::bytes>();
+  std::istringstream bits_stream(bytes,
+                                 std::ios_base::binary | std::ios_base::in);
+  {
+    cereal::PortableBinaryInputArchive ar(bits_stream);
+    ar(dx_, flux_, J_, Pnl_, keff_, keff_tol_, flux_tol_, ngroups_, max_L_,
+       solved_, anisotropic_);
   }
 }
 
@@ -756,6 +775,18 @@ std::shared_ptr<CrossSection> ReflectorSN::homogenize(
 xt::xtensor<double, 1> ReflectorSN::homogenize_flux_spectrum(
     const std::vector<std::size_t>& regions) const {
   return scarabee::homogenize_flux_spectrum({*this}, regions);
+}
+
+py::tuple ReflectorSN::to_tuple() const {
+  std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
+  {
+    cereal::PortableBinaryOutputArchive ar(bits_stream);
+    ar(dx_, flux_, J_, Pnl_, keff_, keff_tol_, flux_tol_, ngroups_, max_L_,
+       solved_, anisotropic_);
+  }
+  py::bytes bytes(bits_stream.str());
+
+  return py::make_tuple(xs_, bytes);
 }
 
 }  // namespace scarabee

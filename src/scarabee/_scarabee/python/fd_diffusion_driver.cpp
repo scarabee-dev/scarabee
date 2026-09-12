@@ -259,26 +259,6 @@ void init_FDDiffusionDriver(py::module& m) {
            "           1D array with the z-bounds for the power mesh, if a 3D "
            "problem.\n")
 
-      .def("save", &FDDiffusionDriver::save,
-           "Saves the FDDiffusionDriver to a binary file.\n\n"
-           "Parameters\n"
-           "----------\n"
-           "fname : str\n"
-           "  Name of the file.\n",
-           py::arg("fname"))
-
-      .def_static(
-          "load", &FDDiffusionDriver::load,
-          "Loads a previously save FDDiffusionDriver from a binary file.\n\n"
-          "Parameters\n"
-          "----------\n"
-          "fname : str\n"
-          "  Name of the file.\n\n"
-          "Returns\n"
-          "-------\n"
-          "FDDiffusionDriver",
-          py::arg("fname"))
-
       .def(py::pickle([](const FDDiffusionDriver& d) { return d.to_tuple(); },
                       [](py::tuple t) { return FDDiffusionDriver(t); }));
 }

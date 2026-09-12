@@ -11,12 +11,18 @@
 #include <cereal/types/base_class.hpp>
 #include <cereal/types/memory.hpp>
 
+#include <pybind11/pybind11.h>
+namespace py = pybind11;
+
 #include <memory>
 
 namespace scarabee {
 
 class CriticalitySpectrum {
  public:
+  // Need a virtual destructor for RTTI so pybind11 does correctly down casts
+  virtual ~CriticalitySpectrum() = default;
+
   std::size_t ngroups() const { return flux_.size(); }
 
   double k_inf() const { return k_inf_; }
@@ -41,6 +47,9 @@ class CriticalitySpectrum {
 
   CriticalitySpectrum() : flux_(), diff_coeff_(), xs_(), k_inf_(), B2_() {}
 
+  CriticalitySpectrum(py::tuple t);
+  py::tuple to_tuple() const;
+
   friend class cereal::access;
   template <class Archive>
   void serialize(Archive& arc) {
@@ -54,6 +63,9 @@ class FundamentalModeCriticalitySpectrum : public CriticalitySpectrum {
   FundamentalModeCriticalitySpectrum(std::shared_ptr<CrossSection> xs);
   FundamentalModeCriticalitySpectrum(std::shared_ptr<CrossSection> xs,
                                      double B2);
+  FundamentalModeCriticalitySpectrum(py::tuple t);
+
+  py::tuple to_tuple() const;
 
  private:
   friend class cereal::access;
@@ -74,6 +86,9 @@ class CriticalitySpectrumWithCurrent : public CriticalitySpectrum {
 
   CriticalitySpectrumWithCurrent() : current_() {}
 
+  CriticalitySpectrumWithCurrent(py::tuple t);
+  py::tuple to_tuple() const;
+
   void P1_B1_spectrum_search(bool B1);
   void P1_B1_provided_buckling(bool B1);
 
@@ -88,6 +103,9 @@ class P1CriticalitySpectrum : public CriticalitySpectrumWithCurrent {
  public:
   P1CriticalitySpectrum(std::shared_ptr<CrossSection> xs);
   P1CriticalitySpectrum(std::shared_ptr<CrossSection> xs, double B2);
+  P1CriticalitySpectrum(py::tuple t);
+
+  py::tuple to_tuple() const;
 
  private:
   friend class cereal::access;
@@ -102,6 +120,9 @@ class B1CriticalitySpectrum : public CriticalitySpectrumWithCurrent {
  public:
   B1CriticalitySpectrum(std::shared_ptr<CrossSection> xs);
   B1CriticalitySpectrum(std::shared_ptr<CrossSection> xs, double B2);
+  B1CriticalitySpectrum(py::tuple t);
+
+  py::tuple to_tuple() const;
 
  private:
   friend class cereal::access;

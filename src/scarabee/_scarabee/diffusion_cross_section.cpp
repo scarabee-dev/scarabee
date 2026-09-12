@@ -3,11 +3,7 @@
 #include <utils/scarabee_exception.hpp>
 #include <utils/constants.hpp>
 
-#include <cereal/archives/portable_binary.hpp>
-
 #include <cmath>
-#include <filesystem>
-#include <fstream>
 #include <sstream>
 
 namespace scarabee {
@@ -252,38 +248,6 @@ std::shared_ptr<DiffusionCrossSection> DiffusionCrossSection::condense(
 
   return std::make_shared<DiffusionCrossSection>(D, Ea, Es, Ef, vEf, chi,
                                                  this->name_);
-}
-
-void DiffusionCrossSection::save(const std::string& fname) const {
-  if (std::filesystem::exists(fname)) {
-    std::filesystem::remove(fname);
-  }
-
-  std::ofstream file(fname, std::ios_base::binary);
-
-  cereal::PortableBinaryOutputArchive arc(file);
-
-  arc(*this);
-}
-
-std::shared_ptr<DiffusionCrossSection> DiffusionCrossSection::load(
-    const std::string& fname) {
-  if (std::filesystem::exists(fname) == false) {
-    std::stringstream mssg;
-    mssg << "The file \"" << fname << "\" does not exist.";
-    spdlog::error(mssg.str());
-    throw ScarabeeException(mssg.str());
-  }
-
-  std::shared_ptr<DiffusionCrossSection> out(new DiffusionCrossSection());
-
-  std::ifstream file(fname, std::ios_base::binary);
-
-  cereal::PortableBinaryInputArchive arc(file);
-
-  arc(*out);
-
-  return out;
 }
 
 }  // namespace scarabee

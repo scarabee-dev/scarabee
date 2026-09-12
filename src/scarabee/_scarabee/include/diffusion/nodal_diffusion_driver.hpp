@@ -25,14 +25,15 @@
 #include <cereal/types/vector.hpp>
 #include <cereal/types/unordered_map.hpp>
 #include <cereal/types/utility.hpp>
-#include <cereal/archives/portable_binary.hpp>
+
+#include <pybind11/pybind11.h>
+namespace py = pybind11;
 
 #include <cstddef>
-#include <filesystem>
-#include <fstream>
 #include <memory>
 #include <optional>
 #include <span>
+#include <sstream>
 #include <tuple>
 #include <unordered_map>
 
@@ -46,6 +47,7 @@ class NodalDiffusionDriver {
 
  public:
   NodalDiffusionDriver(std::shared_ptr<DiffusionGeometry> geom);
+  NodalDiffusionDriver(py::tuple t);
 
   std::shared_ptr<DiffusionGeometry> geometry() const { return geom_; }
 
@@ -98,8 +100,7 @@ class NodalDiffusionDriver {
                                const xt::xtensor<double, 1>& z) const;
   xt::xtensor<double, 3> avg_power() const;
 
-  void save(const std::string& fname);
-  static std::unique_ptr<NodalDiffusionDriver> load(const std::string& fname);
+  py::tuple to_tuple() const;
 
  private:
   struct DiffusionDataCrossSectionPair {
@@ -337,6 +338,46 @@ inline NodalDiffusionDriver<NM>::NodalDiffusionDriver(
   // Set size of flux array
   flux_.resize(NG_ * NM_);
   flux_.fill(1.);
+}
+
+template <NodalMethod NM>
+inline NodalDiffusionDriver<NM>::NodalDiffusionDriver(py::tuple t)
+    : nodal_solver_(2) {
+  // Load the binary portion of the tuple
+  std::size_t n0, n1;
+  py::bytes bytes = t[3].cast<py::bytes>();
+  std::istringstream bits_stream(bytes,
+                                 std::ios_base::binary | std::ios_base::in);
+  {
+    cereal::PortableBinaryInputArchive ar(bits_stream);
+    ar(n0, n1, nodes_, reconstructed_flux_params_, nodal_solver_,
+       surface_indices_, surface_diffusion_coefficients_, flux_, NG_, NM_,
+       nonlinear_update_frequency_, source_extrapolation_frequency_,
+       max_bicgstab_iterations_, keff_, flux_tol_, keff_tol_, Dnl_tol_,
+       leakage_corrections_, solved_);
+  }
+
+  geom_ = t[0].cast<std::shared_ptr<DiffusionGeometry>>();
+
+  std::vector<NeighborInfo> flat_neighbors =
+      t[1].cast<std::vector<NeighborInfo>>();
+
+  std::vector<std::pair<std::shared_ptr<DiffusionData>,
+                        std::shared_ptr<DiffusionCrossSection>>>
+      temp_mats = t[2].cast<
+          std::vector<std::pair<std::shared_ptr<DiffusionData>,
+                                std::shared_ptr<DiffusionCrossSection>>>>();
+
+  // Fill mats_ again
+  mats_.resize(temp_mats.size());
+  for (std::size_t i = 0; i < temp_mats.size(); i++)
+    mats_[i] = {temp_mats[i].first, temp_mats[i].second};
+
+  // Fill neighbors_ again
+  neighbors_.resize({n0, n1});
+  for (std::size_t i = 0; i < neighbors_.size(); i++) {
+    neighbors_.flat(i) = flat_neighbors[i];
+  }
 }
 
 template <NodalMethod NM>
@@ -1765,37 +1806,36 @@ inline void NodalDiffusionDriver<NM>::perform_flux_reconstruction()
 }
 
 template <NodalMethod NM>
-inline void NodalDiffusionDriver<NM>::save(const std::string& fname) {
-  if (std::filesystem::exists(fname)) {
-    std::filesystem::remove(fname);
+inline py::tuple NodalDiffusionDriver<NM>::to_tuple() const {
+  // Mats contains pointers to XS objects that could be in Python, so it
+  // shouldn't be serialized with cereal. We make a picklable copy here.
+  std::vector<std::pair<std::shared_ptr<DiffusionData>,
+                        std::shared_ptr<DiffusionCrossSection>>>
+      temp_mats;
+  temp_mats.reserve(mats_.size());
+  for (const auto& p : mats_) temp_mats.push_back({p.dd, p.xs});
+
+  // We also can't serialize directly an array of NeighborInfo
+  const std::size_t n0 = neighbors_.shape()[0];
+  const std::size_t n1 = neighbors_.shape()[1];
+  std::vector<NeighborInfo> flat_neighbors;
+  flat_neighbors.reserve(neighbors_.size());
+  for (std::size_t i = 0; i < neighbors_.size(); i++)
+    flat_neighbors.push_back(neighbors_.flat(i));
+
+  // Make a binary of things we don't need in the tuple
+  std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
+  {
+    cereal::PortableBinaryOutputArchive ar(bits_stream);
+    ar(n0, n1, nodes_, reconstructed_flux_params_, nodal_solver_,
+       surface_indices_, surface_diffusion_coefficients_, flux_, NG_, NM_,
+       nonlinear_update_frequency_, source_extrapolation_frequency_,
+       max_bicgstab_iterations_, keff_, flux_tol_, keff_tol_, Dnl_tol_,
+       leakage_corrections_, solved_);
   }
+  py::bytes bytes(bits_stream.str());
 
-  std::ofstream file(fname, std::ios_base::binary);
-
-  cereal::PortableBinaryOutputArchive arc(file);
-
-  arc(*this);
-}
-
-template <NodalMethod NM>
-inline std::unique_ptr<NodalDiffusionDriver<NM>> NodalDiffusionDriver<NM>::load(
-    const std::string& fname) {
-  if (std::filesystem::exists(fname) == false) {
-    std::stringstream mssg;
-    mssg << "The file \"" << fname << "\" does not exist.";
-    spdlog::error(mssg.str());
-    throw ScarabeeException(mssg.str());
-  }
-
-  std::unique_ptr<NodalDiffusionDriver> out(new NodalDiffusionDriver());
-
-  std::ifstream file(fname, std::ios_base::binary);
-
-  cereal::PortableBinaryInputArchive arc(file);
-
-  arc(*out);
-
-  return out;
+  return py::make_tuple(geom_, flat_neighbors, temp_mats, bytes);
 }
 
 }  // namespace scarabee

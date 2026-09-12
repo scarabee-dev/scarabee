@@ -8,8 +8,6 @@
 #include <diffusion/nem4.hpp>
 #include <diffusion/sanm.hpp>
 
-#include <string>
-
 namespace py = pybind11;
 
 using namespace scarabee;
@@ -18,26 +16,6 @@ template <NodalMethod NM>
 void init_NodalDiffusionDriver(py::module& m, const char* class_name,
                                const char* description) {
   using NodalSolver = NodalDiffusionDriver<NM>;
-
-  std::string save_doc_str = std::string("Saves the ") + class_name +
-                             std::string(
-                                 " to a binary file.\n\n"
-                                 "Parameters\n"
-                                 "----------\n"
-                                 "fname : str\n"
-                                 "  Name of the file.\n");
-
-  std::string load_doc_str = std::string("Loads a previously saved ") +
-                             class_name +
-                             std::string(
-                                 " from a binary file.\n\n"
-                                 "Parameters\n"
-                                 "----------\n"
-                                 "fname : str\n"
-                                 "  Name of the file.\n\n"
-                                 "Returns\n"
-                                 "-------\n") +
-                             class_name;
 
   auto solver =
       py::class_<NodalSolver>(m, class_name, description)
@@ -205,10 +183,8 @@ void init_NodalDiffusionDriver(py::module& m, const char* class_name,
            "array of float\n"
            "      Value of the average power density in each node.\n")
 
-      .def("save", &NodalSolver::save, save_doc_str.c_str(), py::arg("fname"))
-
-      .def_static("load", &NodalSolver::load, load_doc_str.c_str(),
-                  py::arg("fname"));
+      .def(py::pickle([](const NodalSolver& d) { return d.to_tuple(); },
+                      [](py::tuple t) { return NodalSolver(t); }));
 }
 
 void init_all_NodalDiffusionDrivers(py::module& m) {

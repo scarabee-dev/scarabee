@@ -10,7 +10,7 @@ namespace py = pybind11;
 using namespace scarabee;
 
 void init_ReflectorSN(py::module& m) {
-  py::class_<ReflectorSN>(m, "ReflectorSN")
+  py::class_<ReflectorSN, std::shared_ptr<ReflectorSN>>(m, "ReflectorSN")
       .def(py::init<const std::vector<std::shared_ptr<CrossSection>>& /*xs*/,
                     const xt::xtensor<double, 1>& /*dx*/,
                     std::size_t /*nangles*/, bool /*anisotropic*/>(),
@@ -155,5 +155,9 @@ void init_ReflectorSN(py::module& m) {
            "-------\n"
            "ndarray of floats\n"
            "                 Homogenized flux spectrum.",
-           py::arg("regions"));
+           py::arg("regions"))
+
+      .def(py::pickle(
+          [](std::shared_ptr<ReflectorSN> p) { return p->to_tuple(); },
+          [](py::tuple t) { return std::make_shared<ReflectorSN>(t); }));
 }

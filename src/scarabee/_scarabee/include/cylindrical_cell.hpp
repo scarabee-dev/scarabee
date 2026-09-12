@@ -11,6 +11,9 @@
 #include <cereal/types/memory.hpp>
 #include <cereal/types/vector.hpp>
 
+#include <pybind11/pybind11.h>
+namespace py = pybind11;
+
 #include <memory>
 #include <vector>
 
@@ -20,6 +23,8 @@ class CylindricalCell {
  public:
   CylindricalCell(const std::vector<double>& radii,
                   const std::vector<std::shared_ptr<CrossSection>>& mats);
+  CylindricalCell(py::tuple t);
+
   bool solved() const { return solved_; }
   void solve(bool parallel = false);
 
@@ -62,6 +67,8 @@ class CylindricalCell {
   const std::shared_ptr<CrossSection>& xs(std::size_t i) const {
     return mats_[i];
   }
+
+  py::tuple to_tuple() const;
 
  private:
   xt::xtensor<double, 3> p_;

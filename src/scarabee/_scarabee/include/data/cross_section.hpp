@@ -11,7 +11,6 @@
 #include <cereal/cereal.hpp>
 #include <cereal/types/string.hpp>
 
-#include <cstdint>
 #include <string>
 #include <memory>
 #include <utility>
@@ -141,9 +140,6 @@ class CrossSection {
   CrossSection operator*(double N) const;
   CrossSection& operator+=(const CrossSection& R);
   CrossSection& operator*=(double N);
-
-  void save(const std::string& fname) const;
-  static std::shared_ptr<CrossSection> load(const std::string& fname);
 
  private:
   XS1D Etr_;  // Transport xs

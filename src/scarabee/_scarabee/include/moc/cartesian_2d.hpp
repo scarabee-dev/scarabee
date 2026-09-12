@@ -17,11 +17,13 @@
 #include <cereal/types/vector.hpp>
 #include <cereal/types/map.hpp>
 
-#include <cmath>
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+namespace py = pybind11;
+
 #include <map>
 #include <memory>
 #include <optional>
-#include <set>
 #include <variant>
 #include <vector>
 #include <utility>
@@ -51,6 +53,15 @@ class Cartesian2D {
 
     std::size_t get_num_fsr_instances(std::size_t id) const;
 
+    py::tuple to_tuple() const { return py::make_tuple(c2d, cell); }
+
+    static Tile from_tuple(py::tuple t) {
+      Tile out;
+      out.c2d = t[0].cast<std::shared_ptr<Cartesian2D>>();
+      out.cell = t[1].cast<std::shared_ptr<Cell>>();
+      return out;
+    }
+
    private:
     friend class cereal::access;
     template <class Archive>
@@ -67,6 +78,8 @@ class Cartesian2D {
               const std::vector<std::shared_ptr<Surface>>& y_bounds);
 
   Cartesian2D(const std::vector<double>& dx, const std::vector<double>& dy);
+
+  Cartesian2D(py::tuple t);
 
   std::size_t nx() const { return nx_; }
   std::size_t ny() const { return ny_; }
@@ -206,6 +219,8 @@ class Cartesian2D {
 
   double y_min() const { return y_bounds_.front()->y0(); }
   double y_max() const { return y_bounds_.back()->y0(); }
+
+  py::tuple to_tuple() const;
 
  private:
   std::vector<std::shared_ptr<Surface>> x_bounds_;

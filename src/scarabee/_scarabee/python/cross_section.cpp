@@ -378,26 +378,6 @@ void init_CrossSection(py::module& m) {
            "DiffusionCrossSection\n"
            "    Diffusion cross sections.\n")
 
-      .def("save", &CrossSection::save,
-           "Saves the cross section data to a binary file.\n\n"
-           "Parameters\n"
-           "----------\n"
-           "fname : str\n"
-           "        Name of file in which to save data.",
-           py::arg("fname"))
-
-      .def_static("load", &CrossSection::load,
-                  "Loads cross section data from a binary file.\n\n"
-                  "Parameters\n"
-                  "----------\n"
-                  "fname : str\n"
-                  "        Name of file from which to load data.\n\n"
-                  "Returns\n"
-                  "-------\n"
-                  "CrossSection\n"
-                  "    Cross sections from the file.\n",
-                  py::arg("fname"))
-
       .def("__mul__", &CrossSection::operator*)
       .def("__rmul__", [](const CrossSection& xs, double N) { return xs * N; })
       .def("__add__", &CrossSection::operator+)

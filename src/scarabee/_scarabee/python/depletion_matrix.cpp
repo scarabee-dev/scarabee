@@ -118,6 +118,7 @@ void init_DepletionMatrix(py::module& m) {
       .def("__mul__", &DepletionMatrix::operator*)
       .def("__rmul__", [](const DepletionMatrix& M, double c) { return M * c; })
       .def("__truediv__", &DepletionMatrix::operator/)
+
       .def(py::pickle(
           [](const std::shared_ptr<DepletionMatrix>& p) {
             std::ostringstream bits_stream(std::ios_base::binary |

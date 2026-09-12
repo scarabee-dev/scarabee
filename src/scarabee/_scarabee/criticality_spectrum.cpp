@@ -4,6 +4,10 @@
 
 #include <xtensor/generators/xbuilder.hpp>
 
+#include <cereal/archives/portable_binary.hpp>
+
+#include <pybind11/stl.h>
+
 #include <Eigen/Dense>
 
 #include <sstream>
@@ -104,6 +108,28 @@ void compute_flux_current_diff_coeffs(
     current_(g) = cur(g);
     diff_coeff_(g) = diff_vec(g) / flx(g);
   }
+}
+
+CriticalitySpectrum::CriticalitySpectrum(py::tuple t) {
+  xs_ = t[0].cast<std::shared_ptr<CrossSection>>();
+  py::bytes bytes = t[1].cast<py::bytes>();
+  std::istringstream bits_stream(bytes,
+                                 std::ios_base::binary | std::ios_base::in);
+  {
+    cereal::PortableBinaryInputArchive ar(bits_stream);
+    ar(flux_, diff_coeff_, k_inf_, B2_);
+  }
+}
+
+py::tuple CriticalitySpectrum::to_tuple() const {
+  std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
+  {
+    cereal::PortableBinaryOutputArchive ar(bits_stream);
+    ar(flux_, diff_coeff_, k_inf_, B2_);
+  }
+  py::bytes bytes(bits_stream.str());
+
+  return py::make_tuple(xs_, bytes);
 }
 
 std::shared_ptr<DiffusionCrossSection>
@@ -228,6 +254,31 @@ FundamentalModeCriticalitySpectrum::FundamentalModeCriticalitySpectrum(
   for (std::size_t g = 0; g < NG; g++) {
     flux_(g) = flx(g);
   }
+}
+
+FundamentalModeCriticalitySpectrum::FundamentalModeCriticalitySpectrum(
+    py::tuple t)
+    : CriticalitySpectrum(t) {}
+
+py::tuple FundamentalModeCriticalitySpectrum::to_tuple() const {
+  return CriticalitySpectrum::to_tuple();
+}
+
+CriticalitySpectrumWithCurrent::CriticalitySpectrumWithCurrent(py::tuple t)
+    : CriticalitySpectrum(t[0].cast<py::tuple>()) {
+  std::vector<double> flat_current = t[1].cast<std::vector<double>>();
+  current_.resize({flat_current.size()});
+  for (std::size_t i = 0; i < current_.size(); i++)
+    current_.flat(i) = flat_current[i];
+}
+
+py::tuple CriticalitySpectrumWithCurrent::to_tuple() const {
+  std::vector<double> flat_current;
+  flat_current.resize(current_.size());
+  for (std::size_t i = 0; i < current_.size(); i++)
+    flat_current[i] = current_.flat(i);
+
+  return py::make_tuple(CriticalitySpectrum::to_tuple(), flat_current);
 }
 
 void CriticalitySpectrumWithCurrent::P1_B1_spectrum_search(bool B1) {
@@ -365,6 +416,13 @@ P1CriticalitySpectrum::P1CriticalitySpectrum(std::shared_ptr<CrossSection> xs,
   this->P1_B1_provided_buckling(false);
 }
 
+P1CriticalitySpectrum::P1CriticalitySpectrum(py::tuple t)
+    : CriticalitySpectrumWithCurrent(t) {}
+
+py::tuple P1CriticalitySpectrum::to_tuple() const {
+  return CriticalitySpectrumWithCurrent::to_tuple();
+}
+
 B1CriticalitySpectrum::B1CriticalitySpectrum(std::shared_ptr<CrossSection> xs) {
   if (xs->fissile() == false) {
     std::stringstream mssg;
@@ -386,6 +444,13 @@ B1CriticalitySpectrum::B1CriticalitySpectrum(std::shared_ptr<CrossSection> xs,
   B2_ = B2;
 
   this->P1_B1_provided_buckling(true);
+}
+
+B1CriticalitySpectrum::B1CriticalitySpectrum(py::tuple t)
+    : CriticalitySpectrumWithCurrent(t) {}
+
+py::tuple B1CriticalitySpectrum::to_tuple() const {
+  return CriticalitySpectrumWithCurrent::to_tuple();
 }
 
 }  // namespace scarabee

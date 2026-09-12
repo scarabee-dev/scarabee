@@ -5,6 +5,9 @@
 
 #include <xtensor/containers/xtensor.hpp>
 
+#include <pybind11/pybind11.h>
+namespace py = pybind11;
+
 #include <span>
 #include <memory>
 
@@ -15,6 +18,8 @@ class ReflectorSN {
   ReflectorSN(const std::vector<std::shared_ptr<CrossSection>>& xs,
               const xt::xtensor<double, 1>& dx, std::uint32_t nangles,
               bool anisotropic);
+
+  ReflectorSN(py::tuple t);
 
   std::size_t nangles() const { return mu_.size(); }
 
@@ -46,6 +51,8 @@ class ReflectorSN {
       const std::vector<std::size_t>& regions) const;
   xt::xtensor<double, 1> homogenize_flux_spectrum(
       const std::vector<std::size_t>& regions) const;
+
+  py::tuple to_tuple() const;
 
  private:
   std::vector<std::shared_ptr<CrossSection>> xs_;

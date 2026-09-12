@@ -4,7 +4,9 @@
 #include <utils/constants.hpp>
 
 #include <algorithm>
+#include <cmath>
 #include <optional>
+#include <set>
 #include <vector>
 
 namespace scarabee {
@@ -122,6 +124,28 @@ Cartesian2D::Cartesian2D(const std::vector<double>& dx,
   tiles_.fill(Tile{nullptr, nullptr});
 
   fsr_offset_map_.resize({nx_, ny_});
+}
+
+Cartesian2D::Cartesian2D(py::tuple t)
+    : x_bounds_(t[0].cast<std::vector<std::shared_ptr<Surface>>>()),
+      y_bounds_(t[1].cast<std::vector<std::shared_ptr<Surface>>>()),
+      tiles_(),
+      fsr_offset_map_(),
+      nx_(t[4].cast<std::size_t>()),
+      ny_(t[5].cast<std::size_t>()) {
+  // Get flat arrays
+  std::vector<py::tuple> flat_tiles = t[2].cast<std::vector<py::tuple>>();
+  std::vector<std::map<std::size_t, std::size_t>> flat_fsr_offset_map =
+      t[3].cast<std::vector<std::map<std::size_t, std::size_t>>>();
+
+  // Reconstruct 2D arrays
+  const std::size_t NT = nx_ * ny_;
+  tiles_.resize({nx_, ny_});
+  fsr_offset_map_.resize({nx_, ny_});
+  for (std::size_t i = 0; i < NT; i++) {
+    tiles_.flat(i) = Tile::from_tuple(flat_tiles[i]);
+    fsr_offset_map_.flat(i) = flat_fsr_offset_map[i];
+  }
 }
 
 void Cartesian2D::set_tile(const TileIndex& ti,
@@ -383,6 +407,29 @@ void Cartesian2D::fill_fsrs(
       t.cell->fill_fsrs(fsrs);
     }
   }
+}
+
+py::tuple Cartesian2D::to_tuple() const {
+  const std::size_t NT = nx_ * ny_;
+  if (tiles_.size() != NT || fsr_offset_map_.size() != NT) {
+    const auto mssg =
+        "The tiles_ and fsr_offset_map_ have inconsistent sizes. Cannot create "
+        "tuple.";
+    spdlog::error(mssg);
+    throw ScarabeeException(mssg);
+  }
+
+  std::vector<py::tuple> flat_tiles;
+  std::vector<std::map<std::size_t, std::size_t>> flat_fsr_offset_map;
+  flat_tiles.reserve(NT);
+  flat_fsr_offset_map.reserve(NT);
+  for (std::size_t i = 0; i < NT; i++) {
+    flat_tiles.push_back(tiles_.flat(i).to_tuple());
+    flat_fsr_offset_map.push_back(fsr_offset_map_.flat(i));
+  }
+
+  return py::make_tuple(x_bounds_, y_bounds_, flat_tiles, flat_fsr_offset_map,
+                        nx_, ny_);
 }
 
 void Cartesian2D::make_offset_map() {

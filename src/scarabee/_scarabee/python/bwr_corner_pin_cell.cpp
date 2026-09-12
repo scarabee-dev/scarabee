@@ -50,5 +50,9 @@ void init_BWRCornerPinCell(py::module& m) {
           py::arg("pin_radii"), py::arg("pin_mats"), py::arg("inner_gap"),
           py::arg("inner_mod"), py::arg("box_width"), py::arg("rc"),
           py::arg("box_mat"), py::arg("outer_mod"), py::arg("dx"),
-          py::arg("dy"), py::arg("corner_type"));
+          py::arg("dy"), py::arg("corner_type"))
+
+      .def(py::pickle(
+          [](std::shared_ptr<BWRCornerPinCell> c) { return c->to_tuple(); },
+          [](py::tuple t) { return std::make_shared<BWRCornerPinCell>(t); }));
 }

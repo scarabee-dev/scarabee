@@ -10,8 +10,10 @@
 #include <cereal/cereal.hpp>
 #include <cereal/types/memory.hpp>
 
+#include <pybind11/pybind11.h>
+namespace py = pybind11;
+
 #include <memory>
-#include <optional>
 
 namespace scarabee {
 
@@ -24,6 +26,16 @@ class Segment {
         fsr_indx_(indx),
         entry_cmfd_surface_(),
         exit_cmfd_surface_() {}
+
+  Segment(py::tuple t)
+      : xs_(t[0].cast<std::shared_ptr<CrossSection>>()),
+        volume_(t[1].cast<double>()),
+        length_(t[2].cast<double>()),
+        fsr_indx_(t[3].cast<std::size_t>()),
+        entry_cmfd_surface_(
+            CMFDSurfaceCrossing::from_tuple(t[4].cast<py::tuple>())),
+        exit_cmfd_surface_(
+            CMFDSurfaceCrossing::from_tuple(t[5].cast<py::tuple>())) {}
 
   // Here for use with cereal and std::vector
   Segment() {}
@@ -46,6 +58,12 @@ class Segment {
   CMFDSurfaceCrossing& exit_cmfd_surface() { return exit_cmfd_surface_; }
   const CMFDSurfaceCrossing& exit_cmfd_surface() const {
     return exit_cmfd_surface_;
+  }
+
+  py::tuple to_tuple() const {
+    return py::make_tuple(xs_, volume_, length_, fsr_indx_,
+                          entry_cmfd_surface_.to_tuple(),
+                          exit_cmfd_surface_.to_tuple());
   }
 
  private:

@@ -7,10 +7,13 @@
 
 #include <xtensor/generators/xbuilder.hpp>
 
+#include <cereal/archives/portable_binary.hpp>
+
 #include <Eigen/Dense>
 
 #include <algorithm>
 #include <cmath>
+#include <sstream>
 
 namespace scarabee {
 
@@ -82,6 +85,18 @@ CylindricalCell::CylindricalCell(
     if (i != 0) {
       vols_[i] -= PI * radii_[i - 1] * radii_[i - 1];
     }
+  }
+}
+
+CylindricalCell::CylindricalCell(py::tuple t) {
+  mats_ = t[0].cast<std::vector<std::shared_ptr<CrossSection>>>();
+
+  py::bytes bytes = t[1].cast<py::bytes>();
+  std::istringstream bits_stream(bytes,
+                                 std::ios_base::binary | std::ios_base::in);
+  {
+    cereal::PortableBinaryInputArchive ar(bits_stream);
+    ar(p_, X_, Y_, Gamma_, radii_, vols_, ngroups_, solved_);
   }
 }
 
@@ -411,6 +426,16 @@ double CylindricalCell::calculate_S_ij(std::size_t i, std::size_t j,
   }
 
   return S_ij;
+}
+
+py::tuple CylindricalCell::to_tuple() const {
+  std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
+  {
+    cereal::PortableBinaryOutputArchive ar(bits_stream);
+    ar(p_, X_, Y_, Gamma_, radii_, vols_, ngroups_, solved_);
+  }
+  py::bytes bytes(bits_stream.str());
+  return py::make_tuple(mats_, bytes);
 }
 
 }  // namespace scarabee

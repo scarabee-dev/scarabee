@@ -118,5 +118,8 @@ void init_Tab1(py::module& m) {
            "-------\n"
            "float\n"
            "    Integral from a to b.",
-           py::arg("a"), py::arg("b"));
+           py::arg("a"), py::arg("b"))
+
+      .def(py::pickle([](std::shared_ptr<Tab1> p) { return p->to_tuple(); },
+                      [](py::tuple t) { return std::make_shared<Tab1>(t); }));
 }

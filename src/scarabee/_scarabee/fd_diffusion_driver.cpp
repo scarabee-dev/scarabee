@@ -8,12 +8,7 @@
 #include <Eigen/Sparse>
 #include <Eigen/IterativeLinearSolvers>
 
-#include <cereal/types/memory.hpp>
-#include <cereal/archives/portable_binary.hpp>
-
 #include <cmath>
-#include <filesystem>
-#include <fstream>
 #include <sstream>
 
 namespace scarabee {
@@ -1104,38 +1099,6 @@ FDDiffusionDriver::power() const {
   }
 
   return {power, x_bounds, y_bounds, z_bounds};
-}
-
-void FDDiffusionDriver::save(const std::string& fname) {
-  if (std::filesystem::exists(fname)) {
-    std::filesystem::remove(fname);
-  }
-
-  std::ofstream file(fname, std::ios_base::binary);
-
-  cereal::PortableBinaryOutputArchive arc(file);
-
-  arc(*this);
-}
-
-std::unique_ptr<FDDiffusionDriver> FDDiffusionDriver::load(
-    const std::string& fname) {
-  if (std::filesystem::exists(fname) == false) {
-    std::stringstream mssg;
-    mssg << "The file \"" << fname << "\" does not exist.";
-    spdlog::error(mssg.str());
-    throw ScarabeeException(mssg.str());
-  }
-
-  std::unique_ptr<FDDiffusionDriver> out(new FDDiffusionDriver());
-
-  std::ifstream file(fname, std::ios_base::binary);
-
-  cereal::PortableBinaryInputArchive arc(file);
-
-  arc(*out);
-
-  return out;
 }
 
 py::tuple FDDiffusionDriver::to_tuple() const {

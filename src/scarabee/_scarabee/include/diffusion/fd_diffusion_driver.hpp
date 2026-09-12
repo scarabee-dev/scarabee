@@ -70,9 +70,6 @@ class FDDiffusionDriver {
              std::optional<xt::xarray<double>>>
   power() const;
 
-  void save(const std::string& fname);
-  static std::unique_ptr<FDDiffusionDriver> load(const std::string& fname);
-
   py::tuple to_tuple() const;
 
  private:

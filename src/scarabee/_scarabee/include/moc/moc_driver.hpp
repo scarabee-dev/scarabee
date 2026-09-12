@@ -17,6 +17,9 @@
 #include <cereal/types/vector.hpp>
 #include <cereal/types/memory.hpp>
 
+#include <pybind11/pybind11.h>
+namespace py = pybind11;
+
 #include <map>
 #include <memory>
 #include <vector>
@@ -31,6 +34,8 @@ class MOCDriver {
             BoundaryCondition ymin = BoundaryCondition::Reflective,
             BoundaryCondition ymax = BoundaryCondition::Reflective,
             bool anisotropic = false);
+
+  MOCDriver(py::tuple t);
 
   struct AngleInfo {
     double phi;                  // Azimuthal angle for track
@@ -153,8 +158,7 @@ class MOCDriver {
   double y_min() const { return geometry_->y_min(); }
   double y_max() const { return geometry_->y_max(); }
 
-  void save_bin(const std::string& fname) const;
-  static std::shared_ptr<MOCDriver> load_bin(const std::string& fname);
+  py::tuple to_tuple() const;
 
  private:
   std::vector<AngleInfo> angle_info_;       // Information for all angles

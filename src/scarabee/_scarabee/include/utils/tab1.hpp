@@ -1,8 +1,16 @@
 #ifndef SCARABEE_TAB1_H
 #define SCARABEE_TAB1_H
 
+#include <utils/serialization.hpp>
+
 #include <xtensor/containers/xtensor.hpp>
 #include <xtensor-python/pytensor.hpp>
+
+#include <cereal/cereal.hpp>
+#include <cereal/types/vector.hpp>
+
+#include <pybind11/pybind11.h>
+namespace py = pybind11;
 
 #include <vector>
 
@@ -13,6 +21,7 @@ class Tab1 {
   // Lin-Lin constructors
   Tab1(const std::vector<double>& x, const std::vector<double>& y);
   Tab1(const xt::xtensor<double, 1>& x, const xt::xtensor<double, 1>& y);
+  Tab1(py::tuple t);
 
   // Arbitrary interpolation constructors
   Tab1(const std::vector<double>& x, const std::vector<double>& y,
@@ -32,6 +41,8 @@ class Tab1 {
 
   double integrate(const double a, const double b) const;
 
+  py::tuple to_tuple() const;
+
  private:
   xt::xtensor<double, 1> x_, y_;
   std::vector<std::size_t> breakpoints_;
@@ -45,6 +56,14 @@ class Tab1 {
   int get_interpolation(const std::size_t indx) const;
 
   void check_sign_interpolation_compatability() const;
+
+  friend class cereal::access;
+  Tab1() = default;
+
+  template <class Archive>
+  void serialize(Archive& arc) {
+    arc(x_, y_, breakpoints_, interpolations_);
+  }
 };
 
 }  // namespace scarabee

@@ -22,7 +22,10 @@ void init_Cartesian2D(py::module& m) {
                      "The optional Cell which fills the tile.")
       .def_property_readonly(
           "valid", &Cartesian2D::Tile::valid,
-          "True if the tile is completely filled with Cells, False otherwise.");
+          "True if the tile is completely filled with Cells, False otherwise.")
+      .def(py::pickle(
+          [](const Cartesian2D::Tile& t) { return t.to_tuple(); },
+          [](py::tuple t) { return Cartesian2D::Tile::from_tuple(t); }));
 
   // TileIndex
   py::class_<Cartesian2D::TileIndex>(
@@ -112,5 +115,9 @@ void init_Cartesian2D(py::module& m) {
            "----------\n"
            "fills : list of Cartesian2D or Cell\n"
            "        Fills for all tiles.",
-           py::arg("fills"));
+           py::arg("fills"))
+
+      .def(py::pickle(
+          [](std::shared_ptr<Cartesian2D> c2d) { return c2d->to_tuple(); },
+          [](py::tuple t) { return std::make_shared<Cartesian2D>(t); }));
 }

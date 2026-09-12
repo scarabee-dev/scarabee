@@ -12,6 +12,9 @@
 #include <cereal/types/memory.hpp>
 #include <cereal/types/vector.hpp>
 
+#include <pybind11/pybind11.h>
+namespace py = pybind11;
+
 #include <memory>
 #include <vector>
 
@@ -20,6 +23,7 @@ namespace scarabee {
 class CylindricalFluxSolver {
  public:
   CylindricalFluxSolver(std::shared_ptr<CylindricalCell> cell);
+  CylindricalFluxSolver(py::tuple t);
 
   const std::shared_ptr<CylindricalCell>& cell() const { return cell_; }
 
@@ -85,6 +89,8 @@ class CylindricalFluxSolver {
     return ((1. - a_) * x_[g] - cell_->Gamma(g) * j_ext_[g]) /
            (1. - a_ * (1. - cell_->Gamma(g)));
   }
+
+  py::tuple to_tuple() const;
 
  private:
   xt::xtensor<double, 2> flux_;

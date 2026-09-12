@@ -12,7 +12,13 @@
 
 #include <cereal/cereal.hpp>
 #include <cereal/types/vector.hpp>
+#include <cereal/archives/portable_binary.hpp>
 
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+namespace py = pybind11;
+
+#include <sstream>
 #include <vector>
 
 namespace scarabee {
@@ -23,6 +29,23 @@ class Track {
         double phi, double wgt, double width,
         const std::vector<Segment>& segments, std::size_t forward_phi_index,
         std::size_t backward_phi_index);
+
+  Track(py::tuple t) : entry_(0., 0.), exit_(0., 0.) {
+    std::vector<py::tuple> segment_tuples = t[0].cast<std::vector<py::tuple>>();
+    segments_.reserve(segment_tuples.size());
+    for (const auto& segment_tuple : segment_tuples)
+      segments_.push_back(Segment(segment_tuple));
+
+    py::bytes bytes = t[1].cast<py::bytes>();
+    std::istringstream bits_stream(bytes,
+                                   std::ios_base::binary | std::ios_base::in);
+    {
+      cereal::PortableBinaryInputArchive ar(bits_stream);
+      ar(entry_flux_, exit_flux_, entry_, exit_, dir_, wgt_, width_, phi_,
+         entry_bc_, exit_bc_, forward_phi_index_, backward_phi_index_,
+         cmfd_entry_cell_, cmfd_exit_cell_);
+    }
+  }
 
   // Here for use with cereal and std::vector
   Track() : entry_(0., 0.), exit_(0., 0.) {}
@@ -71,6 +94,24 @@ class Track {
 
   Segment& at(std::size_t i);
   const Segment& at(std::size_t i) const;
+
+  py::tuple to_tuple() const {
+    std::vector<py::tuple> segment_tuples;
+    segment_tuples.reserve(segments_.size());
+    for (const auto& segment : segments_)
+      segment_tuples.push_back(segment.to_tuple());
+
+    std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
+    {
+      cereal::PortableBinaryOutputArchive ar(bits_stream);
+      ar(entry_flux_, exit_flux_, entry_, exit_, dir_, wgt_, width_, phi_,
+         entry_bc_, exit_bc_, forward_phi_index_, backward_phi_index_,
+         cmfd_entry_cell_, cmfd_exit_cell_);
+    }
+    py::bytes bytes(bits_stream.str());
+
+    return py::make_tuple(segment_tuples, bytes);
+  }
 
   //--------------------------------------------------------------------------
   // Iterators

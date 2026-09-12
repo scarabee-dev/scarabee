@@ -254,7 +254,7 @@ set(SCARABEE_SOURCES src/scarabee/_scarabee/constants.cpp
                      src/scarabee/_scarabee/python/polar_quadrature.cpp
                      src/scarabee/_scarabee/python/boundary_condition.cpp
                      src/scarabee/_scarabee/python/simulation_mode.cpp
-                     src/scarabee/_scarabee/python/track.cpp 
+                     src/scarabee/_scarabee/python/surface.cpp
                      src/scarabee/_scarabee/python/cell.cpp
                      src/scarabee/_scarabee/python/empty_cell.cpp
                      src/scarabee/_scarabee/python/pin_cell_type.cpp

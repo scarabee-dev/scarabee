@@ -67,7 +67,13 @@ void init_CriticalitySpectrum(py::module& m) {
            "     Homogenized set of cross sections for the system.\n"
            "B2 : float\n"
            "    Desired value of the buckling.\n\n",
-           py::arg("xs"), py::arg("B2"));
+           py::arg("xs"), py::arg("B2"))
+
+      .def(py::pickle(
+          [](const FundamentalModeCriticalitySpectrum& fm) {
+            return fm.to_tuple();
+          },
+          [](py::tuple t) { return FundamentalModeCriticalitySpectrum(t); }));
 
   py::class_<CriticalitySpectrumWithCurrent, CriticalitySpectrum>(
       m, "CriticalitySpectrumWithCurrent")
@@ -98,7 +104,11 @@ void init_CriticalitySpectrum(py::module& m) {
            "     Homogenized set of cross sections for the system.\n"
            "B2 : float\n"
            "    Desired value of the buckling.\n\n",
-           py::arg("xs"), py::arg("B2"));
+           py::arg("xs"), py::arg("B2"))
+
+      .def(py::pickle(
+          [](const P1CriticalitySpectrum& p1) { return p1.to_tuple(); },
+          [](py::tuple t) { return P1CriticalitySpectrum(t); }));
 
   py::class_<B1CriticalitySpectrum, CriticalitySpectrumWithCurrent>(
       m, "B1CriticalitySpectrum")
@@ -120,5 +130,9 @@ void init_CriticalitySpectrum(py::module& m) {
            "     Homogenized set of cross sections for the system.\n"
            "B2 : float\n"
            "    Desired value of the buckling.\n\n",
-           py::arg("xs"), py::arg("B2"));
+           py::arg("xs"), py::arg("B2"))
+
+      .def(py::pickle(
+          [](const B1CriticalitySpectrum& b1) { return b1.to_tuple(); },
+          [](py::tuple t) { return B1CriticalitySpectrum(t); }));
 }

@@ -249,5 +249,8 @@ void init_CMFD(py::module& m) {
            "-------\n"
            "float\n"
            "    The CMFD scalar flux at cell (i,j) in group g.\n",
-           py::arg("i"), py::arg("j"), py::arg("g"));
+           py::arg("i"), py::arg("j"), py::arg("g"))
+
+      .def(py::pickle([](std::shared_ptr<CMFD> p) { return p->to_tuple(); },
+                      [](py::tuple t) { return std::make_shared<CMFD>(t); }));
 }

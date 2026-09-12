@@ -16,6 +16,11 @@ namespace scarabee {
 class EmptyCell : public Cell {
  public:
   EmptyCell(const std::shared_ptr<CrossSection>& mat, double dx, double dy);
+  EmptyCell(py::tuple t)
+      : Cell(t[0].cast<py::tuple>()),
+        mat_(t[1].cast<std::shared_ptr<CrossSection>>()) {}
+
+  py::tuple to_tuple() const { return py::make_tuple(Cell::to_tuple(), mat_); }
 
  private:
   std::shared_ptr<CrossSection> mat_;

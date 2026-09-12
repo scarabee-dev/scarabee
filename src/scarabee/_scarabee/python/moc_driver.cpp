@@ -49,6 +49,7 @@ void init_MOCDriver(py::module& m) {
            py::arg("anisotropic") = false)
 
       .def("generate_tracks", &MOCDriver::generate_tracks,
+           py::call_guard<py::gil_scoped_release>(),
            "Traces tracks across the geometry for the calculation.\n\n"
            "Parameters\n"
            "----------\n"
@@ -570,19 +571,7 @@ void init_MOCDriver(py::module& m) {
           "    Array of bounding y values.\n",
           py::arg("nx"), py::arg("ny"))
 
-      .def("save", &MOCDriver::save_bin,
-           "Saves MOCDriver to a binary file.\n\n"
-           "Parameters\n"
-           "----------\n"
-           "fname : str\n"
-           "        Name of file.\n",
-           py::arg("fname"))
-
-      .def_static("load", &MOCDriver::load_bin,
-                  "Loads MOCDriver from a binary file.\n\n"
-                  "Parameters\n"
-                  "----------\n"
-                  "fname : str\n"
-                  "        Name of file.\n",
-                  py::arg("fname"));
+      .def(py::pickle(
+          [](std::shared_ptr<MOCDriver> p) { return p->to_tuple(); },
+          [](py::tuple t) { return std::make_shared<MOCDriver>(t); }));
 }

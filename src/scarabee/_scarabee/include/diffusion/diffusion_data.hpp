@@ -162,9 +162,6 @@ class DiffusionData {
   const xt::xtensor<double, 2>& cdf() const { return cdf_; }
   void set_cdf(const xt::xtensor<double, 2>& cdf);
 
-  void save(const std::string& fname) const;
-  static std::shared_ptr<DiffusionData> load(const std::string& fname);
-
   py::tuple to_tuple() const {
     return py::make_tuple(xs_, adf_, cdf_, name_, leakage_corrections_,
                           reflector_);

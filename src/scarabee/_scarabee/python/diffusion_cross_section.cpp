@@ -171,27 +171,6 @@ void init_DiffusionCrossSection(py::module& m) {
            "                      Condensed set of diffusion cross sections.\n",
            py::arg("groups"), py::arg("flux"))
 
-      .def("save", &DiffusionCrossSection::save,
-           "Saves a set of diffusion cross sections to a binary file.\n\n"
-           "Parameters\n"
-           "----------\n"
-           "fname : str\n"
-           "        Name of file in which to save data.",
-           py::arg("fname"))
-
-      .def_static(
-          "load", &DiffusionCrossSection::load,
-          "Loads a set of diffusion cross sections from a binary file.\n\n"
-          "Parameters\n"
-          "----------\n"
-          "fname : str\n"
-          "        Name of file from which to load data.\n\n"
-          "Returns\n"
-          "-------\n"
-          "DiffusionCrossSection\n"
-          "    Diffusion cross sections from the file.\n",
-          py::arg("fname"))
-
       .def(py::pickle(
           [](const std::shared_ptr<DiffusionCrossSection>& p) {
             std::ostringstream bits_stream(std::ios_base::binary |

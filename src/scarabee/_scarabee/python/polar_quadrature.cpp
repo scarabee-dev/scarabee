@@ -5,6 +5,9 @@
 #include <moc/quadrature/yamamoto_tabuchi.hpp>
 #include <moc/quadrature/polar_quadrature.hpp>
 
+#include <cereal/archives/portable_binary.hpp>
+
+#include <sstream>
 #include <vector>
 
 namespace py = pybind11;
@@ -34,7 +37,29 @@ void init_quad(py::module& m, const std::string& name,
           [](const PQ& q) {
             return std::vector<double>(q.wgt().begin(), q.wgt().end());
           },
-          "Array of weight values.");
+          "Array of weight values.")
+      .def(py::pickle(
+          [](const PQ& q) {
+            std::ostringstream bits_stream(std::ios_base::binary |
+                                           std::ios_base::out);
+            {
+              cereal::PortableBinaryOutputArchive ar(bits_stream);
+              ar(q);
+            }
+            py::bytes bytes(bits_stream.str());
+            return py::make_tuple(bytes);
+          },
+          [](py::tuple t) {
+            PQ out;
+            py::bytes bytes = t[0].cast<py::bytes>();
+            std::istringstream bits_stream(
+                bytes, std::ios_base::binary | std::ios_base::in);
+            {
+              cereal::PortableBinaryInputArchive ar(bits_stream);
+              ar(out);
+            }
+            return out;
+          }));
 }
 
 void init_PolarQuadrature(py::module& m) {
@@ -87,5 +112,8 @@ void init_PolarQuadrature(py::module& m) {
           [](const PolarQuadrature& q) {
             return std::vector<double>(q.wgt().begin(), q.wgt().end());
           },
-          "Array of weight values.");
+          "Array of weight values.")
+
+      .def(py::pickle([](const PolarQuadrature& q) { return q.to_tuple(); },
+                      [](py::tuple t) { return PolarQuadrature(t); }));
 }

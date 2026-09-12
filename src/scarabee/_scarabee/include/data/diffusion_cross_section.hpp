@@ -74,9 +74,6 @@ class DiffusionCrossSection {
       const std::vector<std::pair<std::size_t, std::size_t>>& groups,
       const xt::xtensor<double, 1>& flux) const;
 
-  void save(const std::string& fname) const;
-  static std::shared_ptr<DiffusionCrossSection> load(const std::string& fname);
-
  private:
   xt::xtensor<double, 2> Es_;   // Scattering matrix
   xt::xtensor<double, 1> D_;    // Diffusion coefficients

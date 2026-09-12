@@ -516,7 +516,7 @@ DiffusionGeometry::DiffusionGeometry(
   zp_.xs = nullptr;
 
   // Reshape tiles array
-  tiles_.resize({tile_dx_.size(), tile_dy_.size(), tile_dy_.size()});
+  tiles_.resize({tile_dx_.size(), tile_dy_.size(), tile_dz_.size()});
 
   // Assign all tiles
   std::size_t tile_indx = 0;
@@ -619,7 +619,7 @@ DiffusionGeometry::DiffusionGeometry(py::tuple t)
   const std::size_t tsy = t[1].cast<std::size_t>();
   const std::size_t tsz = t[2].cast<std::size_t>();
   std::vector<Tile> flat_tiles = t[3].cast<std::vector<Tile>>();
-  if (tsz > 0)
+  if (tsz > 0 && tsy > 0)
     tiles_.resize({tsx, tsy, tsz});
   else if (tsy > 0)
     tiles_.resize({tsx, tsy});
@@ -627,9 +627,10 @@ DiffusionGeometry::DiffusionGeometry(py::tuple t)
     tiles_.resize({tsx});
 
   if (tiles_.size() != flat_tiles.size()) {
-    const auto mssg = "Could not reconstruct tiles_ array from provided tuple.";
-    spdlog::error(mssg);
-    throw ScarabeeException(mssg);
+    std::stringstream mssg;
+    mssg << "Could not reconstruct tiles_ array from provided tuple.";
+    spdlog::error(mssg.str());
+    throw ScarabeeException(mssg.str());
   }
 
   for (std::size_t j = 0; j < flat_tiles.size(); j++)
