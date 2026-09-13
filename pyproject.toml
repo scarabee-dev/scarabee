@@ -10,7 +10,8 @@ build-backend = "scikit_build_core.build"
 
 [tool.scikit-build]
 sdist.exclude = ["src/scarabee/_scarabee"]
-cmake.build-type = "Release"
+#cmake.build-type = "Release"
+cmake.build-type = "Debug"
 
 [project]
 name = "scarabee"
