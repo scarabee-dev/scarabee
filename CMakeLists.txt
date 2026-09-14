@@ -5,6 +5,8 @@ project(${SKBUILD_PROJECT_NAME}
 
 option(SCARABEE_USE_OMP "Compile Scarabée with OpenMP for shared memory parallelism" ON)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # Check if we are on read-the-docs
 set(SCARABEE_ON_RTD OFF) # Building on ReadTheDocs. If true, uses system HDF5.
 if(DEFINED ENV{READTHEDOCS})
@@ -107,14 +109,14 @@ set(PYBIND11_NEWPYTHON ON)
 find_package(pybind11 CONFIG QUIET)
 if (NOT pybind11_FOUND)
   set(PYBIND11_FINDPYTHON ON)
-  message(STATUS "Downloading pybind11 v3.0.4")
+  message(STATUS "Downloading custom pybind11 ...")
   FetchContent_Declare(pybind11
-    URL https://github.com/pybind/pybind11/archive/refs/tags/v3.0.4.tar.gz
-    URL_HASH MD5=933fa1b6b1fe34c9945ecb3fe67f5c4b
+    GIT_REPOSITORY https://github.com/HunterBelanger/pybind11.git
+    GIT_TAG debug/scarabee
   )
   FetchContent_MakeAvailable(pybind11)
   if (NOT pybind11_VERSION)
-    set(pybind11_VERSION 3.0.4)
+    set(pybind11_VERSION 3.1.0)
   endif()
 endif()
 
@@ -310,6 +312,12 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang") # Compile options for Clang
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel") # Compile options for Intel
   target_compile_options(_scarabee PRIVATE -W -Wall -Wextra -Wconversion -Wpedantic)
 endif()
+
+#target_compile_options(_scarabee PRIVATE -fno-omit-frame-pointer -fsanitize=address)
+#target_link_options(_scarabee PRIVATE -fsanitize=address)
+
+target_compile_options(_scarabee PRIVATE -fno-omit-frame-pointer -fsanitize=undefined)
+target_link_options(_scarabee PRIVATE -fsanitize=undefined)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
   if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC") # Comile options for Windows
