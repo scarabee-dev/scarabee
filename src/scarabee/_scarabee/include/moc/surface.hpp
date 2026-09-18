@@ -10,11 +10,9 @@
 #include <cereal/types/array.hpp>
 #include <cereal/types/base_class.hpp>
 
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-namespace py = pybind11;
-
 #include <array>
+
+struct SurfacePickler;
 
 namespace scarabee {
 
@@ -31,11 +29,6 @@ class Surface {
     BWRCornerIV
   };
   enum class Side : bool { Positive, Negative };
-
-  Surface(py::tuple t) {
-    params_ = t[0].cast<std::array<double, 5>>();
-    type_ = static_cast<Type>(t[1].cast<int>());
-  }
 
   Side side(const Vector& r, const Direction& u) const;
   double distance(const Vector& r, const Direction& u) const;
@@ -82,10 +75,6 @@ class Surface {
   double& rc() { return params_[4]; }
   const double& rc() const { return params_[4]; }
 
-  py::tuple to_tuple() const {
-    return py::make_tuple(this->params_, static_cast<int>(this->type_));
-  }
-
  protected:
   Surface(Type type) : params_(), type_(type) {}
 
@@ -96,6 +85,7 @@ class Surface {
   Type type_;
 
   friend class cereal::access;
+  friend struct ::SurfacePickler;
   template <class Archive>
   void serialize(Archive& arc) {
     arc(CEREAL_NVP(params_), CEREAL_NVP(type_));

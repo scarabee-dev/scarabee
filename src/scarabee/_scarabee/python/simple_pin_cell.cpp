@@ -7,6 +7,17 @@ namespace py = pybind11;
 
 using namespace scarabee;
 
+struct SimplePinCellPickler {
+  static std::shared_ptr<SimplePinCell> from_state(py::tuple t) {
+    SimplePinCell::Tuple pct = t[0].cast<SimplePinCell::Tuple>();
+    return std::make_shared<SimplePinCell>(pct);
+  }
+
+  static py::tuple to_state(const std::shared_ptr<SimplePinCell>& pc) {
+    return py::make_tuple(pc->to_tuple());
+  }
+};
+
 void init_SimplePinCell(py::module& m) {
   py::class_<SimplePinCell, Cell, std::shared_ptr<SimplePinCell>>(
       m, "SimplePinCell")
@@ -32,7 +43,6 @@ void init_SimplePinCell(py::module& m) {
            py::arg("radii"), py::arg("mats"), py::arg("dx"), py::arg("dy"),
            py::arg("pin_type") = PinCellType::Full)
 
-      .def(py::pickle(
-          [](std::shared_ptr<SimplePinCell> c) { return c->to_tuple(); },
-          [](py::tuple t) { return std::make_shared<SimplePinCell>(t); }));
+      .def(py::pickle(&SimplePinCellPickler::to_state,
+                      &SimplePinCellPickler::from_state));
 }

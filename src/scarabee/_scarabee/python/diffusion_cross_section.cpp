@@ -13,6 +13,29 @@ namespace py = pybind11;
 
 using namespace scarabee;
 
+struct DiffusionCrossSectionPickler {
+  static std::shared_ptr<DiffusionCrossSection> from_state(py::tuple t) {
+    py::bytes bytes = t[0].cast<py::tuple>();
+    std::istringstream bits_stream(bytes,
+                                   std::ios_base::binary | std::ios_base::in);
+    std::shared_ptr<DiffusionCrossSection> p;
+    {
+      cereal::PortableBinaryInputArchive ar(bits_stream);
+      ar(p);
+    }
+    return p;
+  }
+
+  static py::tuple to_state(const std::shared_ptr<DiffusionCrossSection>& xs) {
+    std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
+    {
+      cereal::PortableBinaryOutputArchive ar(bits_stream);
+      ar(xs);
+    }
+    return py::make_tuple(py::bytes(bits_stream.str()));
+  }
+};
+
 void init_DiffusionCrossSection(py::module& m) {
   py::class_<DiffusionCrossSection, std::shared_ptr<DiffusionCrossSection>>(
       m, "DiffusionCrossSection",
@@ -171,24 +194,6 @@ void init_DiffusionCrossSection(py::module& m) {
            "                      Condensed set of diffusion cross sections.\n",
            py::arg("groups"), py::arg("flux"))
 
-      .def(py::pickle(
-          [](const std::shared_ptr<DiffusionCrossSection>& p) {
-            std::ostringstream bits_stream(std::ios_base::binary |
-                                           std::ios_base::out);
-            {
-              cereal::PortableBinaryOutputArchive ar(bits_stream);
-              ar(p);
-            }
-            return py::bytes(bits_stream.str());
-          },
-          [](py::bytes bites) {
-            std::istringstream bits_stream(
-                bites, std::ios_base::binary | std::ios_base::in);
-            std::shared_ptr<DiffusionCrossSection> p;
-            {
-              cereal::PortableBinaryInputArchive ar(bits_stream);
-              ar(p);
-            }
-            return p;
-          }));
+      .def(py::pickle(&DiffusionCrossSectionPickler::to_state,
+                      &DiffusionCrossSectionPickler::from_state));
 }

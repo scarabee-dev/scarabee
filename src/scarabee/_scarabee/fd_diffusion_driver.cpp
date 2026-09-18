@@ -424,26 +424,6 @@ FDDiffusionDriver::FDDiffusionDriver(std::shared_ptr<DiffusionGeometry> geom)
   extern_src_.fill(0.);
 }
 
-FDDiffusionDriver::FDDiffusionDriver(py::tuple t)
-    : geom_(),
-      flux_(),
-      extern_src_(),
-      mode_(),
-      keff_(),
-      flux_tol_(),
-      keff_tol_(),
-      solved_() {
-  geom_ = t[0].cast<std::shared_ptr<DiffusionGeometry>>();
-  py::bytes bytes = t[1].cast<py::bytes>();
-
-  std::istringstream bits_stream(bytes,
-                                 std::ios_base::binary | std::ios_base::in);
-  {
-    cereal::PortableBinaryInputArchive ar(bits_stream);
-    ar(flux_, extern_src_, mode_, keff_, flux_tol_, keff_tol_, solved_);
-  }
-}
-
 void FDDiffusionDriver::set_flux_tolerance(double ftol) {
   if (ftol <= 0.) {
     auto mssg = "Tolerance for flux must be in the interval (0., 0.1).";
@@ -1099,17 +1079,6 @@ FDDiffusionDriver::power() const {
   }
 
   return {power, x_bounds, y_bounds, z_bounds};
-}
-
-py::tuple FDDiffusionDriver::to_tuple() const {
-  std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
-  {
-    cereal::PortableBinaryOutputArchive ar(bits_stream);
-    ar(flux_, extern_src_, mode_, keff_, flux_tol_, keff_tol_, solved_);
-  }
-  py::bytes bytes(bits_stream.str());
-
-  return py::make_tuple(geom_, bytes);
 }
 
 }  // namespace scarabee

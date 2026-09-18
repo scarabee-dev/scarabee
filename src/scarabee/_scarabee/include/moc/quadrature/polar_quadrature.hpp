@@ -7,12 +7,10 @@
 #include <cereal/cereal.hpp>
 #include <cereal/types/variant.hpp>
 
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-namespace py = pybind11;
-
 #include <span>
 #include <variant>
+
+struct PolarQuadraturePickler;
 
 namespace scarabee {
 
@@ -29,10 +27,6 @@ class PolarQuadrature {
     this->set_spans();
   }
 
-  PolarQuadrature(py::tuple t) : pq_(t[0].cast<PolarQuadratureType>()) {
-    this->set_spans();
-  }
-
   PolarQuadrature(PolarQuadratureType pq)
       : pq_(pq), invs_sin_(), wsin_(), sin_(), wgt_() {
     this->set_spans();
@@ -43,8 +37,6 @@ class PolarQuadrature {
   const std::span<const double>& sin() const { return sin_; }
   const std::span<const double>& wgt() const { return wgt_; }
   const std::span<const double>& polar_angle() const { return polar_angle_; }
-
-  py::tuple to_tuple() const { return py::make_tuple(pq_); }
 
  private:
   PolarQuadratureType pq_;
@@ -64,6 +56,7 @@ class PolarQuadrature {
   }
 
   friend class cereal::access;
+  friend struct ::PolarQuadraturePickler;
   PolarQuadrature() {}
 
   template <class Archive>

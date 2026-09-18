@@ -1,5 +1,6 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+
 #include <xtensor-python/pytensor.hpp>
 
 #include <data/cross_section.hpp>
@@ -12,6 +13,29 @@
 namespace py = pybind11;
 
 using namespace scarabee;
+
+struct CrossSectionPickler {
+  static std::shared_ptr<CrossSection> from_state(py::tuple t) {
+    py::bytes bytes = t[0].cast<py::bytes>();
+    std::istringstream bits_stream(bytes,
+                                   std::ios_base::binary | std::ios_base::in);
+    std::shared_ptr<CrossSection> p;
+    {
+      cereal::PortableBinaryInputArchive ar(bits_stream);
+      ar(p);
+    }
+    return p;
+  }
+
+  static py::tuple to_state(const std::shared_ptr<CrossSection>& xs) {
+    std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
+    {
+      cereal::PortableBinaryOutputArchive ar(bits_stream);
+      ar(xs);
+    }
+    return py::make_tuple(py::bytes(bits_stream.str()));
+  }
+};
 
 void init_CrossSection(py::module& m) {
   py::class_<CrossSection, std::shared_ptr<CrossSection>>(
@@ -384,24 +408,6 @@ void init_CrossSection(py::module& m) {
       .def("__imul__", &CrossSection::operator*=)
       .def("__iadd__", &CrossSection::operator+=)
 
-      .def(py::pickle(
-          [](const std::shared_ptr<CrossSection>& p) {
-            std::ostringstream bits_stream(std::ios_base::binary |
-                                           std::ios_base::out);
-            {
-              cereal::PortableBinaryOutputArchive ar(bits_stream);
-              ar(p);
-            }
-            return py::bytes(bits_stream.str());
-          },
-          [](py::bytes bites) {
-            std::istringstream bits_stream(
-                bites, std::ios_base::binary | std::ios_base::in);
-            std::shared_ptr<CrossSection> p;
-            {
-              cereal::PortableBinaryInputArchive ar(bits_stream);
-              ar(p);
-            }
-            return p;
-          }));
+      .def(py::pickle(&CrossSectionPickler::to_state,
+                      &CrossSectionPickler::from_state));
 }

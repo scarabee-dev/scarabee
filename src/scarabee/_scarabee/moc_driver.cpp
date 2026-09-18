@@ -73,37 +73,6 @@ MOCDriver::MOCDriver(std::shared_ptr<Cartesian2D> geometry,
   extern_src_.fill(0.);
 }
 
-MOCDriver::MOCDriver(py::tuple t) : polar_quad_(YamamotoTabuchi<6>()) {
-  std::vector<std::vector<py::tuple>> track_tuples =
-      t[0].cast<std::vector<std::vector<py::tuple>>>();
-  tracks_.reserve(track_tuples.size());
-  for (std::size_t i = 0; i < track_tuples.size(); i++) {
-    tracks_.emplace_back();
-    tracks_.back().reserve(track_tuples[i].size());
-    for (std::size_t j = 0; j < track_tuples[i].size(); j++) {
-      tracks_[i].emplace_back(track_tuples[i][j]);
-    }
-  }
-
-  geometry_ = t[1].cast<std::shared_ptr<Cartesian2D>>();
-  cmfd_ = t[2].cast<std::shared_ptr<CMFD>>();
-
-  py::bytes bytes = t[3].cast<py::bytes>();
-  std::istringstream bits_stream(bytes,
-                                 std::ios_base::binary | std::ios_base::in);
-  {
-    cereal::PortableBinaryInputArchive ar(bits_stream);
-    ar(angle_info_, polar_quad_, sph_harm_, flux_, extern_src_, fsr_offsets_,
-       ngroups_, nfsrs_, n_pol_angles_, flux_tol_, keff_tol_, keff_,
-       check_fsr_areas_, fsr_area_tol_, x_min_bc_, x_max_bc_, y_min_bc_,
-       y_max_bc_, max_L_, N_lj_, anisotropic_, mode_, solved_);
-  }
-
-  // Need to reset internal pointers
-  this->allocate_fsr_data();
-  this->set_bcs();
-}
-
 std::size_t MOCDriver::size() const { return fsrs_.size(); }
 
 void MOCDriver::set_flux_tolerance(double ftol) {
@@ -2058,29 +2027,6 @@ void MOCDriver::apply_criticality_spectrum(const xt::xtensor<double, 1>& flux) {
       }
     }
   }
-}
-
-py::tuple MOCDriver::to_tuple() const {
-  std::vector<std::vector<py::tuple>> track_tuples;
-  track_tuples.reserve(tracks_.size());
-  for (std::size_t i = 0; i < tracks_.size(); i++) {
-    track_tuples.emplace_back();
-    track_tuples.back().reserve(tracks_[i].size());
-    for (std::size_t j = 0; j < tracks_[i].size(); j++) {
-      track_tuples[i].push_back(tracks_[i][j].to_tuple());
-    }
-  }
-
-  std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
-  {
-    cereal::PortableBinaryOutputArchive ar(bits_stream);
-    ar(angle_info_, polar_quad_, sph_harm_, flux_, extern_src_, fsr_offsets_,
-       ngroups_, nfsrs_, n_pol_angles_, flux_tol_, keff_tol_, keff_,
-       check_fsr_areas_, fsr_area_tol_, x_min_bc_, x_max_bc_, y_min_bc_,
-       y_max_bc_, max_L_, N_lj_, anisotropic_, mode_, solved_);
-  }
-  py::bytes bytes(bits_stream.str());
-  return py::make_tuple(track_tuples, geometry_, cmfd_, bytes);
 }
 
 }  // namespace scarabee

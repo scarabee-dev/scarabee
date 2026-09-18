@@ -11,11 +11,10 @@
 #include <cereal/types/memory.hpp>
 #include <cereal/types/vector.hpp>
 
-#include <pybind11/pybind11.h>
-namespace py = pybind11;
-
 #include <memory>
 #include <vector>
+
+struct CylindricalCellPickler;
 
 namespace scarabee {
 
@@ -23,7 +22,6 @@ class CylindricalCell {
  public:
   CylindricalCell(const std::vector<double>& radii,
                   const std::vector<std::shared_ptr<CrossSection>>& mats);
-  CylindricalCell(py::tuple t);
 
   bool solved() const { return solved_; }
   void solve(bool parallel = false);
@@ -68,8 +66,6 @@ class CylindricalCell {
     return mats_[i];
   }
 
-  py::tuple to_tuple() const;
-
  private:
   xt::xtensor<double, 3> p_;
   xt::xtensor<double, 3> X_;
@@ -90,6 +86,7 @@ class CylindricalCell {
   double calculate_S_ij(std::size_t i, std::size_t j, std::size_t g) const;
 
   friend cereal::access;
+  friend struct ::CylindricalCellPickler;
   CylindricalCell() {}
   template <class Archive>
   void serialize(Archive& arc) {

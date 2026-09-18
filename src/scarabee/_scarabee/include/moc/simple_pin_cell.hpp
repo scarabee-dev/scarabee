@@ -12,24 +12,31 @@
 #include <cereal/types/base_class.hpp>
 
 #include <memory>
+#include <tuple>
+
+struct SimplePinCellPickler;
 
 namespace scarabee {
 
 class SimplePinCell : public Cell {
  public:
+  using Tuple = std::tuple<Cell::Tuple, std::vector<double>,
+                           std::vector<std::shared_ptr<CrossSection>>,
+                           std::vector<std::shared_ptr<Surface>>, std::uint8_t>;
+
   SimplePinCell(const std::vector<double>& rads,
                 const std::vector<std::shared_ptr<CrossSection>>& mats,
                 double dx, double dy, PinCellType pin_type = PinCellType::Full);
-  SimplePinCell(py::tuple t)
-      : Cell(t[0].cast<py::tuple>()),
-        mat_radii_(t[1].cast<std::vector<double>>()),
-        mats_(t[2].cast<std::vector<std::shared_ptr<CrossSection>>>()),
-        radii_(t[3].cast<std::vector<std::shared_ptr<Surface>>>()),
-        pin_type_(t[4].cast<PinCellType>()) {}
+  SimplePinCell(const Tuple& t)
+      : Cell(std::get<0>(t)),
+        mat_radii_(std::get<1>(t)),
+        mats_(std::get<2>(t)),
+        radii_(std::get<3>(t)),
+        pin_type_(static_cast<PinCellType>(std::get<4>(t))) {}
 
-  py::tuple to_tuple() const {
-    return py::make_tuple(Cell::to_tuple(), mat_radii_, mats_, radii_,
-                          pin_type_);
+  Tuple to_tuple() const {
+    return {Cell::to_tuple(), mat_radii_, mats_, radii_,
+            static_cast<std::uint8_t>(pin_type_)};
   }
 
  private:
@@ -39,6 +46,7 @@ class SimplePinCell : public Cell {
   PinCellType pin_type_;
 
   friend class cereal::access;
+  friend struct ::SimplePinCellPickler;
   SimplePinCell() {}
   template <class Archive>
   void serialize(Archive& arc) {

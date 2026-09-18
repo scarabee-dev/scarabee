@@ -18,11 +18,8 @@
 #include <cereal/types/memory.hpp>
 #include <cereal/types/vector.hpp>
 
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-namespace py = pybind11;
-
 #include <memory>
+#include <tuple>
 
 namespace scarabee {
 
@@ -35,16 +32,15 @@ struct RegionToken {
     return current_side == side;
   }
 
-  static RegionToken from_tuple(py::tuple t) {
+  using Tuple = std::tuple<std::shared_ptr<Surface>, bool>;
+  static RegionToken from_tuple(const Tuple& t) {
     RegionToken rt;
-    rt.surface = t[0].cast<std::shared_ptr<Surface>>();
-    rt.side = static_cast<Surface::Side>(t[1].cast<bool>());
+    rt.surface = std::get<0>(t);
+    rt.side = static_cast<Surface::Side>(std::get<1>(t));
     return rt;
   }
 
-  py::tuple to_tuple() const {
-    return py::make_tuple(surface, static_cast<bool>(side));
-  }
+  Tuple to_tuple() const { return {surface, static_cast<bool>(side)}; }
 
  private:
   friend class cereal::access;
@@ -56,11 +52,14 @@ struct RegionToken {
 
 class FlatSourceRegion {
  public:
+  using Tuple = std::tuple<std::vector<RegionToken::Tuple>,
+                           std::shared_ptr<CrossSection>, double, std::size_t>;
+
   FlatSourceRegion() : tokens_(), xs_(), volume_(), id_(id_counter++) {}
 
-  FlatSourceRegion(py::tuple t) {
+  FlatSourceRegion(const Tuple& t) {
     // Fill tokens
-    py::list tokens_list = t[0].cast<py::list>();
+    std::vector<RegionToken::Tuple> tokens_list = std::get<0>(t);
 
     if (tokens_list.size() > tokens_.capacity()) {
       auto mssg = "Cannot unpickle FlatSourceRegion. Too many RegionTokens.";
@@ -69,13 +68,12 @@ class FlatSourceRegion {
     }
 
     for (std::size_t i = 0; i < tokens_list.size(); i++)
-      tokens_.push_back(
-          RegionToken::from_tuple(tokens_list[i].cast<py::tuple>()));
+      tokens_.push_back(RegionToken::from_tuple(tokens_list[i]));
 
     // Get the xs, volume, and id
-    xs_ = t[1].cast<std::shared_ptr<CrossSection>>();
-    volume_ = t[2].cast<double>();
-    id_ = t[3].cast<std::size_t>();
+    xs_ = std::get<1>(t);
+    volume_ = std::get<2>(t);
+    id_ = std::get<3>(t);
 
     // If the id is greater than the know id, we increment to avoid any id
     // collisions.
@@ -111,12 +109,12 @@ class FlatSourceRegion {
   double& volume() { return volume_; }
   const double& volume() const { return volume_; }
 
-  py::tuple to_tuple() const {
-    py::list tokens_list;
+  Tuple to_tuple() const {
+    std::vector<RegionToken::Tuple> tokens_list;
     for (const auto& token : tokens_) {
-      tokens_list.append(token.to_tuple());
+      tokens_list.push_back(token.to_tuple());
     }
-    return py::make_tuple(tokens_list, xs_, volume_, id_);
+    return {tokens_list, xs_, volume_, id_};
   }
 
  private:

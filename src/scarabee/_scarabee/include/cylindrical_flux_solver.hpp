@@ -12,25 +12,22 @@
 #include <cereal/types/memory.hpp>
 #include <cereal/types/vector.hpp>
 
-#include <pybind11/pybind11.h>
-namespace py = pybind11;
-
 #include <memory>
 #include <vector>
+
+struct CylindricalFluxSolverPickler;
 
 namespace scarabee {
 
 class CylindricalFluxSolver {
  public:
   CylindricalFluxSolver(std::shared_ptr<CylindricalCell> cell);
-  CylindricalFluxSolver(py::tuple t);
 
   const std::shared_ptr<CylindricalCell>& cell() const { return cell_; }
 
   std::size_t ngroups() const { return cell_->ngroups(); }
   std::size_t nregions() const { return cell_->nregions(); }
   std::size_t size() const { return this->nregions(); }
-
   void solve(bool parallel = false);
   bool solved() const { return solved_; }
 
@@ -90,8 +87,6 @@ class CylindricalFluxSolver {
            (1. - a_ * (1. - cell_->Gamma(g)));
   }
 
-  py::tuple to_tuple() const;
-
  private:
   xt::xtensor<double, 2> flux_;
   xt::xtensor<double, 2> extern_source_;
@@ -121,6 +116,7 @@ class CylindricalFluxSolver {
   void solve_parallel();
 
   friend class cereal::access;
+  friend struct ::CylindricalFluxSolverPickler;
   CylindricalFluxSolver() {}
   template <class Archive>
   void serialize(Archive& arc) {

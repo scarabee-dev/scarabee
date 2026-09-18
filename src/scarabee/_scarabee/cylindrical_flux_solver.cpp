@@ -7,8 +7,6 @@
 
 #include <xtensor/generators/xbuilder.hpp>
 
-#include <cereal/archives/portable_binary.hpp>
-
 #include <sstream>
 
 namespace scarabee {
@@ -41,18 +39,6 @@ CylindricalFluxSolver::CylindricalFluxSolver(
   x_.fill(0.);
 
   extern_source_ = xt::zeros<double>({ngroups(), nregions()});
-}
-
-CylindricalFluxSolver::CylindricalFluxSolver(py::tuple t) {
-  cell_ = t[0].cast<std::shared_ptr<CylindricalCell>>();
-  py::bytes bytes = t[1].cast<py::bytes>();
-  std::istringstream bits_stream(bytes,
-                                 std::ios_base::binary | std::ios_base::in);
-  {
-    cereal::PortableBinaryInputArchive ar(bits_stream);
-    ar(flux_, extern_source_, j_ext_, x_, k_, a_, k_tol_, flux_tol_, mode_,
-       solved_);
-  }
 }
 
 void CylindricalFluxSolver::set_albedo(double a) {
@@ -487,17 +473,6 @@ xt::xtensor<double, 1> CylindricalFluxSolver::homogenize_flux_spectrum(
 xt::xtensor<double, 1> CylindricalFluxSolver::homogenize_flux_spectrum(
     const std::vector<std::size_t>& regions) const {
   return scarabee::homogenize_flux_spectrum({*this}, regions);
-}
-
-py::tuple CylindricalFluxSolver::to_tuple() const {
-  std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
-  {
-    cereal::PortableBinaryOutputArchive ar(bits_stream);
-    ar(flux_, extern_source_, j_ext_, x_, k_, a_, k_tol_, flux_tol_, mode_,
-       solved_);
-  }
-  py::bytes bytes(bits_stream.str());
-  return py::make_tuple(cell_, bytes);
 }
 
 }  // namespace scarabee

@@ -17,13 +17,10 @@
 #include <cereal/types/vector.hpp>
 #include <cereal/types/map.hpp>
 
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-namespace py = pybind11;
-
 #include <map>
 #include <memory>
 #include <optional>
+#include <tuple>
 #include <variant>
 #include <vector>
 #include <utility>
@@ -39,6 +36,8 @@ class Cartesian2D {
       std::variant<std::shared_ptr<Cartesian2D>, std::shared_ptr<Cell>>;
 
   struct Tile {
+    using Tuple =
+        std::tuple<std::shared_ptr<Cartesian2D>, std::shared_ptr<Cell>>;
     std::shared_ptr<Cartesian2D> c2d;
     std::shared_ptr<Cell> cell;
 
@@ -53,12 +52,12 @@ class Cartesian2D {
 
     std::size_t get_num_fsr_instances(std::size_t id) const;
 
-    py::tuple to_tuple() const { return py::make_tuple(c2d, cell); }
+    Tuple to_tuple() const { return {c2d, cell}; }
 
-    static Tile from_tuple(py::tuple t) {
+    static Tile from_tuple(const Tuple& t) {
       Tile out;
-      out.c2d = t[0].cast<std::shared_ptr<Cartesian2D>>();
-      out.cell = t[1].cast<std::shared_ptr<Cell>>();
+      out.c2d = std::get<0>(t);
+      out.cell = std::get<1>(t);
       return out;
     }
 
@@ -70,6 +69,12 @@ class Cartesian2D {
     }
   };
 
+  using Tuple = std::tuple<std::vector<std::shared_ptr<Surface>>,
+                           std::vector<std::shared_ptr<Surface>>,
+                           std::vector<Tile::Tuple>,
+                           std::vector<std::map<std::size_t, std::size_t>>,
+                           std::size_t, std::size_t>;
+
   struct TileIndex {
     std::size_t i, j;
   };
@@ -79,7 +84,7 @@ class Cartesian2D {
 
   Cartesian2D(const std::vector<double>& dx, const std::vector<double>& dy);
 
-  Cartesian2D(py::tuple t);
+  Cartesian2D(const Tuple& t);
 
   std::size_t nx() const { return nx_; }
   std::size_t ny() const { return ny_; }
@@ -220,7 +225,7 @@ class Cartesian2D {
   double y_min() const { return y_bounds_.front()->y0(); }
   double y_max() const { return y_bounds_.back()->y0(); }
 
-  py::tuple to_tuple() const;
+  Tuple to_tuple() const;
 
  private:
   std::vector<std::shared_ptr<Surface>> x_bounds_;

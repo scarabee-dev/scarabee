@@ -8,11 +8,33 @@
 #include <cereal/archives/portable_binary.hpp>
 
 #include <sstream>
-#include <iomanip>
 
 namespace py = pybind11;
 
 using namespace scarabee;
+
+struct XS2DPickler {
+  static std::shared_ptr<XS2D> from_state(py::tuple t) {
+    py::bytes bytes = t[0].cast<py::bytes>();
+    std::istringstream bits_stream(bytes,
+                                   std::ios_base::binary | std::ios_base::in);
+    std::shared_ptr<XS2D> p;
+    {
+      cereal::PortableBinaryInputArchive ar(bits_stream);
+      ar(p);
+    }
+    return p;
+  }
+
+  static py::tuple to_state(const std::shared_ptr<XS2D> xs) {
+    std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
+    {
+      cereal::PortableBinaryOutputArchive ar(bits_stream);
+      ar(xs);
+    }
+    return py::make_tuple(py::bytes(bits_stream.str()));
+  }
+};
 
 void init_XS2D(py::module& m) {
   py::class_<XS2D, std::shared_ptr<XS2D>>(
@@ -170,24 +192,5 @@ void init_XS2D(py::module& m) {
              return out.str();
            })
 
-      .def(py::pickle(
-          [](const std::shared_ptr<XS2D>& p) {
-            std::ostringstream bits_stream(std::ios_base::binary |
-                                           std::ios_base::out);
-            {
-              cereal::PortableBinaryOutputArchive ar(bits_stream);
-              ar(p);
-            }
-            return py::bytes(bits_stream.str());
-          },
-          [](py::bytes bites) {
-            std::istringstream bits_stream(
-                bites, std::ios_base::binary | std::ios_base::in);
-            std::shared_ptr<XS2D> p;
-            {
-              cereal::PortableBinaryInputArchive ar(bits_stream);
-              ar(p);
-            }
-            return p;
-          }));
+      .def(py::pickle(&XS2DPickler::to_state, &XS2DPickler::from_state));
 }

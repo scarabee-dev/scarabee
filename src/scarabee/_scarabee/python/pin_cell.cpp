@@ -7,38 +7,18 @@ namespace py = pybind11;
 
 using namespace scarabee;
 
+struct PinCellPickler {
+  static std::shared_ptr<PinCell> from_state(py::tuple t) {
+    PinCell::Tuple pct = t[0].cast<PinCell::Tuple>();
+    return std::make_shared<PinCell>(pct);
+  }
+
+  static py::tuple to_state(const std::shared_ptr<PinCell>& pc) {
+    return py::make_tuple(pc->to_tuple());
+  }
+};
+
 void init_PinCell(py::module& m) {
-  /*
-  using V1 = std::vector<double>;
-  using V2 = std::vector<std::shared_ptr<scarabee::CrossSection>>;
-
-  static_assert(std::is_same_v<pybind11::detail::make_caster<V2>,
-                               pybind11::detail::type_caster<V2>>);
-
-  static_assert(
-      std::is_base_of_v<pybind11::detail::list_caster<
-                            V2, std::shared_ptr<scarabee::CrossSection>>,
-                        pybind11::detail::type_caster<V2>>);
-
-  std::cout << "sizeof(V2 caster) = "
-            << sizeof(pybind11::detail::type_caster<V2>) << "\n";
-
-  std::cout << "sizeof(V2 list caster) = "
-            << sizeof(pybind11::detail::list_caster<
-                      V2, std::shared_ptr<scarabee::CrossSection>>)
-            << "\n";
-
-  std::cerr << "\n=== MANUAL CASTER TEST ===\n";
-
-  {
-    pybind11::detail::type_caster<V1> c1;
-  }
-
-  {
-    pybind11::detail::type_caster<V2> c2;
-  }
-  */
-
   py::class_<PinCell, Cell, std::shared_ptr<PinCell>>(m, "PinCell")
       .def(  // py::init<const std::vector<double>& /*rads*/,
              //          const std::vector<std::shared_ptr<CrossSection>>&
@@ -69,7 +49,5 @@ void init_PinCell(py::module& m) {
           py::arg("radii"), py::arg("mats"), py::arg("dx"), py::arg("dy"),
           py::arg("pin_type") = PinCellType::Full)
 
-      .def(
-          py::pickle([](std::shared_ptr<PinCell> c) { return c->to_tuple(); },
-                     [](py::tuple t) { return std::make_shared<PinCell>(t); }));
+      .def(py::pickle(&PinCellPickler::to_state, &PinCellPickler::from_state));
 }

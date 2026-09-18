@@ -12,21 +12,19 @@
 #include <cereal/cereal.hpp>
 #include <cereal/types/memory.hpp>
 
-#include <pybind11/pybind11.h>
-namespace py = pybind11;
-
 #include <Eigen/Dense>
 
 #include <memory>
 #include <optional>
 #include <tuple>
 
+struct FDDiffusionDriverPickler;
+
 namespace scarabee {
 
 class FDDiffusionDriver {
  public:
   FDDiffusionDriver(std::shared_ptr<DiffusionGeometry> geom);
-  FDDiffusionDriver(py::tuple t);
 
   std::shared_ptr<DiffusionGeometry> geometry() const { return geom_; }
 
@@ -70,8 +68,6 @@ class FDDiffusionDriver {
              std::optional<xt::xarray<double>>>
   power() const;
 
-  py::tuple to_tuple() const;
-
  private:
   std::shared_ptr<DiffusionGeometry> geom_;
   Eigen::VectorXd flux_;        // Flux in each MAT tile in each group
@@ -86,6 +82,7 @@ class FDDiffusionDriver {
   void fixed_source();
 
   friend class cereal::access;
+  friend struct ::FDDiffusionDriverPickler;
   FDDiffusionDriver() {}
   template <class Archive>
   void serialize(Archive& arc) {

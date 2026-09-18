@@ -7,17 +7,16 @@
 
 #include <xtensor/containers/xtensor.hpp>
 
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-namespace py = pybind11;
-
 #include <cereal/cereal.hpp>
 #include <cereal/types/optional.hpp>
 #include <cereal/types/string.hpp>
-#include <cereal/archives/portable_binary.hpp>
 
 #include <optional>
-#include <sstream>
+
+struct MicroDepletionXSPickler;
+struct MicroNuclideXSPickler;
+struct ResonantOneGroupXSPickler;
+struct DepletionReactionRatesPickler;
 
 namespace scarabee {
 
@@ -28,28 +27,6 @@ struct MicroDepletionXS {
   std::optional<XS1D> n_3n{std::nullopt};
   std::optional<XS1D> n_alpha{std::nullopt};
   std::optional<XS1D> n_p{std::nullopt};
-
-  static MicroDepletionXS from_tuple(py::tuple t) {
-    MicroDepletionXS out;
-    py::bytes bytes = t[0].cast<py::bytes>();
-    std::istringstream bits_stream(bytes,
-                                   std::ios_base::binary | std::ios_base::in);
-    {
-      cereal::PortableBinaryInputArchive ar(bits_stream);
-      ar(out);
-    }
-    return out;
-  }
-
-  py::tuple to_tuple() const {
-    std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
-    {
-      cereal::PortableBinaryOutputArchive ar(bits_stream);
-      ar(*this);
-    }
-    py::bytes bytes(bits_stream.str());
-    return py::make_tuple(bytes);
-  }
 
   template <class Archive>
   void serialize(Archive& arc) {
@@ -66,28 +43,6 @@ struct MicroNuclideXS {
   XS1D Ef;
   XS1D nu;
   XS1D chi;
-
-  static MicroNuclideXS from_tuple(py::tuple t) {
-    MicroNuclideXS out;
-    py::bytes bytes = t[0].cast<py::bytes>();
-    std::istringstream bits_stream(bytes,
-                                   std::ios_base::binary | std::ios_base::in);
-    {
-      cereal::PortableBinaryInputArchive ar(bits_stream);
-      ar(out);
-    }
-    return out;
-  }
-
-  py::tuple to_tuple() const {
-    std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
-    {
-      cereal::PortableBinaryOutputArchive ar(bits_stream);
-      ar(*this);
-    }
-    py::bytes bytes(bits_stream.str());
-    return py::make_tuple(bytes);
-  }
 
   template <class Archive>
   void serialize(Archive& arc) {
@@ -109,28 +64,6 @@ struct ResonantOneGroupXS {
   // Scarabée assumes that (n,2n), (n,3n), (n,a), and (n,p) are not resonant
   // i.e. not dilution dependent.
 
-  static ResonantOneGroupXS from_tuple(py::tuple t) {
-    ResonantOneGroupXS out;
-    py::bytes bytes = t[0].cast<py::bytes>();
-    std::istringstream bits_stream(bytes,
-                                   std::ios_base::binary | std::ios_base::in);
-    {
-      cereal::PortableBinaryInputArchive ar(bits_stream);
-      ar(out);
-    }
-    return out;
-  }
-
-  py::tuple to_tuple() const {
-    std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
-    {
-      cereal::PortableBinaryOutputArchive ar(bits_stream);
-      ar(*this);
-    }
-    py::bytes bytes(bits_stream.str());
-    return py::make_tuple(bytes);
-  }
-
   template <class Archive>
   void serialize(Archive& arc) {
     arc(CEREAL_NVP(Dtr), CEREAL_NVP(Ea), CEREAL_NVP(Ef), CEREAL_NVP(Es),
@@ -148,28 +81,6 @@ struct DepletionReactionRates {
   double n_alpha{0.};
   double n_fission{0.};
   double average_fission_energy{0.};
-
-  static DepletionReactionRates from_tuple(py::tuple t) {
-    DepletionReactionRates out;
-    py::bytes bytes = t[0].cast<py::bytes>();
-    std::istringstream bits_stream(bytes,
-                                   std::ios_base::binary | std::ios_base::in);
-    {
-      cereal::PortableBinaryInputArchive ar(bits_stream);
-      ar(out);
-    }
-    return out;
-  }
-
-  py::tuple to_tuple() const {
-    std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
-    {
-      cereal::PortableBinaryOutputArchive ar(bits_stream);
-      ar(*this);
-    }
-    py::bytes bytes(bits_stream.str());
-    return py::make_tuple(bytes);
-  }
 
   template <class Archive>
   void serialize(Archive& arc) {

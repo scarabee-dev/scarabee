@@ -21,6 +21,8 @@
 #include <string>
 #include <vector>
 
+struct DepletionMatrixPickler;
+
 namespace scarabee {
 
 class DepletionMatrix {
@@ -109,6 +111,7 @@ class DepletionMatrix {
   Eigen::SparseMatrix<double> matrix_;
 
   friend class cereal::access;
+  friend struct ::DepletionMatrixPickler;
 
   DepletionMatrix() = default;
 

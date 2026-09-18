@@ -17,12 +17,11 @@
 #include <cereal/types/vector.hpp>
 #include <cereal/types/memory.hpp>
 
-#include <pybind11/pybind11.h>
-namespace py = pybind11;
-
 #include <map>
 #include <memory>
 #include <vector>
+
+struct MOCDriverPickler;
 
 namespace scarabee {
 
@@ -34,8 +33,6 @@ class MOCDriver {
             BoundaryCondition ymin = BoundaryCondition::Reflective,
             BoundaryCondition ymax = BoundaryCondition::Reflective,
             bool anisotropic = false);
-
-  MOCDriver(py::tuple t);
 
   struct AngleInfo {
     double phi;                  // Azimuthal angle for track
@@ -158,8 +155,6 @@ class MOCDriver {
   double y_min() const { return geometry_->y_min(); }
   double y_max() const { return geometry_->y_max(); }
 
-  py::tuple to_tuple() const;
-
  private:
   std::vector<AngleInfo> angle_info_;       // Information for all angles
   std::vector<std::vector<Track>> tracks_;  // All tracks, indexed by angle
@@ -228,6 +223,7 @@ class MOCDriver {
   MOCDriver() : polar_quad_(YamamotoTabuchi<6>()) {}
 
   friend class cereal::access;
+  friend struct ::MOCDriverPickler;
 
   template <class Archive>
   void save(Archive& arc) const {

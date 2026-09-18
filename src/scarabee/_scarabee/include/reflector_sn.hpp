@@ -5,11 +5,10 @@
 
 #include <xtensor/containers/xtensor.hpp>
 
-#include <pybind11/pybind11.h>
-namespace py = pybind11;
-
 #include <span>
 #include <memory>
+
+struct ReflectorSNPickler;
 
 namespace scarabee {
 
@@ -18,8 +17,6 @@ class ReflectorSN {
   ReflectorSN(const std::vector<std::shared_ptr<CrossSection>>& xs,
               const xt::xtensor<double, 1>& dx, std::uint32_t nangles,
               bool anisotropic);
-
-  ReflectorSN(py::tuple t);
 
   std::size_t nangles() const { return mu_.size(); }
 
@@ -51,8 +48,6 @@ class ReflectorSN {
       const std::vector<std::size_t>& regions) const;
   xt::xtensor<double, 1> homogenize_flux_spectrum(
       const std::vector<std::size_t>& regions) const;
-
-  py::tuple to_tuple() const;
 
  private:
   std::vector<std::shared_ptr<CrossSection>> xs_;
@@ -86,8 +81,14 @@ class ReflectorSN {
                    const xt::xtensor<double, 3>& new_flux,
                    const double keff) const;
 
+  void set_quadrature(std::size_t nangles);
+
   std::span<const double> mu_;
   std::span<const double> wgt_;
+
+  friend struct ::ReflectorSNPickler;
+
+  ReflectorSN() = default;
 };
 
 }  // namespace scarabee

@@ -11,6 +11,8 @@
 #include <cstddef>
 #include <vector>
 
+struct FluxCalculatorPickler;
+
 namespace scarabee {
 
 class FluxCalculator {
@@ -66,6 +68,7 @@ class FluxCalculator {
   std::size_t g_max_r;
 
   friend class cereal::access;
+  friend struct ::FluxCalculatorPickler;
 
   FluxCalculator() = default;
 

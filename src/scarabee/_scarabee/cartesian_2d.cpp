@@ -126,17 +126,17 @@ Cartesian2D::Cartesian2D(const std::vector<double>& dx,
   fsr_offset_map_.resize({nx_, ny_});
 }
 
-Cartesian2D::Cartesian2D(py::tuple t)
-    : x_bounds_(t[0].cast<std::vector<std::shared_ptr<Surface>>>()),
-      y_bounds_(t[1].cast<std::vector<std::shared_ptr<Surface>>>()),
+Cartesian2D::Cartesian2D(const Tuple& t)
+    : x_bounds_(std::get<0>(t)),
+      y_bounds_(std::get<1>(t)),
       tiles_(),
       fsr_offset_map_(),
-      nx_(t[4].cast<std::size_t>()),
-      ny_(t[5].cast<std::size_t>()) {
+      nx_(std::get<4>(t)),
+      ny_(std::get<5>(t)) {
   // Get flat arrays
-  std::vector<py::tuple> flat_tiles = t[2].cast<std::vector<py::tuple>>();
+  std::vector<Tile::Tuple> flat_tiles = std::get<2>(t);
   std::vector<std::map<std::size_t, std::size_t>> flat_fsr_offset_map =
-      t[3].cast<std::vector<std::map<std::size_t, std::size_t>>>();
+      std::get<3>(t);
 
   // Reconstruct 2D arrays
   const std::size_t NT = nx_ * ny_;
@@ -409,7 +409,7 @@ void Cartesian2D::fill_fsrs(
   }
 }
 
-py::tuple Cartesian2D::to_tuple() const {
+Cartesian2D::Tuple Cartesian2D::to_tuple() const {
   const std::size_t NT = nx_ * ny_;
   if (tiles_.size() != NT || fsr_offset_map_.size() != NT) {
     const auto mssg =
@@ -419,7 +419,7 @@ py::tuple Cartesian2D::to_tuple() const {
     throw ScarabeeException(mssg);
   }
 
-  std::vector<py::tuple> flat_tiles;
+  std::vector<Tile::Tuple> flat_tiles;
   std::vector<std::map<std::size_t, std::size_t>> flat_fsr_offset_map;
   flat_tiles.reserve(NT);
   flat_fsr_offset_map.reserve(NT);
@@ -428,8 +428,7 @@ py::tuple Cartesian2D::to_tuple() const {
     flat_fsr_offset_map.push_back(fsr_offset_map_.flat(i));
   }
 
-  return py::make_tuple(x_bounds_, y_bounds_, flat_tiles, flat_fsr_offset_map,
-                        nx_, ny_);
+  return {x_bounds_, y_bounds_, flat_tiles, flat_fsr_offset_map, nx_, ny_};
 }
 
 void Cartesian2D::make_offset_map() {

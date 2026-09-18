@@ -38,29 +38,22 @@ void init_quad(py::module& m, const std::string& name,
             return std::vector<double>(q.wgt().begin(), q.wgt().end());
           },
           "Array of weight values.")
-      .def(py::pickle(
-          [](const PQ& q) {
-            std::ostringstream bits_stream(std::ios_base::binary |
-                                           std::ios_base::out);
-            {
-              cereal::PortableBinaryOutputArchive ar(bits_stream);
-              ar(q);
-            }
-            py::bytes bytes(bits_stream.str());
-            return py::make_tuple(bytes);
-          },
-          [](py::tuple t) {
-            PQ out;
-            py::bytes bytes = t[0].cast<py::bytes>();
-            std::istringstream bits_stream(
-                bytes, std::ios_base::binary | std::ios_base::in);
-            {
-              cereal::PortableBinaryInputArchive ar(bits_stream);
-              ar(out);
-            }
-            return out;
-          }));
+      .def(py::pickle([](const PQ&) { return py::make_tuple(); },
+                      [](py::tuple) { return PQ(); }));
 }
+
+struct PolarQuadraturePickler {
+  static PolarQuadrature from_state(py::tuple t) {
+    PolarQuadrature pq;
+    pq.pq_ = t[0].cast<PolarQuadratureType>();
+    pq.set_spans();
+    return pq;
+  }
+
+  static py::tuple to_state(const PolarQuadrature& pq) {
+    return py::make_tuple(pq.pq_);
+  }
+};
 
 void init_PolarQuadrature(py::module& m) {
   // Legendre quadratures
@@ -114,6 +107,6 @@ void init_PolarQuadrature(py::module& m) {
           },
           "Array of weight values.")
 
-      .def(py::pickle([](const PolarQuadrature& q) { return q.to_tuple(); },
-                      [](py::tuple t) { return PolarQuadrature(t); }));
+      .def(py::pickle(&PolarQuadraturePickler::to_state,
+                      &PolarQuadraturePickler::from_state));
 }

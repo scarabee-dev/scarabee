@@ -10,17 +10,15 @@
 #include <cereal/types/memory.hpp>
 #include <cereal/types/optional.hpp>
 #include <cereal/types/vector.hpp>
-#include <cereal/archives/portable_binary.hpp>
-
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-namespace py = pybind11;
 
 #include <cstdint>
 #include <memory>
 #include <optional>
 #include <variant>
 #include <vector>
+
+struct DiffusionGeometryTilePickler;
+struct DiffusionGeometryPickler;
 
 namespace scarabee {
 
@@ -32,6 +30,7 @@ class DiffusionGeometry {
 
    private:
     friend class cereal::access;
+    friend struct ::DiffusionGeometryTilePickler;
     template <class Archive>
     void serialize(Archive& arc) {
       arc(CEREAL_NVP(albedo), CEREAL_NVP(xs));
@@ -68,8 +67,6 @@ class DiffusionGeometry {
       const std::vector<std::size_t>& ydivs, const std::vector<double>& dz,
       const std::vector<std::size_t>& zdivs, double albedo_xn, double albedo_xp,
       double albedo_yn, double albedo_yp, double albedo_zn, double albedo_zp);
-
-  DiffusionGeometry(py::tuple t);
 
   std::size_t ngroups() const;
   std::size_t ndims() const {
@@ -121,20 +118,6 @@ class DiffusionGeometry {
   const std::vector<double> tile_dy() const { return tile_dy_; }
   const std::vector<double> tile_dz() const { return tile_dz_; }
 
-  py::tuple to_tuple() const {
-    const std::size_t ndims = geom_shape_.size();
-    std::vector<Tile> flat_tiles;
-    flat_tiles.reserve(tiles_.size());
-    for (std::size_t i = 0; i < tiles_.size(); i++)
-      flat_tiles.push_back(tiles_.flat(i));
-
-    return py::make_tuple(
-        tile_dx_.size(), tile_dy_.size(), tile_dz_.size(), flat_tiles, xn_, xp_,
-        yn_, yp_, zn_, zp_, tile_dx_, x_divs_per_tile_, tile_dy_,
-        y_divs_per_tile_, tile_dz_, z_divs_per_tile_, x_bounds_, y_bounds_,
-        z_bounds_, nmats_, mat_indx_to_flat_geom_indx_, nx_, ny_, nz_, ndims);
-  }
-
  private:
   xt::xarray<Tile> tiles_;
 
@@ -178,6 +161,7 @@ class DiffusionGeometry {
   void fill_z_bounds();
 
   friend class cereal::access;
+  friend struct ::DiffusionGeometryPickler;
   DiffusionGeometry() {}
   template <class Archive>
   void serialize(Archive& arc) {

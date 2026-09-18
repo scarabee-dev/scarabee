@@ -15,20 +15,18 @@
 
 #include <xtensor/containers/xtensor.hpp>
 
-#include <pybind11/pybind11.h>
-namespace py = pybind11;
-
 #include <cmath>
 #include <memory>
 #include <optional>
 #include <utility>
+
+struct NEMDiffusionDriverPickler;
 
 namespace scarabee {
 
 class NEMDiffusionDriver {
  public:
   NEMDiffusionDriver(std::shared_ptr<DiffusionGeometry> geom);
-  NEMDiffusionDriver(py::tuple t);
 
   std::shared_ptr<DiffusionGeometry> geometry() const { return geom_; }
 
@@ -59,8 +57,6 @@ class NEMDiffusionDriver {
                                const xt::xtensor<double, 1>& y,
                                const xt::xtensor<double, 1>& z) const;
   xt::xtensor<double, 3> avg_power() const;
-
-  py::tuple to_tuple() const;
 
  private:
   //----------------------------------------------------------------------------
@@ -245,6 +241,7 @@ class NEMDiffusionDriver {
   double avg_xy_corner_flux(std::size_t g, std::size_t m, Corner c) const;
 
   friend class cereal::access;
+  friend struct ::NEMDiffusionDriverPickler;
   NEMDiffusionDriver() {}
   template <class Archive>
   void serialize(Archive& arc) {

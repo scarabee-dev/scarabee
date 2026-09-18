@@ -9,6 +9,17 @@ namespace py = pybind11;
 
 using namespace scarabee;
 
+struct Cartesian2DPickler {
+  static std::shared_ptr<Cartesian2D> from_state(py::tuple t) {
+    Cartesian2D::Tuple ct = t[0].cast<Cartesian2D::Tuple>();
+    return std::make_shared<Cartesian2D>(ct);
+  }
+
+  static py::tuple to_state(const std::shared_ptr<Cartesian2D>& c) {
+    return py::make_tuple(c->to_tuple());
+  }
+};
+
 void init_Cartesian2D(py::module& m) {
   // Tile
   py::class_<Cartesian2D::Tile>(
@@ -24,8 +35,13 @@ void init_Cartesian2D(py::module& m) {
           "valid", &Cartesian2D::Tile::valid,
           "True if the tile is completely filled with Cells, False otherwise.")
       .def(py::pickle(
-          [](const Cartesian2D::Tile& t) { return t.to_tuple(); },
-          [](py::tuple t) { return Cartesian2D::Tile::from_tuple(t); }));
+          [](const Cartesian2D::Tile& t) {
+            return py::make_tuple(t.to_tuple());
+          },
+          [](py::tuple t) {
+            return Cartesian2D::Tile::from_tuple(
+                t[0].cast<Cartesian2D::Tile::Tuple>());
+          }));
 
   // TileIndex
   py::class_<Cartesian2D::TileIndex>(
@@ -117,7 +133,6 @@ void init_Cartesian2D(py::module& m) {
            "        Fills for all tiles.",
            py::arg("fills"))
 
-      .def(py::pickle(
-          [](std::shared_ptr<Cartesian2D> c2d) { return c2d->to_tuple(); },
-          [](py::tuple t) { return std::make_shared<Cartesian2D>(t); }));
+      .def(py::pickle(&Cartesian2DPickler::to_state,
+                      &Cartesian2DPickler::from_state));
 }

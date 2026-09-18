@@ -1,13 +1,42 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
+#include <cereal/archives/portable_binary.hpp>
+
 #include <xtensor-python/pytensor.hpp>
 
 #include <utils/tab1.hpp>
 
+#include <sstream>
+
 namespace py = pybind11;
 
 using namespace scarabee;
+
+struct Tab1Pickler {
+  static std::shared_ptr<Tab1> from_state(py::tuple t) {
+    std::shared_ptr<Tab1> t1(new Tab1);
+    py::bytes bytes = t[0].cast<py::bytes>();
+    std::istringstream bits_stream(bytes,
+                                   std::ios_base::binary | std::ios_base::in);
+    {
+      cereal::PortableBinaryInputArchive ar(bits_stream);
+      ar(*t1);
+    }
+
+    return t1;
+  }
+
+  static py::tuple to_state(const std::shared_ptr<Tab1>& t1) {
+    std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
+    {
+      cereal::PortableBinaryOutputArchive ar(bits_stream);
+      ar(*t1);
+    }
+    py::bytes bytes(bits_stream.str());
+    return py::make_tuple(bytes);
+  }
+};
 
 void init_Tab1(py::module& m) {
   py::class_<Tab1, std::shared_ptr<Tab1>>(m, "Tab1")
@@ -120,6 +149,5 @@ void init_Tab1(py::module& m) {
            "    Integral from a to b.",
            py::arg("a"), py::arg("b"))
 
-      .def(py::pickle([](std::shared_ptr<Tab1> p) { return p->to_tuple(); },
-                      [](py::tuple t) { return std::make_shared<Tab1>(t); }));
+      .def(py::pickle(&Tab1Pickler::to_state, &Tab1Pickler::from_state));
 }

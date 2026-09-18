@@ -8,6 +8,24 @@ namespace py = pybind11;
 
 using namespace scarabee;
 
+struct DiffusionDataPickler {
+  static std::shared_ptr<DiffusionData> from_state(py::tuple t) {
+    std::shared_ptr<DiffusionData> dd(new DiffusionData);
+    dd->xs_ = t[0].cast<std::shared_ptr<DiffusionCrossSection>>();
+    dd->adf_ = t[1].cast<xt::xtensor<double, 2>>();
+    dd->cdf_ = t[2].cast<xt::xtensor<double, 2>>();
+    dd->name_ = t[3].cast<std::string>();
+    dd->leakage_corrections_ = t[4].cast<std::optional<LeakageCorrections>>();
+    dd->reflector_ = t[5].cast<bool>();
+    return dd;
+  }
+
+  static py::tuple to_state(const std::shared_ptr<DiffusionData>& dd) {
+    return py::make_tuple(dd->xs_, dd->adf_, dd->cdf_, dd->name_,
+                          dd->leakage_corrections_, dd->reflector_);
+  }
+};
+
 void init_DiffusionData(py::module& m) {
   py::enum_<DiffusionData::ADF>(m, "ADF")
       .value("XN", DiffusionData::ADF::XN, "Assembly x < 0 side.")
@@ -265,6 +283,6 @@ void init_DiffusionData(py::module& m) {
            "are swapped.",
            py::return_value_policy::reference_internal)
 
-      .def(py::pickle([](const DiffusionData& d) { return d.to_tuple(); },
-                      [](py::tuple t) { return DiffusionData(t); }));
+      .def(py::pickle(&DiffusionDataPickler::to_state,
+                      &DiffusionDataPickler::from_state));
 }

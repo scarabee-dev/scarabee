@@ -1,13 +1,51 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
+#include <cereal/cereal.hpp>
+#include <cereal/archives/portable_binary.hpp>
+
 #include <xtensor-python/pytensor.hpp>
 
 #include <reflector_sn.hpp>
 
+#include <sstream>
+
 namespace py = pybind11;
 
 using namespace scarabee;
+
+struct ReflectorSNPickler {
+  static std::shared_ptr<ReflectorSN> from_state(py::tuple t) {
+    std::shared_ptr<ReflectorSN> out(new ReflectorSN);
+    out->xs_ = t[0].cast<std::vector<std::shared_ptr<CrossSection>>>();
+    std::size_t nangles;
+
+    py::bytes bytes = t[1].cast<py::bytes>();
+    std::istringstream bits_stream(bytes,
+                                   std::ios_base::binary | std::ios_base::in);
+    {
+      cereal::PortableBinaryInputArchive ar(bits_stream);
+      ar(out->dx_, out->flux_, out->J_, out->Pnl_, out->keff_, out->keff_tol_,
+         out->flux_tol_, out->ngroups_, out->max_L_, out->solved_,
+         out->anisotropic_, nangles);
+    }
+    out->set_quadrature(nangles);
+    return out;
+  }
+
+  static py::tuple to_state(const std::shared_ptr<ReflectorSN>& rs) {
+    std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
+    {
+      cereal::PortableBinaryOutputArchive ar(bits_stream);
+      ar(rs->dx_, rs->flux_, rs->J_, rs->Pnl_, rs->keff_, rs->keff_tol_,
+         rs->flux_tol_, rs->ngroups_, rs->max_L_, rs->solved_, rs->anisotropic_,
+         rs->mu_.size());
+    }
+    py::bytes bytes(bits_stream.str());
+
+    return py::make_tuple(rs->xs_, bytes);
+  }
+};
 
 void init_ReflectorSN(py::module& m) {
   py::class_<ReflectorSN, std::shared_ptr<ReflectorSN>>(m, "ReflectorSN")
@@ -157,7 +195,6 @@ void init_ReflectorSN(py::module& m) {
            "                 Homogenized flux spectrum.",
            py::arg("regions"))
 
-      .def(py::pickle(
-          [](std::shared_ptr<ReflectorSN> p) { return p->to_tuple(); },
-          [](py::tuple t) { return std::make_shared<ReflectorSN>(t); }));
+      .def(py::pickle(&ReflectorSNPickler::to_state,
+                      &ReflectorSNPickler::from_state));
 }

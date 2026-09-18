@@ -17,21 +17,18 @@
 #include <cereal/types/vector.hpp>
 #include <cereal/types/memory.hpp>
 #include <cereal/types/utility.hpp>
-#include <cereal/archives/portable_binary.hpp>
-
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-namespace py = pybind11;
 
 #include <array>
 #include <functional>
 #include <memory>
 #include <utility>
 #include <optional>
+#include <tuple>
 #include <variant>
 #include <vector>
 #include <set>
-#include <sstream>
+
+struct CMFDPickler;
 
 namespace scarabee {
 
@@ -39,23 +36,24 @@ class MOCDriver;
 
 struct CMFDSurfaceCrossing {
   enum class Type : std::uint8_t { XN, XP, YN, YP, I, II, III, IV };
+  using Tuple = std::tuple<std::size_t, bool, std::uint8_t>;
+
   std::size_t cell_index{0};
   bool is_valid{false};
   Type crossing;
 
   constexpr explicit operator bool() const noexcept { return is_valid; }
 
-  static CMFDSurfaceCrossing from_tuple(py::tuple t) {
+  static CMFDSurfaceCrossing from_tuple(const Tuple& t) {
     CMFDSurfaceCrossing out;
-    out.cell_index = t[0].cast<std::size_t>();
-    out.is_valid = t[1].cast<bool>();
-    out.crossing = static_cast<Type>(t[2].cast<std::uint8_t>());
+    out.cell_index = std::get<0>(t);
+    out.is_valid = std::get<1>(t);
+    out.crossing = static_cast<Type>(std::get<2>(t));
     return out;
   }
 
-  py::tuple to_tuple() const {
-    return py::make_tuple(cell_index, is_valid,
-                          static_cast<std::uint8_t>(crossing));
+  Tuple to_tuple() const {
+    return {cell_index, is_valid, static_cast<std::uint8_t>(crossing)};
   }
 
   template <class Archive>
@@ -68,16 +66,6 @@ class CMFD {
  public:
   CMFD(const std::vector<double>& dx, const std::vector<double>& dy,
        const std::vector<std::pair<std::size_t, std::size_t>>& groups);
-
-  CMFD(py::tuple t) {
-    py::bytes bytes = t[0].cast<py::bytes>();
-    std::istringstream bits_stream(bytes,
-                                   std::ios_base::binary | std::ios_base::in);
-    {
-      cereal::PortableBinaryInputArchive ar(bits_stream);
-      ar(*this);
-    }
-  }
 
   std::size_t nx() const { return nx_; };
   std::size_t ny() const { return ny_; };
@@ -186,16 +174,6 @@ class CMFD {
   const double& solve_time() const { return solve_time_; }
   bool solved() const { return solved_; }
 
-  py::tuple to_tuple() const {
-    std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
-    {
-      cereal::PortableBinaryOutputArchive ar(bits_stream);
-      ar(*this);
-    }
-    py::bytes bytes(bits_stream.str());
-    return py::make_tuple(bytes);
-  }
-
  private:
   std::vector<double> dx_, dy_;
   std::vector<XPlane> x_bounds_;
@@ -288,6 +266,7 @@ class CMFD {
   CMFD() = default;
 
   friend class cereal::access;
+  friend struct ::CMFDPickler;
   template <class Archive>
   void save(Archive& arc) const {
     arc(CEREAL_NVP(dx_), CEREAL_NVP(dy_), CEREAL_NVP(x_bounds_),

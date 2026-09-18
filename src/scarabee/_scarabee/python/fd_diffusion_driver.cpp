@@ -1,13 +1,47 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
+#include <cereal/archives/portable_binary.hpp>
+
 #include <xtensor-python/pytensor.hpp>
 
 #include <diffusion/fd_diffusion_driver.hpp>
 
+#include <sstream>
+
 namespace py = pybind11;
 
 using namespace scarabee;
+
+struct FDDiffusionDriverPickler {
+  static FDDiffusionDriver from_state(py::tuple t) {
+    FDDiffusionDriver fd;
+    fd.geom_ = t[0].cast<std::shared_ptr<DiffusionGeometry>>();
+    py::bytes bytes = t[1].cast<py::bytes>();
+
+    std::istringstream bits_stream(bytes,
+                                   std::ios_base::binary | std::ios_base::in);
+    {
+      cereal::PortableBinaryInputArchive ar(bits_stream);
+      ar(fd.flux_, fd.extern_src_, fd.mode_, fd.keff_, fd.flux_tol_,
+         fd.keff_tol_, fd.solved_);
+    }
+
+    return fd;
+  }
+
+  static py::tuple to_state(const FDDiffusionDriver& fd) {
+    std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
+    {
+      cereal::PortableBinaryOutputArchive ar(bits_stream);
+      ar(fd.flux_, fd.extern_src_, fd.mode_, fd.keff_, fd.flux_tol_,
+         fd.keff_tol_, fd.solved_);
+    }
+    py::bytes bytes(bits_stream.str());
+
+    return py::make_tuple(fd.geom_, bytes);
+  }
+};
 
 void init_FDDiffusionDriver(py::module& m) {
   py::class_<FDDiffusionDriver>(
@@ -259,6 +293,6 @@ void init_FDDiffusionDriver(py::module& m) {
            "           1D array with the z-bounds for the power mesh, if a 3D "
            "problem.\n")
 
-      .def(py::pickle([](const FDDiffusionDriver& d) { return d.to_tuple(); },
-                      [](py::tuple t) { return FDDiffusionDriver(t); }));
+      .def(py::pickle(&FDDiffusionDriverPickler::to_state,
+                      &FDDiffusionDriverPickler::from_state));
 }

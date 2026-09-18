@@ -12,28 +12,43 @@
 #include <cereal/types/base_class.hpp>
 
 #include <memory>
+#include <tuple>
 
 namespace scarabee {
 
 class PinCell : public Cell {
  public:
+  using Tuple = std::tuple<Cell::Tuple, std::vector<double>,
+                           std::vector<std::shared_ptr<CrossSection>>,
+                           std::vector<std::shared_ptr<Surface>>,
+                           std::shared_ptr<Surface>, std::shared_ptr<Surface>,
+                           std::shared_ptr<Surface>, std::shared_ptr<Surface>,
+                           std::uint8_t>;
+
   PinCell(const std::vector<double>& rads,
           const std::vector<std::shared_ptr<CrossSection>>& mats, double dx,
           double dy, PinCellType pin_type = PinCellType::Full);
-  PinCell(py::tuple t)
-      : Cell(t[0].cast<py::tuple>()),
-        mat_radii_(t[1].cast<std::vector<double>>()),
-        mats_(t[2].cast<std::vector<std::shared_ptr<CrossSection>>>()),
-        radii_(t[3].cast<std::vector<std::shared_ptr<Surface>>>()),
-        xm_(t[4].cast<std::shared_ptr<Surface>>()),
-        pd_(t[5].cast<std::shared_ptr<Surface>>()),
-        ym_(t[6].cast<std::shared_ptr<Surface>>()),
-        nd_(t[7].cast<std::shared_ptr<Surface>>()),
-        pin_type_(t[8].cast<PinCellType>()) {}
+  PinCell(const Tuple& t)
+      : Cell(std::get<0>(t)),
+        mat_radii_(std::get<1>(t)),
+        mats_(std::get<2>(t)),
+        radii_(std::get<3>(t)),
+        xm_(std::get<4>(t)),
+        pd_(std::get<5>(t)),
+        ym_(std::get<6>(t)),
+        nd_(std::get<7>(t)),
+        pin_type_(static_cast<PinCellType>(std::get<8>(t))) {}
 
-  py::tuple to_tuple() const {
-    return py::make_tuple(Cell::to_tuple(), mat_radii_, mats_, radii_, xm_, pd_,
-                          ym_, nd_, pin_type_);
+  Tuple to_tuple() const {
+    return {Cell::to_tuple(),
+            mat_radii_,
+            mats_,
+            radii_,
+            xm_,
+            pd_,
+            ym_,
+            nd_,
+            static_cast<std::uint8_t>(pin_type_)};
   }
 
  private:

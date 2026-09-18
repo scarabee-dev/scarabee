@@ -6,6 +6,19 @@ namespace py = pybind11;
 
 using namespace scarabee;
 
+struct LeakageCorrectionsPickler {
+  static LeakageCorrections from_state(py::tuple t) {
+    LeakageCorrections lc;
+    lc.ngroups_ = t[0].cast<std::size_t>();
+    lc.data_ = t[1].cast<std::vector<double>>();
+    return lc;
+  }
+
+  static py::tuple to_state(const LeakageCorrections& lc) {
+    return py::make_tuple(lc.ngroups_, lc.data_);
+  }
+};
+
 void init_LeakageCorrections(py::module& m) {
   py::class_<LeakageCorrections>(m, "LeakageCorrections")
       .def(py::init<std::size_t>(),
@@ -142,6 +155,6 @@ void init_LeakageCorrections(py::module& m) {
            "    New value of the correction coefficient\n\n",
            py::arg("g_in"), py::arg("g_out"), py::arg("val"))
 
-      .def(py::pickle([](const LeakageCorrections& l) { return l.to_tuple(); },
-                      [](py::tuple t) { return LeakageCorrections(t); }));
+      .def(py::pickle(&LeakageCorrectionsPickler::to_state,
+                      &LeakageCorrectionsPickler::from_state));
 }

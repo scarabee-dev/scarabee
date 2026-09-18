@@ -7,6 +7,18 @@ namespace py = pybind11;
 
 using namespace scarabee;
 
+struct SimpleBWRCornerPinCellPickler {
+  static std::shared_ptr<SimpleBWRCornerPinCell> from_state(py::tuple t) {
+    SimpleBWRCornerPinCell::Tuple pct =
+        t[0].cast<SimpleBWRCornerPinCell::Tuple>();
+    return std::make_shared<SimpleBWRCornerPinCell>(pct);
+  }
+
+  static py::tuple to_state(const std::shared_ptr<SimpleBWRCornerPinCell>& pc) {
+    return py::make_tuple(pc->to_tuple());
+  }
+};
+
 void init_SimpleBWRCornerPinCell(py::module& m) {
   py::class_<SimpleBWRCornerPinCell, Cell,
              std::shared_ptr<SimpleBWRCornerPinCell>>(m,
@@ -53,11 +65,6 @@ void init_SimpleBWRCornerPinCell(py::module& m) {
           py::arg("box_mat"), py::arg("outer_mod"), py::arg("dx"),
           py::arg("dy"), py::arg("corner_type"))
 
-      .def(py::pickle(
-          [](std::shared_ptr<SimpleBWRCornerPinCell> c) {
-            return c->to_tuple();
-          },
-          [](py::tuple t) {
-            return std::make_shared<SimpleBWRCornerPinCell>(t);
-          }));
+      .def(py::pickle(&SimpleBWRCornerPinCellPickler::to_state,
+                      &SimpleBWRCornerPinCellPickler::from_state));
 }

@@ -14,13 +14,24 @@ using namespace scarabee;
  * internal references between different MOC / geometry objects.
  */
 
+struct SurfacePickler {
+  static std::shared_ptr<Surface> from_state(py::tuple t) {
+    std::shared_ptr<Surface> s(new Surface);
+    s->type_ = static_cast<Surface::Type>(t[0].cast<char>());
+    s->params_ = t[0].cast<std::array<double, 5>>();
+    return s;
+  }
+
+  static py::tuple to_state(const std::shared_ptr<Surface>& s) {
+    return py::make_tuple(static_cast<char>(s->type_), s->params_);
+  }
+};
+
 void init_Surface(py::module& m) {
   py::class_<Surface, std::shared_ptr<Surface>>(m, "Surface")
       .def("side", &Surface::side)
       .def("distance", &Surface::distance)
       .def("integrate_x", &Surface::integrate_x)
       .def("integrate_y", &Surface::integrate_y)
-      .def(
-          py::pickle([](std::shared_ptr<Surface> s) { return s->to_tuple(); },
-                     [](py::tuple t) { return std::make_shared<Surface>(t); }));
+      .def(py::pickle(&SurfacePickler::to_state, &SurfacePickler::from_state));
 }

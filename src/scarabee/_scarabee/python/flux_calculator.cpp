@@ -14,6 +14,29 @@ namespace py = pybind11;
 
 using namespace scarabee;
 
+struct FluxCalculatorPickler {
+  static std::shared_ptr<FluxCalculator> from_state(py::tuple t) {
+    py::bytes bytes = t[0].cast<py::bytes>();
+    std::istringstream bits_stream(bytes,
+                                   std::ios_base::binary | std::ios_base::in);
+    std::shared_ptr<FluxCalculator> p;
+    {
+      cereal::PortableBinaryInputArchive ar(bits_stream);
+      ar(p);
+    }
+    return p;
+  }
+
+  static py::tuple to_state(const std::shared_ptr<FluxCalculator>& fc) {
+    std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
+    {
+      cereal::PortableBinaryOutputArchive ar(bits_stream);
+      ar(fc);
+    }
+    return py::make_tuple(py::bytes(bits_stream.str()));
+  }
+};
+
 void init_FluxCalculator(py::module& m) {
   py::class_<FluxCalculator, std::shared_ptr<FluxCalculator>>(
       m, "FluxCalculator",
@@ -90,24 +113,6 @@ void init_FluxCalculator(py::module& m) {
                              "Slowing down parameter of the resonant nuclide "
                              "((awr - 1)/(awr + 1))^2.")
 
-      .def(py::pickle(
-          [](const std::shared_ptr<FluxCalculator>& p) {
-            std::ostringstream bits_stream(std::ios_base::binary |
-                                           std::ios_base::out);
-            {
-              cereal::PortableBinaryOutputArchive ar(bits_stream);
-              ar(p);
-            }
-            return py::bytes(bits_stream.str());
-          },
-          [](py::bytes bites) {
-            std::istringstream bits_stream(
-                bites, std::ios_base::binary | std::ios_base::in);
-            std::shared_ptr<FluxCalculator> p;
-            {
-              cereal::PortableBinaryInputArchive ar(bits_stream);
-              ar(p);
-            }
-            return p;
-          }));
+      .def(py::pickle(&FluxCalculatorPickler::to_state,
+                      &FluxCalculatorPickler::from_state));
 }

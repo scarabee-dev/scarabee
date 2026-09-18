@@ -4,11 +4,9 @@
 #include <cereal/cereal.hpp>
 #include <cereal/types/vector.hpp>
 
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-namespace py = pybind11;
-
 #include <vector>
+
+struct LeakageCorrectionsPickler;
 
 namespace scarabee {
 
@@ -19,10 +17,6 @@ class LeakageCorrections {
   LeakageCorrections(std::size_t ngroups)
       : ngroups_(ngroups),
         data_(4 * ngroups_ + (ngroups_ * (ngroups_ - 1) / 2)) {}
-
-  LeakageCorrections(py::tuple t)
-      : ngroups_(t[0].cast<std::size_t>()),
-        data_(t[1].cast<std::vector<double>>()) {}
 
   std::size_t ngroups() const { return ngroups_; }
 
@@ -41,8 +35,6 @@ class LeakageCorrections {
   double Es(std::size_t g_in, std::size_t g_out) const;
   void set_Es(std::size_t g_in, std::size_t g_out, double val);
 
-  py::tuple to_tuple() const { return py::make_tuple(ngroups_, data_); }
-
  private:
   std::size_t ngroups_;
   std::vector<double> data_;
@@ -51,6 +43,7 @@ class LeakageCorrections {
   // each group. The next entries store all down scattering coefficients.
 
   friend class cereal::access;
+  friend struct ::LeakageCorrectionsPickler;
   template <class Archive>
   void serialize(Archive& arc) {
     arc(CEREAL_NVP(ngroups_), CEREAL_NVP(data_));

@@ -2,12 +2,9 @@
 #include <utils/logging.hpp>
 #include <utils/scarabee_exception.hpp>
 
-#include <cereal/archives/portable_binary.hpp>
-
 #include <algorithm>
 #include <cmath>
 #include <span>
-#include <sstream>
 
 namespace scarabee {
 
@@ -207,16 +204,6 @@ Tab1::Tab1(const xt::xtensor<double, 1>& x, const xt::xtensor<double, 1>& y,
   }
 
   this->check_sign_interpolation_compatability();
-}
-
-Tab1::Tab1(py::tuple t) {
-  py::bytes bytes = t[0].cast<py::bytes>();
-  std::istringstream bits_stream(bytes,
-                                 std::ios_base::binary | std::ios_base::in);
-  {
-    cereal::PortableBinaryInputArchive ar(bits_stream);
-    ar(*this);
-  }
 }
 
 double Tab1::operator()(const double x) const {
@@ -442,16 +429,6 @@ void Tab1::check_sign_interpolation_compatability() const {
     x_strt_it = x_.begin() + breakpoints_[ri];
     y_strt_it = y_.begin() + breakpoints_[ri];
   }
-}
-
-py::tuple Tab1::to_tuple() const {
-  std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
-  {
-    cereal::PortableBinaryOutputArchive ar(bits_stream);
-    ar(*this);
-  }
-  py::bytes bytes(bits_stream.str());
-  return py::make_tuple(bytes);
 }
 
 }  // namespace scarabee

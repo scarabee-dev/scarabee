@@ -9,12 +9,15 @@
 #include <cereal/types/string.hpp>
 #include <cereal/types/vector.hpp>
 
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <span>
 #include <string>
-#include <utility>
 #include <vector>
+
+struct MaterialCompositionPickler;
+struct MaterialPickler;
 
 namespace scarabee {
 
@@ -30,7 +33,7 @@ struct Nuclide {
   }
 };
 
-enum class Fraction { Atoms, Weight };
+enum class Fraction : std::uint8_t { Atoms, Weight };
 
 struct MaterialComposition {
   std::vector<Nuclide> nuclides;
@@ -47,13 +50,14 @@ struct MaterialComposition {
 
  private:
   friend class cereal::access;
+  friend struct ::MaterialCompositionPickler;
   template <class Archive>
   void serialize(Archive& arc) {
     arc(CEREAL_NVP(nuclides), CEREAL_NVP(fractions), CEREAL_NVP(name));
   }
 };
 
-enum class DensityUnits { g_cm3, a_bcm, sum };
+enum class DensityUnits : std::uint8_t { g_cm3, a_bcm, sum };
 
 // Pre-declared for converting fractions
 class NDLibrary;
@@ -163,6 +167,7 @@ class Material {
                                             std::size_t max_l);
 
   friend class cereal::access;
+  friend class ::MaterialPickler;
   Material() {}
   template <class Archive>
   void serialize(Archive& arc) {
@@ -174,7 +179,7 @@ class Material {
   }
 };
 
-enum class MixingFraction { Atoms, Weight, Volume };
+enum class MixingFraction : std::uint8_t { Atoms, Weight, Volume };
 
 std::shared_ptr<Material> mix_materials(
     const std::vector<std::shared_ptr<Material>>& mats,

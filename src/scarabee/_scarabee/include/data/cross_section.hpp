@@ -15,6 +15,8 @@
 #include <memory>
 #include <utility>
 
+struct CrossSectionPickler;
+
 namespace scarabee {
 
 class CrossSection {
@@ -157,6 +159,7 @@ class CrossSection {
   void check_xs();
 
   friend class cereal::access;
+  friend struct ::CrossSectionPickler;
 
   CrossSection() {}
 

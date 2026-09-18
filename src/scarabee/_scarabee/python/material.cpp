@@ -13,6 +13,52 @@ namespace py = pybind11;
 
 using namespace scarabee;
 
+struct MaterialCompositionPickler {
+  static std::shared_ptr<MaterialComposition> from_state(py::tuple t) {
+    py::bytes bytes = t[0].cast<py::bytes>();
+    std::istringstream bits_stream(bytes,
+                                   std::ios_base::binary | std::ios_base::in);
+    std::shared_ptr<MaterialComposition> p;
+    {
+      cereal::PortableBinaryInputArchive ar(bits_stream);
+      ar(p);
+    }
+    return p;
+  }
+
+  static py::tuple to_state(const std::shared_ptr<MaterialComposition>& mc) {
+    std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
+    {
+      cereal::PortableBinaryOutputArchive ar(bits_stream);
+      ar(mc);
+    }
+    return py::make_tuple(py::bytes(bits_stream.str()));
+  }
+};
+
+struct MaterialPickler {
+  static std::shared_ptr<Material> from_state(py::tuple t) {
+    py::bytes bytes = t[0].cast<py::bytes>();
+    std::istringstream bits_stream(bytes,
+                                   std::ios_base::binary | std::ios_base::in);
+    std::shared_ptr<Material> p;
+    {
+      cereal::PortableBinaryInputArchive ar(bits_stream);
+      ar(p);
+    }
+    return p;
+  }
+
+  static py::tuple to_state(const std::shared_ptr<Material>& m) {
+    std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
+    {
+      cereal::PortableBinaryOutputArchive ar(bits_stream);
+      ar(m);
+    }
+    return py::make_tuple(py::bytes(bits_stream.str()));
+  }
+};
+
 void init_Nuclide(py::module& m) {
   py::class_<Nuclide>(
       m, "Nuclide",
@@ -114,26 +160,8 @@ void init_MaterialComposition(py::module& m) {
           "      :py:class:`Nuclide` giving the nuclide name and fraction.\n\n",
           py::arg("nuc"))
 
-      .def(py::pickle(
-          [](const std::shared_ptr<MaterialComposition>& p) {
-            std::ostringstream bits_stream(std::ios_base::binary |
-                                           std::ios_base::out);
-            {
-              cereal::PortableBinaryOutputArchive ar(bits_stream);
-              ar(p);
-            }
-            return py::bytes(bits_stream.str());
-          },
-          [](py::bytes bites) {
-            std::istringstream bits_stream(
-                bites, std::ios_base::binary | std::ios_base::in);
-            std::shared_ptr<MaterialComposition> p;
-            {
-              cereal::PortableBinaryInputArchive ar(bits_stream);
-              ar(p);
-            }
-            return p;
-          }));
+      .def(py::pickle(&MaterialCompositionPickler::to_state,
+                      &MaterialCompositionPickler::from_state));
 }
 
 void init_Material(py::module& m) {
@@ -436,26 +464,8 @@ void init_Material(py::module& m) {
       // worry about sending back a py::tuple to ensure pickling maintains
       // references on the Python side. Therefore, we do a raw serialization
       // using Cereal here.
-      .def(py::pickle(
-          [](const std::shared_ptr<Material>& p) {
-            std::ostringstream bits_stream(std::ios_base::binary |
-                                           std::ios_base::out);
-            {
-              cereal::PortableBinaryOutputArchive ar(bits_stream);
-              ar(p);
-            }
-            return py::bytes(bits_stream.str());
-          },
-          [](py::bytes bites) {
-            std::istringstream bits_stream(
-                bites, std::ios_base::binary | std::ios_base::in);
-            std::shared_ptr<Material> p;
-            {
-              cereal::PortableBinaryInputArchive ar(bits_stream);
-              ar(p);
-            }
-            return p;
-          }));
+      .def(
+          py::pickle(&MaterialPickler::to_state, &MaterialPickler::from_state));
 
   py::enum_<MixingFraction>(m, "MixingFraction")
       .value("Atoms", MixingFraction::Atoms,

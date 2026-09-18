@@ -12,6 +12,8 @@
 #include <memory>
 #include <string>
 
+struct DiffusionCrossSectionPickler;
+
 namespace scarabee {
 
 class NEMDiffusionDriver;
@@ -87,6 +89,7 @@ class DiffusionCrossSection {
   void check_xs();
 
   friend class cereal::access;
+  friend struct ::DiffusionCrossSectionPickler;
   DiffusionCrossSection() {}
 
   template <class Archive>
