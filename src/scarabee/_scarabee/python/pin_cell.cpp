@@ -20,34 +20,27 @@ struct PinCellPickler {
 
 void init_PinCell(py::module& m) {
   py::class_<PinCell, Cell, std::shared_ptr<PinCell>>(m, "PinCell")
-      .def(  // py::init<const std::vector<double>& /*rads*/,
-             //          const std::vector<std::shared_ptr<CrossSection>>&
-             //          /*mats*/, double /*dx*/, double /*dy*/, PinCellType
-             //          /*pin_type*/>(),
-          py::init([](std::vector<double> rads,
-                      std::vector<std::shared_ptr<CrossSection>> mats,
-                      double dx, double dy, PinCellType pin_type) {
-            std::cout << "\n>>> Pre PinCell construction <<<\n";
-            auto out = std::make_shared<PinCell>(rads, mats, dx, dy, pin_type);
-            std::cout << "\n>>> Post PinCell construction <<<\n";
-            return out;
-          }),
-          "An annular pin centered in a rectangular cell, with 8 angular "
-          "segments. Must provide one more CrossSection than radius, as that "
-          "material will fill the cell out to the boundary.\n\n"
-          "Parameters\n"
-          "----------\n"
-          "mat : CrossSection\n"
-          "      The material cross sections for the cell.\n"
-          "dx : float\n"
-          "     Width of the cell along x.\n"
-          "dy : float\n"
-          "     Width of the cell along y.\n"
-          "pin_type : PinCellType\n"
-          "     Wether is a full or half or quarter pin cell. Default is "
-          "Full.\n",
-          py::arg("radii"), py::arg("mats"), py::arg("dx"), py::arg("dy"),
-          py::arg("pin_type") = PinCellType::Full)
+      .def(py::init<const std::vector<double>& /*rads*/,
+                    const std::vector<std::shared_ptr<CrossSection>>&
+                    /*mats*/,
+                    double /*dx*/, double /*dy*/, PinCellType
+                    /*pin_type*/>(),
+           "An annular pin centered in a rectangular cell, with 8 angular "
+           "segments. Must provide one more CrossSection than radius, as that "
+           "material will fill the cell out to the boundary.\n\n"
+           "Parameters\n"
+           "----------\n"
+           "mat : CrossSection\n"
+           "      The material cross sections for the cell.\n"
+           "dx : float\n"
+           "     Width of the cell along x.\n"
+           "dy : float\n"
+           "     Width of the cell along y.\n"
+           "pin_type : PinCellType\n"
+           "     Wether is a full or half or quarter pin cell. Default is "
+           "Full.\n",
+           py::arg("radii"), py::arg("mats"), py::arg("dx"), py::arg("dy"),
+           py::arg("pin_type") = PinCellType::Full)
 
       .def(py::pickle(&PinCellPickler::to_state, &PinCellPickler::from_state));
 }

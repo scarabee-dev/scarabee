@@ -18,7 +18,7 @@ struct SurfacePickler {
   static std::shared_ptr<Surface> from_state(py::tuple t) {
     std::shared_ptr<Surface> s(new Surface);
     s->type_ = static_cast<Surface::Type>(t[0].cast<char>());
-    s->params_ = t[0].cast<std::array<double, 5>>();
+    s->params_ = t[1].cast<std::array<double, 5>>();
     return s;
   }
 
