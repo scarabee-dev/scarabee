@@ -167,7 +167,7 @@ class Material {
                                             std::size_t max_l);
 
   friend class cereal::access;
-  friend class ::MaterialPickler;
+  friend struct ::MaterialPickler;
   Material() {}
   template <class Archive>
   void serialize(Archive& arc) {
