@@ -15,7 +15,7 @@ using namespace scarabee;
 
 struct DiffusionCrossSectionPickler {
   static std::shared_ptr<DiffusionCrossSection> from_state(py::tuple t) {
-    py::bytes bytes = t[0].cast<py::tuple>();
+    py::bytes bytes = t[0].cast<py::bytes>();
     std::istringstream bits_stream(bytes,
                                    std::ios_base::binary | std::ios_base::in);
     std::shared_ptr<DiffusionCrossSection> p;
