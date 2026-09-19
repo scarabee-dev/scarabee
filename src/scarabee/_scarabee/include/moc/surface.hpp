@@ -12,6 +12,8 @@
 
 #include <array>
 
+struct SurfacePickler;
+
 namespace scarabee {
 
 class Surface {
@@ -83,6 +85,7 @@ class Surface {
   Type type_;
 
   friend class cereal::access;
+  friend struct ::SurfacePickler;
   template <class Archive>
   void serialize(Archive& arc) {
     arc(CEREAL_NVP(params_), CEREAL_NVP(type_));

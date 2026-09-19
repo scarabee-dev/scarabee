@@ -9,8 +9,14 @@
 
 #include <cereal/cereal.hpp>
 #include <cereal/types/optional.hpp>
+#include <cereal/types/string.hpp>
 
 #include <optional>
+
+struct MicroDepletionXSPickler;
+struct MicroNuclideXSPickler;
+struct ResonantOneGroupXSPickler;
+struct DepletionReactionRatesPickler;
 
 namespace scarabee {
 
@@ -40,7 +46,7 @@ struct MicroNuclideXS {
 
   template <class Archive>
   void serialize(Archive& arc) {
-    arc(CEREAL_NVP(Et), CEREAL_NVP(Dtr), CEREAL_NVP(Es), CEREAL_NVP(Es),
+    arc(CEREAL_NVP(Et), CEREAL_NVP(Dtr), CEREAL_NVP(Es), CEREAL_NVP(Ea),
         CEREAL_NVP(Ef), CEREAL_NVP(nu), CEREAL_NVP(chi));
   }
 };
@@ -57,6 +63,12 @@ struct ResonantOneGroupXS {
 
   // Scarabée assumes that (n,2n), (n,3n), (n,a), and (n,p) are not resonant
   // i.e. not dilution dependent.
+
+  template <class Archive>
+  void serialize(Archive& arc) {
+    arc(CEREAL_NVP(Dtr), CEREAL_NVP(Ea), CEREAL_NVP(Ef), CEREAL_NVP(Es),
+        CEREAL_NVP(gout_min), CEREAL_NVP(n_gamma));
+  }
 };
 
 struct DepletionReactionRates {
@@ -69,6 +81,14 @@ struct DepletionReactionRates {
   double n_alpha{0.};
   double n_fission{0.};
   double average_fission_energy{0.};
+
+  template <class Archive>
+  void serialize(Archive& arc) {
+    arc(CEREAL_NVP(nuclide), CEREAL_NVP(number_density), CEREAL_NVP(n_gamma),
+        CEREAL_NVP(n_2n), CEREAL_NVP(n_3n), CEREAL_NVP(n_p),
+        CEREAL_NVP(n_alpha), CEREAL_NVP(n_fission),
+        CEREAL_NVP(average_fission_energy));
+  }
 };
 
 }  // namespace scarabee

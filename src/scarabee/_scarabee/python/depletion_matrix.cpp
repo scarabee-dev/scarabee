@@ -4,11 +4,38 @@
 
 #include <data/depletion_matrix.hpp>
 
+#include <cereal/types/memory.hpp>
+#include <cereal/archives/portable_binary.hpp>
+
 #include <memory>
+#include <sstream>
 
 namespace py = pybind11;
 
 using namespace scarabee;
+
+struct DepletionMatrixPickler {
+  static std::shared_ptr<DepletionMatrix> from_state(py::tuple t) {
+    py::bytes bytes = t[0].cast<py::tuple>();
+    std::istringstream bits_stream(bytes,
+                                   std::ios_base::binary | std::ios_base::in);
+    std::shared_ptr<DepletionMatrix> p;
+    {
+      cereal::PortableBinaryInputArchive ar(bits_stream);
+      ar(p);
+    }
+    return p;
+  }
+
+  static py::tuple to_state(const std::shared_ptr<DepletionMatrix>& dm) {
+    std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
+    {
+      cereal::PortableBinaryOutputArchive ar(bits_stream);
+      ar(dm);
+    }
+    return py::make_tuple(py::bytes(bits_stream.str()));
+  }
+};
 
 void init_DepletionMatrix(py::module& m) {
   py::class_<DepletionMatrix, std::shared_ptr<DepletionMatrix>>(
@@ -113,7 +140,10 @@ void init_DepletionMatrix(py::module& m) {
       .def("__sub__", &DepletionMatrix::operator-)
       .def("__mul__", &DepletionMatrix::operator*)
       .def("__rmul__", [](const DepletionMatrix& M, double c) { return M * c; })
-      .def("__truediv__", &DepletionMatrix::operator/);
+      .def("__truediv__", &DepletionMatrix::operator/)
+
+      .def(py::pickle(&DepletionMatrixPickler::to_state,
+                      &DepletionMatrixPickler::from_state));
 
   // Module function to build a depletion matrix.
   m.def(

@@ -7,9 +7,34 @@
 
 #include <diffusion/form_factors.hpp>
 
+#include <sstream>
+
 namespace py = pybind11;
 
 using namespace scarabee;
+
+struct FormFactorsPickler {
+  static std::shared_ptr<FormFactors> from_state(py::tuple t) {
+    py::bytes bytes = t[0].cast<py::bytes>();
+    std::istringstream bits_stream(bytes,
+                                   std::ios_base::binary | std::ios_base::in);
+    std::shared_ptr<FormFactors> p;
+    {
+      cereal::PortableBinaryInputArchive ar(bits_stream);
+      ar(p);
+    }
+    return p;
+  }
+
+  static py::tuple to_state(const std::shared_ptr<FormFactors>& ff) {
+    std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
+    {
+      cereal::PortableBinaryOutputArchive ar(bits_stream);
+      ar(ff);
+    }
+    return py::make_tuple(py::bytes(bits_stream.str()));
+  }
+};
 
 void init_FormFactors(py::module& m) {
   py::class_<FormFactors, std::shared_ptr<FormFactors>>(
@@ -170,27 +195,6 @@ void init_FormFactors(py::module& m) {
            "FormFactors\n"
            "    Form factors on the IV quadrant.\n")
 
-      .def("__deepcopy__",
-           [](const FormFactors& ff, py::dict) { return FormFactors(ff); })
-
-      .def(py::pickle(
-          [](const std::shared_ptr<FormFactors>& p) {
-            std::ostringstream bits_stream(std::ios_base::binary |
-                                           std::ios_base::out);
-            {
-              cereal::PortableBinaryOutputArchive ar(bits_stream);
-              ar(p);
-            }
-            return py::bytes(bits_stream.str());
-          },
-          [](py::bytes bites) {
-            std::istringstream bits_stream(
-                bites, std::ios_base::binary | std::ios_base::in);
-            std::shared_ptr<FormFactors> p;
-            {
-              cereal::PortableBinaryInputArchive ar(bits_stream);
-              ar(p);
-            }
-            return p;
-          }));
+      .def(py::pickle(&FormFactorsPickler::to_state,
+                      &FormFactorsPickler::from_state));
 }

@@ -6,6 +6,9 @@
 #include <moc/direction.hpp>
 #include <data/cross_section.hpp>
 #include <utils/constants.hpp>
+#include <utils/logging.hpp>
+#include <utils/serialization.hpp>
+#include <utils/scarabee_exception.hpp>
 
 #include <htl/static_vector.hpp>
 
@@ -16,7 +19,7 @@
 #include <cereal/types/vector.hpp>
 
 #include <memory>
-#include <vector>
+#include <tuple>
 
 namespace scarabee {
 
@@ -29,6 +32,16 @@ struct RegionToken {
     return current_side == side;
   }
 
+  using Tuple = std::tuple<std::shared_ptr<Surface>, bool>;
+  static RegionToken from_tuple(const Tuple& t) {
+    RegionToken rt;
+    rt.surface = std::get<0>(t);
+    rt.side = static_cast<Surface::Side>(std::get<1>(t));
+    return rt;
+  }
+
+  Tuple to_tuple() const { return {surface, static_cast<bool>(side)}; }
+
  private:
   friend class cereal::access;
   template <class Archive>
@@ -39,7 +52,33 @@ struct RegionToken {
 
 class FlatSourceRegion {
  public:
+  using Tuple = std::tuple<std::vector<RegionToken::Tuple>,
+                           std::shared_ptr<CrossSection>, double, std::size_t>;
+
   FlatSourceRegion() : tokens_(), xs_(), volume_(), id_(id_counter++) {}
+
+  FlatSourceRegion(const Tuple& t) {
+    // Fill tokens
+    std::vector<RegionToken::Tuple> tokens_list = std::get<0>(t);
+
+    if (tokens_list.size() > tokens_.capacity()) {
+      auto mssg = "Cannot unpickle FlatSourceRegion. Too many RegionTokens.";
+      spdlog::error(mssg);
+      throw ScarabeeException(mssg);
+    }
+
+    for (std::size_t i = 0; i < tokens_list.size(); i++)
+      tokens_.push_back(RegionToken::from_tuple(tokens_list[i]));
+
+    // Get the xs, volume, and id
+    xs_ = std::get<1>(t);
+    volume_ = std::get<2>(t);
+    id_ = std::get<3>(t);
+
+    // If the id is greater than the know id, we increment to avoid any id
+    // collisions.
+    if (id_ >= id_counter) id_counter = id_ + 1;
+  }
 
   bool inside(const Vector& r, const Direction& u) const {
     for (const auto& t : tokens_) {
@@ -69,6 +108,14 @@ class FlatSourceRegion {
 
   double& volume() { return volume_; }
   const double& volume() const { return volume_; }
+
+  Tuple to_tuple() const {
+    std::vector<RegionToken::Tuple> tokens_list;
+    for (const auto& token : tokens_) {
+      tokens_list.push_back(token.to_tuple());
+    }
+    return {tokens_list, xs_, volume_, id_};
+  }
 
  private:
   htl::static_vector<RegionToken, MAX_SURFS> tokens_;

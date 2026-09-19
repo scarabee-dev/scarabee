@@ -415,6 +415,7 @@ else:
     a3_00_ = scc.QuadrantsTile.from_independent_quadrant(
         asmbly.diffusion_data[0], asmbly.form_factors[0]
     )
+    pickle.dump(a3_00_, open("F31_0.pkl", "wb"))
 
     scb.scarabee_log(scb.LogLevel.Info, "")
     scb.scarabee_log(scb.LogLevel.Info, "")

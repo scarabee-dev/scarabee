@@ -25,16 +25,17 @@
 #include <cereal/types/vector.hpp>
 #include <cereal/types/unordered_map.hpp>
 #include <cereal/types/utility.hpp>
-#include <cereal/archives/portable_binary.hpp>
 
 #include <cstddef>
-#include <filesystem>
-#include <fstream>
 #include <memory>
 #include <optional>
 #include <span>
+#include <sstream>
 #include <tuple>
 #include <unordered_map>
+
+template <scarabee::NodalMethod NM>
+struct NodalDiffusionDriverPickler;
 
 namespace scarabee {
 
@@ -97,9 +98,6 @@ class NodalDiffusionDriver {
                                const xt::xtensor<double, 1>& y,
                                const xt::xtensor<double, 1>& z) const;
   xt::xtensor<double, 3> avg_power() const;
-
-  void save(const std::string& fname);
-  static std::unique_ptr<NodalDiffusionDriver> load(const std::string& fname);
 
  private:
   struct DiffusionDataCrossSectionPair {
@@ -215,6 +213,7 @@ class NodalDiffusionDriver {
   bool solved_{false};
 
   friend class cereal::access;
+  friend struct ::NodalDiffusionDriverPickler<NM>;
   NodalDiffusionDriver() : nodal_solver_(2) {}
   template <class Archive>
   void serialize(Archive& arc) {
@@ -1762,40 +1761,6 @@ inline void NodalDiffusionDriver<NM>::perform_flux_reconstruction()
   }
   fitting_timer.stop();
   spdlog::info("Fitting Time: {:.5E} s", fitting_timer.elapsed_time());
-}
-
-template <NodalMethod NM>
-inline void NodalDiffusionDriver<NM>::save(const std::string& fname) {
-  if (std::filesystem::exists(fname)) {
-    std::filesystem::remove(fname);
-  }
-
-  std::ofstream file(fname, std::ios_base::binary);
-
-  cereal::PortableBinaryOutputArchive arc(file);
-
-  arc(*this);
-}
-
-template <NodalMethod NM>
-inline std::unique_ptr<NodalDiffusionDriver<NM>> NodalDiffusionDriver<NM>::load(
-    const std::string& fname) {
-  if (std::filesystem::exists(fname) == false) {
-    std::stringstream mssg;
-    mssg << "The file \"" << fname << "\" does not exist.";
-    spdlog::error(mssg.str());
-    throw ScarabeeException(mssg.str());
-  }
-
-  std::unique_ptr<NodalDiffusionDriver> out(new NodalDiffusionDriver());
-
-  std::ifstream file(fname, std::ios_base::binary);
-
-  cereal::PortableBinaryInputArchive arc(file);
-
-  arc(*out);
-
-  return out;
 }
 
 }  // namespace scarabee

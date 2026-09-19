@@ -1,12 +1,41 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+
 #include <xtensor-python/pytensor.hpp>
 
 #include <data/cross_section.hpp>
 
+#include <cereal/types/memory.hpp>
+#include <cereal/archives/portable_binary.hpp>
+
+#include <sstream>
+
 namespace py = pybind11;
 
 using namespace scarabee;
+
+struct CrossSectionPickler {
+  static std::shared_ptr<CrossSection> from_state(py::tuple t) {
+    py::bytes bytes = t[0].cast<py::bytes>();
+    std::istringstream bits_stream(bytes,
+                                   std::ios_base::binary | std::ios_base::in);
+    std::shared_ptr<CrossSection> p;
+    {
+      cereal::PortableBinaryInputArchive ar(bits_stream);
+      ar(p);
+    }
+    return p;
+  }
+
+  static py::tuple to_state(const std::shared_ptr<CrossSection>& xs) {
+    std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
+    {
+      cereal::PortableBinaryOutputArchive ar(bits_stream);
+      ar(xs);
+    }
+    return py::make_tuple(py::bytes(bits_stream.str()));
+  }
+};
 
 void init_CrossSection(py::module& m) {
   py::class_<CrossSection, std::shared_ptr<CrossSection>>(
@@ -373,32 +402,12 @@ void init_CrossSection(py::module& m) {
            "DiffusionCrossSection\n"
            "    Diffusion cross sections.\n")
 
-      .def("save", &CrossSection::save,
-           "Saves the cross section data to a binary file.\n\n"
-           "Parameters\n"
-           "----------\n"
-           "fname : str\n"
-           "        Name of file in which to save data.",
-           py::arg("fname"))
-
-      .def_static("load", &CrossSection::load,
-                  "Loads cross section data from a binary file.\n\n"
-                  "Parameters\n"
-                  "----------\n"
-                  "fname : str\n"
-                  "        Name of file from which to load data.\n\n"
-                  "Returns\n"
-                  "-------\n"
-                  "CrossSection\n"
-                  "    Cross sections from the file.\n",
-                  py::arg("fname"))
-
       .def("__mul__", &CrossSection::operator*)
       .def("__rmul__", [](const CrossSection& xs, double N) { return xs * N; })
       .def("__add__", &CrossSection::operator+)
       .def("__imul__", &CrossSection::operator*=)
       .def("__iadd__", &CrossSection::operator+=)
 
-      .def("__deepcopy__",
-           [](const CrossSection& xs, py::dict) { return CrossSection(xs); });
+      .def(py::pickle(&CrossSectionPickler::to_state,
+                      &CrossSectionPickler::from_state));
 }

@@ -13,10 +13,17 @@
 
 #include <memory>
 
+struct FundamentalModeCriticalitySpectrumPickler;
+struct B1CriticalitySpectrumPickler;
+struct P1CriticalitySpectrumPickler;
+
 namespace scarabee {
 
 class CriticalitySpectrum {
  public:
+  // Need a virtual destructor for RTTI so pybind11 does correctly down casts
+  virtual ~CriticalitySpectrum() = default;
+
   std::size_t ngroups() const { return flux_.size(); }
 
   double k_inf() const { return k_inf_; }
@@ -57,6 +64,7 @@ class FundamentalModeCriticalitySpectrum : public CriticalitySpectrum {
 
  private:
   friend class cereal::access;
+  friend struct ::FundamentalModeCriticalitySpectrumPickler;
   FundamentalModeCriticalitySpectrum() {}
   template <class Archive>
   void serialize(Archive& arc) {
@@ -91,6 +99,7 @@ class P1CriticalitySpectrum : public CriticalitySpectrumWithCurrent {
 
  private:
   friend class cereal::access;
+  friend struct ::P1CriticalitySpectrumPickler;
   P1CriticalitySpectrum() {}
   template <class Archive>
   void serialize(Archive& arc) {
@@ -105,6 +114,7 @@ class B1CriticalitySpectrum : public CriticalitySpectrumWithCurrent {
 
  private:
   friend class cereal::access;
+  friend struct ::B1CriticalitySpectrumPickler;
   B1CriticalitySpectrum() {}
   template <class Archive>
   void serialize(Archive& arc) {

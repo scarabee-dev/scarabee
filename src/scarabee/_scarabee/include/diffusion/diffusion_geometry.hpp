@@ -10,13 +10,15 @@
 #include <cereal/types/memory.hpp>
 #include <cereal/types/optional.hpp>
 #include <cereal/types/vector.hpp>
-#include <cereal/archives/portable_binary.hpp>
 
 #include <cstdint>
 #include <memory>
 #include <optional>
 #include <variant>
 #include <vector>
+
+struct DiffusionGeometryTilePickler;
+struct DiffusionGeometryPickler;
 
 namespace scarabee {
 
@@ -28,6 +30,7 @@ class DiffusionGeometry {
 
    private:
     friend class cereal::access;
+    friend struct ::DiffusionGeometryTilePickler;
     template <class Archive>
     void serialize(Archive& arc) {
       arc(CEREAL_NVP(albedo), CEREAL_NVP(xs));
@@ -158,6 +161,7 @@ class DiffusionGeometry {
   void fill_z_bounds();
 
   friend class cereal::access;
+  friend struct ::DiffusionGeometryPickler;
   DiffusionGeometry() {}
   template <class Archive>
   void serialize(Archive& arc) {

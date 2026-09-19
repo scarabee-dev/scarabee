@@ -12,14 +12,44 @@
 #include <cereal/types/base_class.hpp>
 
 #include <memory>
+#include <tuple>
 
 namespace scarabee {
 
 class PinCell : public Cell {
  public:
+  using Tuple = std::tuple<Cell::Tuple, std::vector<double>,
+                           std::vector<std::shared_ptr<CrossSection>>,
+                           std::vector<std::shared_ptr<Surface>>,
+                           std::shared_ptr<Surface>, std::shared_ptr<Surface>,
+                           std::shared_ptr<Surface>, std::shared_ptr<Surface>,
+                           std::uint8_t>;
+
   PinCell(const std::vector<double>& rads,
           const std::vector<std::shared_ptr<CrossSection>>& mats, double dx,
           double dy, PinCellType pin_type = PinCellType::Full);
+  PinCell(const Tuple& t)
+      : Cell(std::get<0>(t)),
+        mat_radii_(std::get<1>(t)),
+        mats_(std::get<2>(t)),
+        radii_(std::get<3>(t)),
+        xm_(std::get<4>(t)),
+        pd_(std::get<5>(t)),
+        ym_(std::get<6>(t)),
+        nd_(std::get<7>(t)),
+        pin_type_(static_cast<PinCellType>(std::get<8>(t))) {}
+
+  Tuple to_tuple() const {
+    return {Cell::to_tuple(),
+            mat_radii_,
+            mats_,
+            radii_,
+            xm_,
+            pd_,
+            ym_,
+            nd_,
+            static_cast<std::uint8_t>(pin_type_)};
+  }
 
  private:
   std::vector<double> mat_radii_;

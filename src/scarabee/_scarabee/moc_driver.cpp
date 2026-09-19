@@ -12,12 +12,7 @@
 
 #include <Eigen/Dense>
 
-#include <cereal/archives/portable_binary.hpp>
-
-#include <algorithm>
 #include <cmath>
-#include <filesystem>
-#include <fstream>
 #include <vector>
 #include <set>
 
@@ -2032,37 +2027,6 @@ void MOCDriver::apply_criticality_spectrum(const xt::xtensor<double, 1>& flux) {
       }
     }
   }
-}
-
-void MOCDriver::save_bin(const std::string& fname) const {
-  if (std::filesystem::exists(fname)) {
-    std::filesystem::remove(fname);
-  }
-
-  std::ofstream file(fname, std::ios_base::binary);
-
-  cereal::PortableBinaryOutputArchive arc(file);
-
-  arc(*this);
-}
-
-std::shared_ptr<MOCDriver> MOCDriver::load_bin(const std::string& fname) {
-  if (std::filesystem::exists(fname) == false) {
-    std::stringstream mssg;
-    mssg << "The file \"" << fname << "\" does not exist.";
-    spdlog::error(mssg.str());
-    throw ScarabeeException(mssg.str());
-  }
-
-  std::shared_ptr<MOCDriver> out(new MOCDriver());
-
-  std::ifstream file(fname, std::ios_base::binary);
-
-  cereal::PortableBinaryInputArchive arc(file);
-
-  arc(*out);
-
-  return out;
 }
 
 }  // namespace scarabee

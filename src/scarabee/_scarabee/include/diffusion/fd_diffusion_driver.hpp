@@ -18,6 +18,8 @@
 #include <optional>
 #include <tuple>
 
+struct FDDiffusionDriverPickler;
+
 namespace scarabee {
 
 class FDDiffusionDriver {
@@ -66,9 +68,6 @@ class FDDiffusionDriver {
              std::optional<xt::xarray<double>>>
   power() const;
 
-  void save(const std::string& fname);
-  static std::unique_ptr<FDDiffusionDriver> load(const std::string& fname);
-
  private:
   std::shared_ptr<DiffusionGeometry> geom_;
   Eigen::VectorXd flux_;        // Flux in each MAT tile in each group
@@ -83,6 +82,7 @@ class FDDiffusionDriver {
   void fixed_source();
 
   friend class cereal::access;
+  friend struct ::FDDiffusionDriverPickler;
   FDDiffusionDriver() {}
   template <class Archive>
   void serialize(Archive& arc) {

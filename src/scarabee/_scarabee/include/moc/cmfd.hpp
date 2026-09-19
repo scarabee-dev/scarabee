@@ -6,6 +6,7 @@
 #include <moc/direction.hpp>
 #include <moc/boundary_condition.hpp>
 #include <data/diffusion_cross_section.hpp>
+#include <utils/serialization.hpp>
 #include <utils/simulation_mode.hpp>
 
 #include <htl/static_vector.hpp>
@@ -16,16 +17,18 @@
 #include <cereal/types/vector.hpp>
 #include <cereal/types/memory.hpp>
 #include <cereal/types/utility.hpp>
-#include <utils/serialization.hpp>
 
 #include <array>
 #include <functional>
 #include <memory>
 #include <utility>
 #include <optional>
+#include <tuple>
 #include <variant>
 #include <vector>
 #include <set>
+
+struct CMFDPickler;
 
 namespace scarabee {
 
@@ -33,11 +36,25 @@ class MOCDriver;
 
 struct CMFDSurfaceCrossing {
   enum class Type : std::uint8_t { XN, XP, YN, YP, I, II, III, IV };
+  using Tuple = std::tuple<std::size_t, bool, std::uint8_t>;
+
   std::size_t cell_index{0};
   bool is_valid{false};
   Type crossing;
 
   constexpr explicit operator bool() const noexcept { return is_valid; }
+
+  static CMFDSurfaceCrossing from_tuple(const Tuple& t) {
+    CMFDSurfaceCrossing out;
+    out.cell_index = std::get<0>(t);
+    out.is_valid = std::get<1>(t);
+    out.crossing = static_cast<Type>(std::get<2>(t));
+    return out;
+  }
+
+  Tuple to_tuple() const {
+    return {cell_index, is_valid, static_cast<std::uint8_t>(crossing)};
+  }
 
   template <class Archive>
   void serialize(Archive& arc) {
@@ -249,6 +266,7 @@ class CMFD {
   CMFD() = default;
 
   friend class cereal::access;
+  friend struct ::CMFDPickler;
   template <class Archive>
   void save(Archive& arc) const {
     arc(CEREAL_NVP(dx_), CEREAL_NVP(dy_), CEREAL_NVP(x_bounds_),

@@ -87,5 +87,11 @@ void init_Vector(py::module& m) {
             mssg << "<" << v.x() << "," << v.y() << ">";
             return mssg.str();
           },
-          "String representation of a Vector.");
+          "String representation of a Vector.")
+
+      .def(py::pickle(
+          [](const Vector& v) { return py::make_tuple(v.x(), v.y()); },
+          [](py::tuple t) {
+            return Vector(t[0].cast<double>(), t[1].cast<double>());
+          }));
 }

@@ -5,6 +5,7 @@
 #include <utils/math.hpp>
 #include <utils/logging.hpp>
 #include <utils/scarabee_exception.hpp>
+#include <utils/serialization.hpp>
 #include <utils/timer.hpp>
 
 #include <xtensor/io/xio.hpp>
@@ -61,75 +62,7 @@ ReflectorSN::ReflectorSN(const std::vector<std::shared_ptr<CrossSection>>& xs,
   flux_ = xt::zeros<double>({ngroups_, xs_.size(), max_L_ + 1});
   J_ = xt::zeros<double>({ngroups_, xs_.size() + 1});
 
-  // Now we need to set the spans for the angular quadrature
-  switch (nangles) {
-    case 2:
-      mu_ = std::span<const double>(gl_2_abscissa.begin(), gl_2_abscissa.end());
-      wgt_ = std::span<const double>(gl_2_weights.begin(), gl_2_weights.end());
-      break;
-    case 4:
-      mu_ = std::span<const double>(gl_4_abscissa.begin(), gl_4_abscissa.end());
-      wgt_ = std::span<const double>(gl_4_weights.begin(), gl_4_weights.end());
-      break;
-    case 6:
-      mu_ = std::span<const double>(gl_6_abscissa.begin(), gl_6_abscissa.end());
-      wgt_ = std::span<const double>(gl_6_weights.begin(), gl_6_weights.end());
-      break;
-    case 8:
-      mu_ = std::span<const double>(gl_8_abscissa.begin(), gl_8_abscissa.end());
-      wgt_ = std::span<const double>(gl_8_weights.begin(), gl_8_weights.end());
-      break;
-    case 10:
-      mu_ =
-          std::span<const double>(gl_10_abscissa.begin(), gl_10_abscissa.end());
-      wgt_ =
-          std::span<const double>(gl_10_weights.begin(), gl_10_weights.end());
-      break;
-    case 12:
-      mu_ =
-          std::span<const double>(gl_12_abscissa.begin(), gl_12_abscissa.end());
-      wgt_ =
-          std::span<const double>(gl_12_weights.begin(), gl_12_weights.end());
-      break;
-    case 14:
-      mu_ =
-          std::span<const double>(gl_14_abscissa.begin(), gl_14_abscissa.end());
-      wgt_ =
-          std::span<const double>(gl_14_weights.begin(), gl_14_weights.end());
-      break;
-    case 16:
-      mu_ =
-          std::span<const double>(gl_16_abscissa.begin(), gl_16_abscissa.end());
-      wgt_ =
-          std::span<const double>(gl_16_weights.begin(), gl_16_weights.end());
-      break;
-    case 32:
-      mu_ =
-          std::span<const double>(gl_32_abscissa.begin(), gl_32_abscissa.end());
-      wgt_ =
-          std::span<const double>(gl_32_weights.begin(), gl_32_weights.end());
-      break;
-    case 64:
-      mu_ =
-          std::span<const double>(gl_64_abscissa.begin(), gl_64_abscissa.end());
-      wgt_ =
-          std::span<const double>(gl_64_weights.begin(), gl_64_weights.end());
-      break;
-    case 128:
-      mu_ = std::span<const double>(gl_128_abscissa.begin(),
-                                    gl_128_abscissa.end());
-      wgt_ =
-          std::span<const double>(gl_128_weights.begin(), gl_128_weights.end());
-      break;
-    default: {
-      std::stringstream mssg;
-      mssg << "Invalid nangles argument of " << nangles << " .\n";
-      mssg << "Please use one of the following: 2, 4, 6, 8, 10, 12, 14, 16, "
-              "32, 64, 128.";
-      spdlog::error(mssg.str());
-      throw ScarabeeException(mssg.str());
-    } break;
-  }
+  this->set_quadrature(nangles);
 }
 
 void ReflectorSN::set_flux_tolerance(double ftol) {
@@ -756,6 +689,78 @@ std::shared_ptr<CrossSection> ReflectorSN::homogenize(
 xt::xtensor<double, 1> ReflectorSN::homogenize_flux_spectrum(
     const std::vector<std::size_t>& regions) const {
   return scarabee::homogenize_flux_spectrum({*this}, regions);
+}
+
+void ReflectorSN::set_quadrature(std::size_t nangles) {
+  // Now we need to set the spans for the angular quadrature
+  switch (nangles) {
+    case 2:
+      mu_ = std::span<const double>(gl_2_abscissa.begin(), gl_2_abscissa.end());
+      wgt_ = std::span<const double>(gl_2_weights.begin(), gl_2_weights.end());
+      break;
+    case 4:
+      mu_ = std::span<const double>(gl_4_abscissa.begin(), gl_4_abscissa.end());
+      wgt_ = std::span<const double>(gl_4_weights.begin(), gl_4_weights.end());
+      break;
+    case 6:
+      mu_ = std::span<const double>(gl_6_abscissa.begin(), gl_6_abscissa.end());
+      wgt_ = std::span<const double>(gl_6_weights.begin(), gl_6_weights.end());
+      break;
+    case 8:
+      mu_ = std::span<const double>(gl_8_abscissa.begin(), gl_8_abscissa.end());
+      wgt_ = std::span<const double>(gl_8_weights.begin(), gl_8_weights.end());
+      break;
+    case 10:
+      mu_ =
+          std::span<const double>(gl_10_abscissa.begin(), gl_10_abscissa.end());
+      wgt_ =
+          std::span<const double>(gl_10_weights.begin(), gl_10_weights.end());
+      break;
+    case 12:
+      mu_ =
+          std::span<const double>(gl_12_abscissa.begin(), gl_12_abscissa.end());
+      wgt_ =
+          std::span<const double>(gl_12_weights.begin(), gl_12_weights.end());
+      break;
+    case 14:
+      mu_ =
+          std::span<const double>(gl_14_abscissa.begin(), gl_14_abscissa.end());
+      wgt_ =
+          std::span<const double>(gl_14_weights.begin(), gl_14_weights.end());
+      break;
+    case 16:
+      mu_ =
+          std::span<const double>(gl_16_abscissa.begin(), gl_16_abscissa.end());
+      wgt_ =
+          std::span<const double>(gl_16_weights.begin(), gl_16_weights.end());
+      break;
+    case 32:
+      mu_ =
+          std::span<const double>(gl_32_abscissa.begin(), gl_32_abscissa.end());
+      wgt_ =
+          std::span<const double>(gl_32_weights.begin(), gl_32_weights.end());
+      break;
+    case 64:
+      mu_ =
+          std::span<const double>(gl_64_abscissa.begin(), gl_64_abscissa.end());
+      wgt_ =
+          std::span<const double>(gl_64_weights.begin(), gl_64_weights.end());
+      break;
+    case 128:
+      mu_ = std::span<const double>(gl_128_abscissa.begin(),
+                                    gl_128_abscissa.end());
+      wgt_ =
+          std::span<const double>(gl_128_weights.begin(), gl_128_weights.end());
+      break;
+    default: {
+      std::stringstream mssg;
+      mssg << "Invalid nangles argument of " << nangles << " .\n";
+      mssg << "Please use one of the following: 2, 4, 6, 8, 10, 12, 14, 16, "
+              "32, 64, 128.";
+      spdlog::error(mssg.str());
+      throw ScarabeeException(mssg.str());
+    } break;
+  }
 }
 
 }  // namespace scarabee

@@ -29,7 +29,7 @@ extern void init_Direction(py::module&);
 extern void init_PolarQuadrature(py::module&);
 extern void init_BoundaryCondition(py::module&);
 extern void init_SimulationMode(py::module&);
-extern void init_Track(py::module&);
+extern void init_Surface(py::module&);
 extern void init_Cell(py::module&);
 extern void init_EmptyCell(py::module&);
 extern void init_PinCellType(py::module&);
@@ -77,7 +77,7 @@ PYBIND11_MODULE(_scarabee, m, py::mod_gil_not_used()) {
   init_PolarQuadrature(m);
   init_BoundaryCondition(m);
   init_SimulationMode(m);
-  init_Track(m);
+  init_Surface(m);
   init_Cell(m);
   init_EmptyCell(m);
   init_PinCellType(m);

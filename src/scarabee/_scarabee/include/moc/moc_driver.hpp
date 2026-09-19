@@ -21,6 +21,8 @@
 #include <memory>
 #include <vector>
 
+struct MOCDriverPickler;
+
 namespace scarabee {
 
 class MOCDriver {
@@ -153,9 +155,6 @@ class MOCDriver {
   double y_min() const { return geometry_->y_min(); }
   double y_max() const { return geometry_->y_max(); }
 
-  void save_bin(const std::string& fname) const;
-  static std::shared_ptr<MOCDriver> load_bin(const std::string& fname);
-
  private:
   std::vector<AngleInfo> angle_info_;       // Information for all angles
   std::vector<std::vector<Track>> tracks_;  // All tracks, indexed by angle
@@ -224,6 +223,7 @@ class MOCDriver {
   MOCDriver() : polar_quad_(YamamotoTabuchi<6>()) {}
 
   friend class cereal::access;
+  friend struct ::MOCDriverPickler;
 
   template <class Archive>
   void save(Archive& arc) const {

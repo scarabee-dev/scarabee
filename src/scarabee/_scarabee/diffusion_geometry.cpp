@@ -516,7 +516,7 @@ DiffusionGeometry::DiffusionGeometry(
   zp_.xs = nullptr;
 
   // Reshape tiles array
-  tiles_.resize({tile_dx_.size(), tile_dy_.size(), tile_dy_.size()});
+  tiles_.resize({tile_dx_.size(), tile_dy_.size(), tile_dz_.size()});
 
   // Assign all tiles
   std::size_t tile_indx = 0;

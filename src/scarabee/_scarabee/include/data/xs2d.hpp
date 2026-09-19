@@ -10,9 +10,10 @@
 
 #include <cereal/cereal.hpp>
 
-#include <cmath>
 #include <cstdint>
 #include <sstream>
+
+struct XS2DPickler;
 
 namespace scarabee {
 
@@ -479,6 +480,7 @@ class XS2D {
       packing_;  // First index incident group, second (data start, g_low, g_hi)
 
   friend class cereal::access;
+  friend struct ::XS2DPickler;
   template <class Archive>
   void serialize(Archive& arc) {
     arc(CEREAL_NVP(xs_), CEREAL_NVP(packing_));

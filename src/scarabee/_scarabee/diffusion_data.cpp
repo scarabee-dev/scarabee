@@ -2,10 +2,6 @@
 #include <utils/logging.hpp>
 #include <utils/scarabee_exception.hpp>
 
-#include <cereal/archives/portable_binary.hpp>
-
-#include <filesystem>
-#include <fstream>
 #include <memory>
 
 namespace scarabee {
@@ -190,37 +186,6 @@ DiffusionData& DiffusionData::reflect_across_y_axis() {
   }
 
   return *this;
-}
-
-void DiffusionData::save(const std::string& fname) const {
-  if (std::filesystem::exists(fname)) {
-    std::filesystem::remove(fname);
-  }
-
-  std::ofstream file(fname, std::ios_base::binary);
-
-  cereal::PortableBinaryOutputArchive arc(file);
-
-  arc(*this);
-}
-
-std::shared_ptr<DiffusionData> DiffusionData::load(const std::string& fname) {
-  if (std::filesystem::exists(fname) == false) {
-    std::stringstream mssg;
-    mssg << "The file \"" << fname << "\" does not exist.";
-    spdlog::error(mssg.str());
-    throw ScarabeeException(mssg.str());
-  }
-
-  std::shared_ptr<DiffusionData> out(new DiffusionData());
-
-  std::ifstream file(fname, std::ios_base::binary);
-
-  cereal::PortableBinaryInputArchive arc(file);
-
-  arc(*out);
-
-  return out;
 }
 
 }  // namespace scarabee

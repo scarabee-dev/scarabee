@@ -10,7 +10,7 @@
 
 #include <cereal/cereal.hpp>
 
-#include <cmath>
+struct XS1DPickler;
 
 namespace scarabee {
 
@@ -127,6 +127,7 @@ class XS1D {
   xt::xtensor<double, 1> xs_;
 
   friend class cereal::access;
+  friend struct ::XS1DPickler;
   template <class Archive>
   void serialize(Archive& arc) {
     arc(CEREAL_NVP(xs_));

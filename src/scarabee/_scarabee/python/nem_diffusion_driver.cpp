@@ -1,13 +1,71 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
+#include <cereal/archives/portable_binary.hpp>
+
 #include <xtensor-python/pytensor.hpp>
 
 #include <diffusion/nem_diffusion_driver.hpp>
 
+#include <sstream>
+
 namespace py = pybind11;
 
 using namespace scarabee;
+
+struct NEMDiffusionDriverPickler {
+  static NEMDiffusionDriver from_state(py::tuple t) {
+    NEMDiffusionDriver nd;
+
+    // Flat neighbors array
+    std::vector<NEMDiffusionDriver::NeighborInfo> flat_neighbors;
+    std::size_t n0 = nd.neighbors_.shape()[0];
+    std::size_t n1 = nd.neighbors_.shape()[0];
+
+    nd.geom_ = t[0].cast<std::shared_ptr<DiffusionGeometry>>();
+    flat_neighbors = t[1].cast<std::vector<NEMDiffusionDriver::NeighborInfo>>();
+    py::bytes bytes = t[2].cast<py::bytes>();
+
+    // Make a binary of things we don't need in the tuple
+    std::istringstream bits_stream(bytes,
+                                   std::ios_base::binary | std::ios_base::in);
+    {
+      cereal::PortableBinaryInputArchive ar(bits_stream);
+      ar(n0, n1, nd.NG_, nd.NM_, nd.flux_, nd.j_in_out_, nd.Rmats_, nd.Pmats_,
+         nd.Q_, nd.geom_inds_, nd.mats_, nd.diff_datas_, nd.adf_, nd.keff_,
+         nd.flux_tol_, nd.leakage_corrections_, nd.solved_);
+    }
+
+    // Must re-fill neighbors array
+    nd.neighbors_.resize({n0, n1});
+    for (std::size_t i = 0; i < nd.neighbors_.size(); i++)
+      nd.neighbors_.flat(i) = flat_neighbors[i];
+
+    return nd;
+  }
+
+  static py::tuple to_state(const NEMDiffusionDriver& nd) {
+    // Make a flat neighbors array
+    std::vector<NEMDiffusionDriver::NeighborInfo> flat_neighbors;
+    const std::size_t n0 = nd.neighbors_.shape()[0];
+    const std::size_t n1 = nd.neighbors_.shape()[0];
+    flat_neighbors.reserve(nd.neighbors_.size());
+    for (std::size_t i = 0; i < nd.neighbors_.size(); i++)
+      flat_neighbors.push_back(nd.neighbors_.flat(i));
+
+    // Make a binary of things we don't need in the tuple
+    std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
+    {
+      cereal::PortableBinaryOutputArchive ar(bits_stream);
+      ar(n0, n1, nd.NG_, nd.NM_, nd.flux_, nd.j_in_out_, nd.Rmats_, nd.Pmats_,
+         nd.Q_, nd.geom_inds_, nd.mats_, nd.diff_datas_, nd.adf_, nd.keff_,
+         nd.flux_tol_, nd.leakage_corrections_, nd.solved_);
+    }
+    py::bytes bytes(bits_stream.str());
+
+    return py::make_tuple(nd.geom_, flat_neighbors, bytes);
+  }
+};
 
 void init_NEMDiffusionDriver(py::module& m) {
   py::class_<NEMDiffusionDriver>(
@@ -161,23 +219,6 @@ void init_NEMDiffusionDriver(py::module& m) {
            "array of float\n"
            "      Value of the average power density in each node.\n")
 
-      .def("save", &NEMDiffusionDriver::save,
-           "Saves the NEMDiffusionDriver to a binary file.\n\n"
-           "Parameters\n"
-           "----------\n"
-           "fname : str\n"
-           "  Name of the file.\n",
-           py::arg("fname"))
-
-      .def_static(
-          "load", &NEMDiffusionDriver::load,
-          "Loads a previously save NEMDiffusionDriver from a binary file.\n\n"
-          "Parameters\n"
-          "----------\n"
-          "fname : str\n"
-          "  Name of the file.\n\n"
-          "Returns\n"
-          "-------\n"
-          "NEMDiffusionDriver",
-          py::arg("fname"));
+      .def(py::pickle(&NEMDiffusionDriverPickler::to_state,
+                      &NEMDiffusionDriverPickler::from_state));
 }

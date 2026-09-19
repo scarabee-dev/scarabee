@@ -11,10 +11,11 @@
 #include <cereal/cereal.hpp>
 #include <cereal/types/string.hpp>
 
-#include <cstdint>
 #include <string>
 #include <memory>
 #include <utility>
+
+struct CrossSectionPickler;
 
 namespace scarabee {
 
@@ -142,9 +143,6 @@ class CrossSection {
   CrossSection& operator+=(const CrossSection& R);
   CrossSection& operator*=(double N);
 
-  void save(const std::string& fname) const;
-  static std::shared_ptr<CrossSection> load(const std::string& fname);
-
  private:
   XS1D Etr_;  // Transport xs
   XS1D Dtr_;  // Transport Correction xs
@@ -161,6 +159,7 @@ class CrossSection {
   void check_xs();
 
   friend class cereal::access;
+  friend struct ::CrossSectionPickler;
 
   CrossSection() {}
 

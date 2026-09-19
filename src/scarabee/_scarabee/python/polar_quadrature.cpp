@@ -5,6 +5,9 @@
 #include <moc/quadrature/yamamoto_tabuchi.hpp>
 #include <moc/quadrature/polar_quadrature.hpp>
 
+#include <cereal/archives/portable_binary.hpp>
+
+#include <sstream>
 #include <vector>
 
 namespace py = pybind11;
@@ -34,8 +37,23 @@ void init_quad(py::module& m, const std::string& name,
           [](const PQ& q) {
             return std::vector<double>(q.wgt().begin(), q.wgt().end());
           },
-          "Array of weight values.");
+          "Array of weight values.")
+      .def(py::pickle([](const PQ&) { return py::make_tuple(); },
+                      [](py::tuple) { return PQ(); }));
 }
+
+struct PolarQuadraturePickler {
+  static PolarQuadrature from_state(py::tuple t) {
+    PolarQuadrature pq;
+    pq.pq_ = t[0].cast<PolarQuadratureType>();
+    pq.set_spans();
+    return pq;
+  }
+
+  static py::tuple to_state(const PolarQuadrature& pq) {
+    return py::make_tuple(pq.pq_);
+  }
+};
 
 void init_PolarQuadrature(py::module& m) {
   // Legendre quadratures
@@ -87,5 +105,8 @@ void init_PolarQuadrature(py::module& m) {
           [](const PolarQuadrature& q) {
             return std::vector<double>(q.wgt().begin(), q.wgt().end());
           },
-          "Array of weight values.");
+          "Array of weight values.")
+
+      .def(py::pickle(&PolarQuadraturePickler::to_state,
+                      &PolarQuadraturePickler::from_state));
 }

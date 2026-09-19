@@ -10,6 +10,8 @@
 #include <span>
 #include <variant>
 
+struct PolarQuadraturePickler;
+
 namespace scarabee {
 
 using PolarQuadratureType =
@@ -54,6 +56,7 @@ class PolarQuadrature {
   }
 
   friend class cereal::access;
+  friend struct ::PolarQuadraturePickler;
   PolarQuadrature() {}
 
   template <class Archive>

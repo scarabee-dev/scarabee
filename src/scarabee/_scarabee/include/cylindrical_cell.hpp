@@ -14,12 +14,15 @@
 #include <memory>
 #include <vector>
 
+struct CylindricalCellPickler;
+
 namespace scarabee {
 
 class CylindricalCell {
  public:
   CylindricalCell(const std::vector<double>& radii,
                   const std::vector<std::shared_ptr<CrossSection>>& mats);
+
   bool solved() const { return solved_; }
   void solve(bool parallel = false);
 
@@ -83,6 +86,7 @@ class CylindricalCell {
   double calculate_S_ij(std::size_t i, std::size_t j, std::size_t g) const;
 
   friend cereal::access;
+  friend struct ::CylindricalCellPickler;
   CylindricalCell() {}
   template <class Archive>
   void serialize(Archive& arc) {

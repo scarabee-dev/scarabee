@@ -16,6 +16,8 @@
 #include <optional>
 #include <string>
 
+struct DiffusionDataPickler;
+
 namespace scarabee {
 
 class DiffusionData {
@@ -150,9 +152,6 @@ class DiffusionData {
   const xt::xtensor<double, 2>& cdf() const { return cdf_; }
   void set_cdf(const xt::xtensor<double, 2>& cdf);
 
-  void save(const std::string& fname) const;
-  static std::shared_ptr<DiffusionData> load(const std::string& fname);
-
  private:
   std::shared_ptr<DiffusionCrossSection> xs_;
   xt::xtensor<double, 2> adf_;  // group then ADF direction
@@ -162,6 +161,7 @@ class DiffusionData {
   bool reflector_{false};
 
   friend class cereal::access;
+  friend struct ::DiffusionDataPickler;
   DiffusionData() {}
   template <class Archive>
   void serialize(Archive& arc) {

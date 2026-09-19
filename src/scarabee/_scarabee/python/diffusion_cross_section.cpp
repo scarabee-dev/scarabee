@@ -4,9 +4,37 @@
 
 #include <data/diffusion_cross_section.hpp>
 
+#include <cereal/types/memory.hpp>
+#include <cereal/archives/portable_binary.hpp>
+
+#include <sstream>
+
 namespace py = pybind11;
 
 using namespace scarabee;
+
+struct DiffusionCrossSectionPickler {
+  static std::shared_ptr<DiffusionCrossSection> from_state(py::tuple t) {
+    py::bytes bytes = t[0].cast<py::bytes>();
+    std::istringstream bits_stream(bytes,
+                                   std::ios_base::binary | std::ios_base::in);
+    std::shared_ptr<DiffusionCrossSection> p;
+    {
+      cereal::PortableBinaryInputArchive ar(bits_stream);
+      ar(p);
+    }
+    return p;
+  }
+
+  static py::tuple to_state(const std::shared_ptr<DiffusionCrossSection>& xs) {
+    std::ostringstream bits_stream(std::ios_base::binary | std::ios_base::out);
+    {
+      cereal::PortableBinaryOutputArchive ar(bits_stream);
+      ar(xs);
+    }
+    return py::make_tuple(py::bytes(bits_stream.str()));
+  }
+};
 
 void init_DiffusionCrossSection(py::module& m) {
   py::class_<DiffusionCrossSection, std::shared_ptr<DiffusionCrossSection>>(
@@ -166,28 +194,6 @@ void init_DiffusionCrossSection(py::module& m) {
            "                      Condensed set of diffusion cross sections.\n",
            py::arg("groups"), py::arg("flux"))
 
-      .def("save", &DiffusionCrossSection::save,
-           "Saves a set of diffusion cross sections to a binary file.\n\n"
-           "Parameters\n"
-           "----------\n"
-           "fname : str\n"
-           "        Name of file in which to save data.",
-           py::arg("fname"))
-
-      .def_static(
-          "load", &DiffusionCrossSection::load,
-          "Loads a set of diffusion cross sections from a binary file.\n\n"
-          "Parameters\n"
-          "----------\n"
-          "fname : str\n"
-          "        Name of file from which to load data.\n\n"
-          "Returns\n"
-          "-------\n"
-          "DiffusionCrossSection\n"
-          "    Diffusion cross sections from the file.\n",
-          py::arg("fname"))
-
-      .def("__deepcopy__", [](const DiffusionCrossSection& xs, py::dict) {
-        return DiffusionCrossSection(xs);
-      });
+      .def(py::pickle(&DiffusionCrossSectionPickler::to_state,
+                      &DiffusionCrossSectionPickler::from_state));
 }
