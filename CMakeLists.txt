@@ -109,14 +109,14 @@ set(PYBIND11_NEWPYTHON ON)
 find_package(pybind11 CONFIG QUIET)
 if (NOT pybind11_FOUND)
   set(PYBIND11_FINDPYTHON ON)
-  message(STATUS "Downloading pybind11 v3.0.4")
+  message(STATUS "Downloading pybind11 v3.1.0")
   FetchContent_Declare(pybind11
-    URL https://github.com/pybind/pybind11/archive/refs/tags/v3.0.4.tar.gz
-    URL_HASH MD5=933fa1b6b1fe34c9945ecb3fe67f5c4b
+    URL https://github.com/pybind/pybind11/archive/refs/tags/v3.1.0.tar.gz
+    URL_HASH MD5=235664b4673257b80a9ab79f9b208e94
   )
   FetchContent_MakeAvailable(pybind11)
   if (NOT pybind11_VERSION)
-    set(pybind11_VERSION 3.0.4)
+    set(pybind11_VERSION 3.1.0)
   endif()
 endif()
 
