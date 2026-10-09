@@ -8,6 +8,13 @@ Upcoming Release Notes
 Important API Changes
 ---------------------
 
+- Instead of re-computing Dancoff corrections at each depletion step, they are now only
+  calculated for the initial transport solve. As the cladding is not depleted, the fuel
+  Dancoff corrections will not change with time. While the cladding Dancoff corrections
+  could change slightly at each depletion step (due to changes in the potential cross
+  section of the fuel), this effect should be very small, and the self-shielding of the
+  cladding is already a relatively small effect.
+
 - Classes like :class:`CrossSection`, :class:`DiffusionCrossSection`,
   :class:`DiffusionData`, :class:`MOCDriver`, etc., can no longer be saved/loaded
   into/from a binary file. You should now use pickles to save and load objects.
@@ -39,6 +46,17 @@ Important API Changes
 ------------
 New Features
 ------------
+
+- The :class:`reseau.PWRAssembly` class now has support for control rods. A new
+  :class:`reseau.ControlRod` class as been written which can be used as a fill for a
+  :class:`reseau.GuideTube`. If a problem has control rods, two sets of Dancoff
+  corrections are calculated for both the fuel and cladding: one set with control rods
+  inserted, and one set with control rods removed. The control rods also have their own
+  Dancoff corrections and are self-shielded. A control rod can be discretized into rings
+  which will be self-shielded with the Stoker-Weiss method. Control rods are also
+  depleted with the fuel if inserted when performing a depletion simulation. Control rods
+  can also be removed/inserted on-the-fly between assembly solves; by default, the
+  control rods start in an inserted position.
 
 - All classes should now be picklable. If you find a class which is not picklable, this
   is a bug and should be reported as an issue.
@@ -85,6 +103,10 @@ New Features
 ---------
 Bug Fixes
 ---------
+
+- The Dancoff correction (C) for guide tubes was incorrectly being replaced with the
+  Dancoff factor (D = 1 - C). This was found and corrected when implementing the control
+  rod model.
 
 - There was a bug where copying a DiffusionData instance in Python did not include the
   LeakageCorrections which may be present. This resulted in the copies not having a

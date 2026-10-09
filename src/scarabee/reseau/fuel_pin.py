@@ -51,9 +51,14 @@ class FuelPin:
     fuel_ring_flux_spectra : list of list of ndarray
         Contains the average flux spectrum in each fuel ring for each depletion
         time step.
-    fuel_dancoff_corrections : list of float
-        Dancoff corrections to be used when self-shielding the fuel at each
-        depletion time step.
+    fuel_dancoff_correction_no_control_rods : float
+        Dancoff correction to be used when self-shielding the fuel when no
+        control rods are present in the assembly.
+    fuel_dancoff_correction_control_rods : float
+        Dancoff correction to be used when self-shielding the fuel when
+        control rods are present in the assembly.
+    fuel_dancoff_correction : float
+        Current Dancoff correction used when self-shielding the fuel.
     gap : Material, optional
         Material which describes the composition, density, and temperature of
         the gap between the fuel pellet and the cladding, if present.
@@ -64,9 +69,14 @@ class FuelPin:
         temperature.
     clad_radius : float
         Outer radius of the cladding.
-    clad_dancoff_corrections : list of float
-        Dancoff corrections to be used when self-shielding the cladding at each
-        depletion time step.
+    clad_dancoff_correction_no_control_rods : float
+        Dancoff correction to be used when self-shielding the cladding when no
+        control rods are present in the assembly.
+    clad_dancoff_correction_control_rods : float
+        Dancoff correction to be used when self-shielding the cladding when
+        control rods are present in the assembly.
+    clad_dancoff_correction : float
+        Current Dancoff correction used when self-shielding the cladding.
     num_fuel_rings : int, default 1
         Number of rings which should be used to discretize the fuel material.
         Each ring will be self-shielded and depleted separately.
@@ -120,11 +130,18 @@ class FuelPin:
         # DANCOFF CORRECTION CALCULATION DATA
         # ----------------------------------------------------------------------
 
-        # Initialize empty list of Dancoff corrections for the fuel
-        self._fuel_dancoff_corrections: List[float] = []
+        # There could be 2 possible Dancoff corrections. One where the control
+        # rods are inserted, and another where they are not.
+        self._fuel_dancoff_correction_no_control_rods: float = 0.0
+        self._fuel_dancoff_correction_control_rods: float = 0.0
+        # This is the "active" correction
+        self._fuel_dancoff_correction: float = 0.0
 
-        # Initialize empty list of Dancoff corrections for the cladding
-        self._clad_dancoff_corrections: List[float] = []
+        # Same system for cladding
+        self._clad_dancoff_correction_no_control_rods: float = 0.0
+        self._clad_dancoff_correction_control_rods: float = 0.0
+        # This is the "active" correction
+        self._clad_dancoff_correction: float = 0.0
 
         # Initialize empty variables for Dancoff correction calculations.
         # These are all kept private.
@@ -250,8 +267,32 @@ class FuelPin:
         return self._fuel_ring_materials
 
     @property
-    def fuel_dancoff_corrections(self) -> List[float]:
-        return self._fuel_dancoff_corrections
+    def fuel_dancoff_correction_no_control_rods(self) -> float:
+        return self._fuel_dancoff_correction_no_control_rods
+
+    @fuel_dancoff_correction_no_control_rods.setter
+    def fuel_dancoff_correction_no_control_rods(self, val: float) -> None:
+        if val < 0.0 or val > 1.0:
+            raise ValueError(
+                f"Dancoff correction must be in interval [0,1]. Was provided {val}."
+            )
+        self._fuel_dancoff_correction_no_control_rods = val
+
+    @property
+    def fuel_dancoff_correction_control_rods(self) -> float:
+        return self._fuel_dancoff_correction_control_rods
+
+    @fuel_dancoff_correction_control_rods.setter
+    def fuel_dancoff_correction_control_rods(self, val: float) -> None:
+        if val < 0.0 or val > 1.0:
+            raise ValueError(
+                f"Dancoff correction must be in interval [0,1]. Was provided {val}."
+            )
+        self._fuel_dancoff_correction_control_rods = val
+
+    @property
+    def fuel_dancoff_correction(self) -> float:
+        return self._fuel_dancoff_correction
 
     @property
     def gap(self) -> Optional[Material]:
@@ -270,8 +311,32 @@ class FuelPin:
         return self._clad_radius
 
     @property
-    def clad_dancoff_corrections(self) -> List[float]:
-        return self._clad_dancoff_corrections
+    def clad_dancoff_correction_no_control_rods(self) -> float:
+        return self._clad_dancoff_correction_no_control_rods
+
+    @clad_dancoff_correction_no_control_rods.setter
+    def clad_dancoff_correction_no_control_rods(self, val: float) -> None:
+        if val < 0.0 or val > 1.0:
+            raise ValueError(
+                f"Dancoff correction must be in interval [0,1]. Was provided {val}."
+            )
+        self._clad_dancoff_correction_no_control_rods = val
+
+    @property
+    def clad_dancoff_correction_control_rods(self) -> float:
+        return self._clad_dancoff_correction_control_rods
+
+    @clad_dancoff_correction_control_rods.setter
+    def clad_dancoff_correction_control_rods(self, val: float) -> None:
+        if val < 0.0 or val > 1.0:
+            raise ValueError(
+                f"Dancoff correction must be in interval [0,1]. Was provided {val}."
+            )
+        self._clad_dancoff_correction_control_rods = val
+
+    @property
+    def clad_dancoff_correction(self) -> float:
+        return self._clad_dancoff_correction
 
     def _check_dx_dy(self, dx, dy, pintype):
         if pintype == PinCellType.Full:
@@ -327,6 +392,22 @@ class FuelPin:
             self.gap.load_nuclides(ndl)
 
         self.clad.load_nuclides(ndl)
+
+    def use_no_control_rod_dancoff_correction(self) -> None:
+        """
+        Will use the Dancoff corrections which assume no control rods are
+        present in the assembly.
+        """
+        self._fuel_dancoff_correction = self._fuel_dancoff_correction_no_control_rods
+        self._clad_dancoff_correction = self._clad_dancoff_correction_no_control_rods
+
+    def use_control_rod_dancoff_correction(self) -> None:
+        """
+        Will use the Dancoff corrections which assume control rods are present
+        in the assembly.
+        """
+        self._fuel_dancoff_correction = self._fuel_dancoff_correction_control_rods
+        self._clad_dancoff_correction = self._clad_dancoff_correction_control_rods
 
     # ==========================================================================
     # Interrogation Methods
@@ -456,6 +537,55 @@ class FuelPin:
             CrossSection(
                 np.array([1.0e5]),
                 np.array([1.0e5]),
+                np.array([[0.0]]),
+                "Clad",
+            )
+        )
+
+    def set_xs_for_control_rod_dancoff_calculation(self, ndl: NDLibrary) -> None:
+        """
+        Sets the 1-group cross sections to calculate the control rod Dancoff
+        correction.
+
+        Parameters
+        ----------
+        ndl : NDLibrary
+            Nuclear data library for obtaining potential scattering cross
+            sections.
+        """
+        # Create average fuel mixture
+        fuel_mats = []
+        fuel_vols = []
+        for ring in self.fuel_ring_materials:
+            fuel_mats.append(ring[-1])
+            fuel_vols.append(1.0 / self.num_fuel_rings)
+        avg_fuel: Material = mix_materials(
+            fuel_mats, fuel_vols, MixingFraction.Volume, ndl
+        )
+
+        self._fuel_dancoff_xs.set(
+            CrossSection(
+                np.array([avg_fuel.potential_xs]),
+                np.array([avg_fuel.potential_xs]),
+                np.array([[0.0]]),
+                "Fuel",
+            )
+        )
+
+        if self._gap_dancoff_xs is not None and self.gap is not None:
+            self._gap_dancoff_xs.set(
+                CrossSection(
+                    np.array([self.gap.potential_xs]),
+                    np.array([self.gap.potential_xs]),
+                    np.array([[0.0]]),
+                    "Gap",
+                )
+            )
+
+        self._clad_dancoff_xs.set(
+            CrossSection(
+                np.array([self.clad.potential_xs]),
+                np.array([self.clad.potential_xs]),
                 np.array([[0.0]]),
                 "Clad",
             )
@@ -667,6 +797,56 @@ class FuelPin:
         for ind in self._mod_isolated_dancoff_fsr_inds:
             isomoc.set_extern_src(ind, 0, pot_xs)
 
+    def set_isolated_dancoff_control_rod_sources(
+        self, isomoc: MOCDriver, moderator: Material, ndl: NDLibrary
+    ) -> None:
+        """
+        Initializes the fixed sources for the isolated MOC calculation required
+        in computing Dancoff corrections. Sources are set for a control rod
+        Dancoff correction calculation.
+
+        Parameters
+        ----------
+        isomoc : MOCDriver
+            MOC simulation for the isolated geometry.
+        moderator : Material
+            Material definition for the moderator, used to obtain the potential
+            scattering cross section.
+        ndl : NDLibrary
+            Nuclear data library for obtaining potential scattering cross
+            sections.
+        """
+        # Create average fuel mixture
+        fuel_mats = []
+        fuel_vols = []
+        for ring in self.fuel_ring_materials:
+            fuel_mats.append(ring[-1])
+            fuel_vols.append(1.0 / self.num_fuel_rings)
+        avg_fuel: Material = mix_materials(
+            fuel_mats, fuel_vols, MixingFraction.Volume, ndl
+        )
+
+        # Fuel sources should all be potential_xs
+        pot_xs = avg_fuel.potential_xs
+        for ind in self._fuel_isolated_dancoff_fsr_inds:
+            isomoc.set_extern_src(ind, 0, pot_xs)
+
+        # Gap sources should all be potential_xs
+        if self.gap is not None:
+            pot_xs = self.gap.potential_xs
+            for ind in self._gap_isolated_dancoff_fsr_inds:
+                isomoc.set_extern_src(ind, 0, pot_xs)
+
+        # Clad sources should all be potential_xs
+        pot_xs = self.clad.potential_xs
+        for ind in self._clad_isolated_dancoff_fsr_inds:
+            isomoc.set_extern_src(ind, 0, pot_xs)
+
+        # Moderator sources should all be potential_xs
+        pot_xs = moderator.potential_xs
+        for ind in self._mod_isolated_dancoff_fsr_inds:
+            isomoc.set_extern_src(ind, 0, pot_xs)
+
     def set_full_dancoff_fuel_sources(
         self, fullmoc: MOCDriver, moderator: Material
     ) -> None:
@@ -713,8 +893,8 @@ class FuelPin:
 
         Parameters
         ----------
-        isomoc : MOCDriver
-            MOC simulation for the isolated geometry.
+        fullmoc : MOCDriver
+            MOC simulation for the full geometry.
         moderator : Material
             Material definition for the moderator, used to obtain the potential
             scattering cross section.
@@ -746,6 +926,56 @@ class FuelPin:
         # Clad sources should all be zero !
         for ind in self._clad_full_dancoff_fsr_inds:
             fullmoc.set_extern_src(ind, 0, 0.0)
+
+        # Moderator sources should all be potential_xs
+        pot_xs = moderator.potential_xs
+        for ind in self._mod_full_dancoff_fsr_inds:
+            fullmoc.set_extern_src(ind, 0, pot_xs)
+
+    def set_full_dancoff_control_rod_sources(
+        self, fullmoc: MOCDriver, moderator: Material, ndl: NDLibrary
+    ) -> None:
+        """
+        Initializes the fixed sources for the full MOC calculation required
+        in computing Dancoff corrections. Sources are set for a control rod
+        Dancoff correction calculation.
+
+        Parameters
+        ----------
+        fullmoc : MOCDriver
+            MOC simulation for the full geometry.
+        moderator : Material
+            Material definition for the moderator, used to obtain the potential
+            scattering cross section.
+        ndl : NDLibrary
+            Nuclear data library for obtaining potential scattering cross
+            sections.
+        """
+        # Create average fuel mixture
+        fuel_mats = []
+        fuel_vols = []
+        for ring in self.fuel_ring_materials:
+            fuel_mats.append(ring[-1])
+            fuel_vols.append(1.0 / self.num_fuel_rings)
+        avg_fuel: Material = mix_materials(
+            fuel_mats, fuel_vols, MixingFraction.Volume, ndl
+        )
+
+        # Fuel sources should all be potential_xs
+        pot_xs = avg_fuel.potential_xs
+        for ind in self._fuel_full_dancoff_fsr_inds:
+            fullmoc.set_extern_src(ind, 0, pot_xs)
+
+        # Gap sources should all be potential_xs
+        if self.gap is not None:
+            pot_xs = self.gap.potential_xs
+            for ind in self._gap_full_dancoff_fsr_inds:
+                fullmoc.set_extern_src(ind, 0, pot_xs)
+
+        # Clad sources should all be potential_xs
+        pot_xs = self.clad.potential_xs
+        for ind in self._clad_full_dancoff_fsr_inds:
+            fullmoc.set_extern_src(ind, 0, pot_xs)
 
         # Moderator sources should all be potential_xs
         pot_xs = moderator.potential_xs
@@ -804,38 +1034,6 @@ class FuelPin:
         ]
         return (iso_flux - full_flux) / iso_flux
 
-    def append_fuel_dancoff_correction(self, C) -> None:
-        """
-        Saves new Dancoff correction for the fuel that will be used for all
-        subsequent cross section updates.
-
-        Parameters
-        ----------
-        C : float
-            New Dancoff correction.
-        """
-        if C < 0.0 or C > 1.0:
-            raise ValueError(
-                f"Dancoff correction must be in range [0, 1]. Was provided {C}."
-            )
-        self._fuel_dancoff_corrections.append(C)
-
-    def append_clad_dancoff_correction(self, C) -> None:
-        """
-        Saves new Dancoff correction for the cladding that will be used for all
-        subsequent cross section updates.
-
-        Parameters
-        ----------
-        C : float
-            New Dancoff correction.
-        """
-        if C < 0.0 or C > 1.0:
-            raise ValueError(
-                f"Dancoff correction must be in range [0, 1]. Was provided {C}."
-            )
-        self._clad_dancoff_corrections.append(C)
-
     # ==========================================================================
     # Transport Calculation Related Methods
     def set_fuel_xs_for_depletion_step(self, t: int, ndl: NDLibrary) -> None:
@@ -850,72 +1048,42 @@ class FuelPin:
         ndl : NDLibrary
             Nuclear data library to use for cross sections.
         """
-        # Do the fuel cross sections
         if len(self._fuel_ring_xs) == 0:
-            # Create initial CrossSection objects
-            if self.num_fuel_rings == 1:
-                # Compute escape xs
-                Ee = 1.0 / (2.0 * self.fuel_radius)
-                self._fuel_ring_xs.append(
-                    self._fuel_ring_materials[0][t].carlvik_xs(
-                        self._fuel_dancoff_corrections[t], Ee, ndl
-                    )
-                )
-                if self._fuel_ring_xs[-1].name == "":
-                    self._fuel_ring_xs[-1].name = "Fuel"
-            else:
-                # Do each ring
-                for ri in range(self.num_fuel_rings):
-                    Rin = 0.0
-                    if ri > 0:
-                        Rin = self._fuel_radii[ri - 1]
-                    Rout = self._fuel_radii[ri]
-                    self._fuel_ring_xs.append(
-                        self._fuel_ring_materials[ri][t].ring_carlvik_xs(
-                            self._fuel_dancoff_corrections[t],
-                            self.fuel_radius,
-                            Rin,
-                            Rout,
-                            ndl,
-                        )
-                    )
-                    if self._fuel_ring_xs[-1].name == "":
-                        self._fuel_ring_xs[-1].name = "Fuel"
+            self._fuel_ring_xs = [None for r in range(self.num_fuel_rings)]
 
-        elif len(self._fuel_ring_xs) == self.num_fuel_rings:
-            # Reset XS values. Cannot reassign or pointers will be broken !
-            if self.num_fuel_rings == 1:
-                # Compute escape xs
-                Ee = 1.0 / (2.0 * self.fuel_radius)
-                self._fuel_ring_xs[0].set(
-                    self._fuel_ring_materials[0][t].carlvik_xs(
-                        self._fuel_dancoff_corrections[t], Ee, ndl
-                    )
-                )
-                if self._fuel_ring_xs[0].name == "":
-                    self._fuel_ring_xs[0].name = "Fuel"
-            else:
-                # Do each ring
-                for ri in range(self.num_fuel_rings):
-                    Rin = 0.0
-                    if ri > 0:
-                        Rin = self._fuel_radii[ri - 1]
-                    Rout = self._fuel_radii[ri]
-                    self._fuel_ring_xs[ri].set(
-                        self._fuel_ring_materials[ri][t].ring_carlvik_xs(
-                            self._fuel_dancoff_corrections[t],
-                            self.fuel_radius,
-                            Rin,
-                            Rout,
-                            ndl,
-                        )
-                    )
-                    if self._fuel_ring_xs[ri].name == "":
-                        self._fuel_ring_xs[ri].name = "Fuel"
-        else:
+        if len(self._fuel_ring_xs) != self.num_fuel_rings:
             raise RuntimeError(
                 "Number of fuel cross sections does not agree with the number of fuel rings."
             )
+
+        if self.num_fuel_rings == 1:
+            # Compute escape xs
+            Ee = 1.0 / (2.0 * self.fuel_radius)
+            new_ring_xs = self._fuel_ring_materials[0][t].carlvik_xs(
+                self._fuel_dancoff_correction, Ee, ndl
+            )
+            if self._fuel_ring_xs[0] is None:
+                self._fuel_ring_xs[0] = new_ring_xs
+            else:
+                self._fuel_ring_xs[0].set(new_ring_xs)
+        else:
+            # Do each ring
+            for ri in range(self.num_fuel_rings):
+                Rin = 0.0
+                if ri > 0:
+                    Rin = self._fuel_radii[ri - 1]
+                Rout = self._fuel_radii[ri]
+                new_ring_xs = self._fuel_ring_materials[ri][t].ring_carlvik_xs(
+                    self._fuel_dancoff_correction, self.fuel_radius, Rin, Rout, ndl
+                )
+                if self._fuel_ring_xs[ri] is None:
+                    self._fuel_ring_xs[ri] = new_ring_xs
+                else:
+                    self._fuel_ring_xs[ri].set(new_ring_xs)
+
+        for ri in range(self.num_fuel_rings):
+            if self._fuel_ring_xs[ri].name == "":
+                self._fuel_ring_xs[ri].name = "Fuel"
 
     def set_gap_xs(self, ndl: NDLibrary) -> None:
         """
@@ -928,10 +1096,11 @@ class FuelPin:
             Nuclear data library to use for cross sections.
         """
         if self.gap is not None:
+            new_gap_xs = self.gap.dilution_xs([1.0e10] * self.gap.size, ndl)
             if self._gap_xs is None:
-                self._gap_xs = self.gap.dilution_xs([1.0e10] * self.gap.size, ndl)
+                self._gap_xs = new_gap_xs
             else:
-                self._gap_xs.set(self.gap.dilution_xs([1.0e10] * self.gap.size, ndl))
+                self._gap_xs.set(new_gap_xs)
 
             if self._gap_xs.name == "":
                 self._gap_xs.name = "Gap"
@@ -956,15 +1125,13 @@ class FuelPin:
         else:
             Ee = 1.0 / (2.0 * (self.clad_radius - self.fuel_radius))
 
+        new_clad_xs = self.clad.roman_xs(self._clad_dancoff_correction, Ee, ndl)
+
         # Get / set the xs
         if self._clad_xs is None:
-            self._clad_xs = self.clad.roman_xs(
-                self._clad_dancoff_corrections[t], Ee, ndl
-            )
+            self._clad_xs = new_clad_xs
         else:
-            self._clad_xs.set(
-                self.clad.roman_xs(self._clad_dancoff_corrections[t], Ee, ndl)
-            )
+            self._clad_xs.set(new_clad_xs)
 
         if self._clad_xs.name == "":
             self._clad_xs.name = "Clad"

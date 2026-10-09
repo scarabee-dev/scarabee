@@ -9,6 +9,7 @@ from .._scarabee import (
     DepletionChain,
 )
 from .burnable_poison_rod import BurnablePoisonRod
+from .control_rod import ControlRod
 import numpy as np
 from typing import Optional, List
 import copy
@@ -40,11 +41,17 @@ class GuideTube:
         Inner radius of the guide tube.
     outer_radius : float
         Outer radius of the guide tube.
-    fill : BurnablePoisonRod, optional
-        Optional burnable poison rod which can be placed inside the guide tube.
-    clad_dancoff_corrections : list of float
-        Dancoff corrections to be used when self-shielding the cladding at each
-        depletion time step.
+    fill : BurnablePoisonRod or ControlRod, optional
+        Optional burnable poison rod or control rod which can be placed inside
+        the guide tube.
+    clad_dancoff_correction_no_control_rods : float
+        Dancoff correction to be used when self-shielding the cladding when no
+        control rods are present.
+    clad_dancoff_correction_control_rods : float
+        Dancoff correction to be used when self-shielding the cladding when
+        control rods are present.
+    clad_dancoff_correction : float
+        Current Dancoff correction used when self-shielding the cladding.
     empty : bool
         True if fill is None and False otherwise.
     """
@@ -54,7 +61,7 @@ class GuideTube:
         clad: Material,
         inner_radius: float,
         outer_radius: float,
-        fill: Optional[BurnablePoisonRod] = None,
+        fill: Optional[BurnablePoisonRod | ControlRod] = None,
     ):
         if inner_radius >= outer_radius:
             raise ValueError("Inner radius must be > outer radius.")
@@ -72,6 +79,9 @@ class GuideTube:
                     raise ValueError(
                         "The burnable poison rod is too large for the guide tube."
                     )
+            elif isinstance(self.fill, ControlRod):
+                if self.fill.clad_radius >= self.inner_radius:
+                    raise ValueError("The control rod is too large for the guide tube.")
             else:
                 raise TypeError("Unknown fill object placed in guide tube.")
 
@@ -79,8 +89,12 @@ class GuideTube:
         # DANCOFF CORRECTION CALCULATION DATA
         # ----------------------------------------------------------------------
 
-        # Initialize empty list of Dancoff corrections for the cladding
-        self._clad_dancoff_corrections: List[float] = []
+        # There could be 2 possible Dancoff corrections. One where the control
+        # rods are inserted, and another where they are not.
+        self._clad_dancoff_correction_no_control_rods: float = 0.0
+        self._clad_dancoff_correction_control_rods: float = 0.0
+        # This is the "active" Dancoff correction of the prior two
+        self._clad_dancoff_correction: float = 0.0
 
         # Initialize empty variables for Dancoff correction calculations.
         # These are all kept private.
@@ -126,7 +140,7 @@ class GuideTube:
         return self._outer_radius
 
     @property
-    def fill(self) -> Optional[BurnablePoisonRod]:
+    def fill(self) -> Optional[BurnablePoisonRod | ControlRod]:
         return self._fill
 
     @property
@@ -134,8 +148,32 @@ class GuideTube:
         return self.fill is None
 
     @property
-    def clad_dancoff_corrections(self) -> List[float]:
-        return self._clad_dancoff_corrections
+    def clad_dancoff_correction_no_control_rods(self) -> float:
+        return self._clad_dancoff_correction_no_control_rods
+
+    @clad_dancoff_correction_no_control_rods.setter
+    def clad_dancoff_correction_no_control_rods(self, val: float) -> None:
+        if val < 0.0 or val > 1.0:
+            raise ValueError(
+                f"Dancoff correction must be in interval [0,1]. Was provided {val}."
+            )
+        self._clad_dancoff_correction_no_control_rods = val
+
+    @property
+    def clad_dancoff_correction_control_rods(self) -> float:
+        return self._clad_dancoff_correction_control_rods
+
+    @clad_dancoff_correction_control_rods.setter
+    def clad_dancoff_correction_control_rods(self, val: float) -> None:
+        if val < 0.0 or val > 1.0:
+            raise ValueError(
+                f"Dancoff correction must be in interval [0,1]. Was provided {val}."
+            )
+        self._clad_dancoff_correction_control_rods = val
+
+    @property
+    def clad_dancoff_correction(self) -> float:
+        return self._clad_dancoff_correction
 
     def _check_dx_dy(self, dx, dy, pintype):
         if pintype == PinCellType.Full:
@@ -186,12 +224,48 @@ class GuideTube:
         """
         self.clad.load_nuclides(ndl)
 
+    def use_no_control_rod_dancoff_correction(self) -> None:
+        """
+        Will use the Dancoff correction for the cladding which assumes no
+        control rods are present in the assembly.
+        """
+        self._clad_dancoff_correction = self._clad_dancoff_correction_no_control_rods
+
+    def use_control_rod_dancoff_correction(self) -> None:
+        """
+        Will use the Dancoff correction for the cladding which assumes
+        control rods are present in the assembly.
+        """
+        self._clad_dancoff_correction = self._clad_dancoff_correction_control_rods
+
+    def remove_control_rod(self) -> None:
+        """
+        If the guide tube has a control rod fill, its cross sections will be
+        set to that of the moderator.
+        """
+        if isinstance(self.fill, ControlRod):
+            self.fill.is_moderator = True
+
+    def insert_control_rod(self) -> None:
+        """
+        If the guide tube has a control rod fill, its cross sections will be
+        set to that of the actual control rod.
+        """
+        if isinstance(self.fill, ControlRod):
+            self.fill.is_moderator = False
+
     # ==========================================================================
     # Dancoff Correction Related Methods
-    def set_xs_for_fuel_dancoff_calculation(self) -> None:
+    def set_xs_for_fuel_dancoff_calculation(self, moderator: Material) -> None:
         """
         Sets the 1-group cross sections to calculate the fuel Dancoff
         corrections.
+
+        Parameters
+        ----------
+        moderator : Material
+            Material definition for the moderator, used to obtain the potential
+            scattering cross section.
         """
         self._clad_dancoff_xs.set(
             CrossSection(
@@ -204,17 +278,19 @@ class GuideTube:
 
         if isinstance(self.fill, BurnablePoisonRod):
             self.fill.set_xs_for_dancoff_calculation()
+        elif isinstance(self.fill, ControlRod):
+            self.fill.set_xs_for_dancoff_calculation(moderator)
 
-    def set_xs_for_clad_dancoff_calculation(self, ndl: NDLibrary) -> None:
+    def set_xs_for_clad_dancoff_calculation(self, moderator: Material) -> None:
         """
         Sets the 1-group cross sections to calculate the clad Dancoff
         corrections.
 
         Parameters
         ----------
-        ndl : NDLibrary
-            Nuclear data library for obtaining potential scattering cross
-            sections.
+        moderator : Material
+            Material definition for the moderator, used to obtain the potential
+            scattering cross section.
         """
         self._clad_dancoff_xs.set(
             CrossSection(
@@ -227,6 +303,33 @@ class GuideTube:
 
         if isinstance(self.fill, BurnablePoisonRod):
             self.fill.set_xs_for_dancoff_calculation()
+        elif isinstance(self.fill, ControlRod):
+            self.fill.set_xs_for_dancoff_calculation(moderator)
+
+    def set_xs_for_control_rod_dancoff_calculation(self, moderator: Material) -> None:
+        """
+        Sets the 1-group cross sections to calculate the control rod Dancoff
+        corrections.
+
+        Parameters
+        ----------
+        moderator : Material
+            Material definition for the moderator, used to obtain the potential
+            scattering cross section.
+        """
+        self._clad_dancoff_xs.set(
+            CrossSection(
+                np.array([self.clad.potential_xs]),
+                np.array([self.clad.potential_xs]),
+                np.array([[0.0]]),
+                "Clad",
+            )
+        )
+
+        if isinstance(self.fill, BurnablePoisonRod):
+            self.fill.set_xs_for_dancoff_calculation()
+        elif isinstance(self.fill, ControlRod):
+            self.fill.set_xs_for_control_rod_dancoff_calculation(moderator)
 
     def make_dancoff_moc_cell(
         self,
@@ -268,7 +371,9 @@ class GuideTube:
         radii = []
         xs = []
 
-        if isinstance(self.fill, BurnablePoisonRod):
+        if isinstance(self.fill, BurnablePoisonRod) or isinstance(
+            self.fill, ControlRod
+        ):
             radii, xs = self.fill._make_dancoff_moc_cell(moderator_xs)
         FILL_OFFSET = len(radii)
 
@@ -297,7 +402,7 @@ class GuideTube:
 
             # Must set FSR IDs by hand for the fill
             if isinstance(self.fill, BurnablePoisonRod):
-                if self.fill.center is not None:
+                if self.fill.center is None:
                     self._mod_isolated_dancoff_fsr_ids.append(cell_fsr_ids[0])
                 else:
                     self.fill._center_isolated_dancoff_fsr_ids.append(cell_fsr_ids[0])
@@ -311,6 +416,10 @@ class GuideTube:
                     cell_fsr_ids[4],
                 ]
                 self.fill._poison_isolated_dancoff_fsr_ids = [cell_fsr_ids[3]]
+            elif isinstance(self.fill, ControlRod):
+                self.fill._absorber_isolated_dancoff_fsr_ids.append(cell_fsr_ids[0])
+                self.fill._gap_isolated_dancoff_fsr_ids.append(cell_fsr_ids[1])
+                self.fill._clad_isolated_dancoff_fsr_ids.append(cell_fsr_ids[2])
 
         else:
             self._clad_full_dancoff_fsr_ids.append(cell_fsr_ids[FILL_OFFSET + 1])
@@ -321,7 +430,7 @@ class GuideTube:
 
             # Must set FSR IDs by hand for the fill
             if isinstance(self.fill, BurnablePoisonRod):
-                if self.fill.center is not None:
+                if self.fill.center is None:
                     self._mod_full_dancoff_fsr_ids.append(cell_fsr_ids[0])
                 else:
                     self.fill._center_full_dancoff_fsr_ids.append(cell_fsr_ids[0])
@@ -332,6 +441,10 @@ class GuideTube:
                 ]
                 self.fill._gap_full_dancoff_fsr_ids = [cell_fsr_ids[2], cell_fsr_ids[4]]
                 self.fill._poison_full_dancoff_fsr_ids = [cell_fsr_ids[3]]
+            elif isinstance(self.fill, ControlRod):
+                self.fill._absorber_full_dancoff_fsr_ids.append(cell_fsr_ids[0])
+                self.fill._gap_full_dancoff_fsr_ids.append(cell_fsr_ids[1])
+                self.fill._clad_full_dancoff_fsr_ids.append(cell_fsr_ids[2])
 
         return cell
 
@@ -365,7 +478,9 @@ class GuideTube:
         for id in self._mod_full_dancoff_fsr_ids:
             self._mod_full_dancoff_fsr_inds.append(fullmoc.get_fsr_indx(id, 0))
 
-        if isinstance(self.fill, BurnablePoisonRod):
+        if isinstance(self.fill, BurnablePoisonRod) or isinstance(
+            self.fill, ControlRod
+        ):
             self.fill.populate_dancoff_fsr_indexes(isomoc, fullmoc)
 
     def set_isolated_dancoff_fuel_sources(
@@ -394,11 +509,13 @@ class GuideTube:
         for ind in self._mod_isolated_dancoff_fsr_inds:
             isomoc.set_extern_src(ind, 0, pot_xs)
 
-        if isinstance(self.fill, BurnablePoisonRod):
+        if isinstance(self.fill, BurnablePoisonRod) or isinstance(
+            self.fill, ControlRod
+        ):
             self.fill.set_isolated_dancoff_fuel_sources(isomoc, moderator)
 
     def set_isolated_dancoff_clad_sources(
-        self, isomoc: MOCDriver, moderator: Material, ndl: NDLibrary
+        self, isomoc: MOCDriver, moderator: Material
     ) -> None:
         """
         Initializes the fixed sources for the isolated MOC calculation required
@@ -412,9 +529,6 @@ class GuideTube:
         moderator : Material
             Material definition for the moderator, used to obtain the potential
             scattering cross section.
-        ndl : NDLibrary
-            Nuclear data library for obtaining potential scattering cross
-            sections.
         """
         # Clad sources should all be zero !
         for ind in self._clad_isolated_dancoff_fsr_inds:
@@ -425,8 +539,41 @@ class GuideTube:
         for ind in self._mod_isolated_dancoff_fsr_inds:
             isomoc.set_extern_src(ind, 0, pot_xs)
 
-        if isinstance(self.fill, BurnablePoisonRod):
-            self.fill.set_isolated_dancoff_clad_sources(isomoc, moderator, ndl)
+        if isinstance(self.fill, BurnablePoisonRod) or isinstance(
+            self.fill, ControlRod
+        ):
+            self.fill.set_isolated_dancoff_clad_sources(isomoc, moderator)
+
+    def set_isolated_dancoff_control_rod_sources(
+        self, isomoc: MOCDriver, moderator: Material
+    ) -> None:
+        """
+        Initializes the fixed sources for the isolated MOC calculation required
+        in computing Dancoff corrections. Sources are set for a control rod
+        Dancoff correction calculation.
+
+        Parameters
+        ----------
+        isomoc : MOCDriver
+            MOC simulation for the isolated geometry.
+        moderator : Material
+            Material definition for the moderator, used to obtain the potential
+            scattering cross section.
+        """
+        # Clad sources should all be potential_xs
+        pot_xs = self.clad.potential_xs
+        for ind in self._clad_isolated_dancoff_fsr_inds:
+            isomoc.set_extern_src(ind, 0, pot_xs)
+
+        # Moderator sources should all be potential_xs
+        pot_xs = moderator.potential_xs
+        for ind in self._mod_isolated_dancoff_fsr_inds:
+            isomoc.set_extern_src(ind, 0, pot_xs)
+
+        if isinstance(self.fill, BurnablePoisonRod) or isinstance(
+            self.fill, ControlRod
+        ):
+            self.fill.set_isolated_dancoff_control_rod_sources(isomoc, moderator)
 
     def set_full_dancoff_fuel_sources(
         self, fullmoc: MOCDriver, moderator: Material
@@ -454,11 +601,13 @@ class GuideTube:
         for ind in self._mod_full_dancoff_fsr_inds:
             fullmoc.set_extern_src(ind, 0, pot_xs)
 
-        if isinstance(self.fill, BurnablePoisonRod):
+        if isinstance(self.fill, BurnablePoisonRod) or isinstance(
+            self.fill, ControlRod
+        ):
             self.fill.set_full_dancoff_fuel_sources(fullmoc, moderator)
 
     def set_full_dancoff_clad_sources(
-        self, fullmoc: MOCDriver, moderator: Material, ndl: NDLibrary
+        self, fullmoc: MOCDriver, moderator: Material
     ) -> None:
         """
         Initializes the fixed sources for the full MOC calculation required
@@ -467,14 +616,11 @@ class GuideTube:
 
         Parameters
         ----------
-        isomoc : MOCDriver
-            MOC simulation for the isolated geometry.
+        fullmoc : MOCDriver
+            MOC simulation for the full geometry.
         moderator : Material
             Material definition for the moderator, used to obtain the potential
             scattering cross section.
-        ndl : NDLibrary
-            Nuclear data library for obtaining potential scattering cross
-            sections.
         """
         # Clad sources should all be zero !
         for ind in self._clad_full_dancoff_fsr_inds:
@@ -485,8 +631,41 @@ class GuideTube:
         for ind in self._mod_full_dancoff_fsr_inds:
             fullmoc.set_extern_src(ind, 0, pot_xs)
 
-        if isinstance(self.fill, BurnablePoisonRod):
-            self.fill.set_full_dancoff_clad_sources(fullmoc, moderator, ndl)
+        if isinstance(self.fill, BurnablePoisonRod) or isinstance(
+            self.fill, ControlRod
+        ):
+            self.fill.set_full_dancoff_clad_sources(fullmoc, moderator)
+
+    def set_full_dancoff_control_rod_sources(
+        self, fullmoc: MOCDriver, moderator: Material
+    ) -> None:
+        """
+        Initializes the fixed sources for the full MOC calculation required
+        in computing Dancoff corrections. Sources are set for a control rod
+        Dancoff correction calculation.
+
+        Parameters
+        ----------
+        fullmoc : MOCDriver
+            MOC simulation for the full geometry.
+        moderator : Material
+            Material definition for the moderator, used to obtain the potential
+            scattering cross section.
+        """
+        # Clad sources should all be potential_xs
+        pot_xs = self.clad.potential_xs
+        for ind in self._clad_full_dancoff_fsr_inds:
+            fullmoc.set_extern_src(ind, 0, pot_xs)
+
+        # Moderator sources should all be potential_xs
+        pot_xs = moderator.potential_xs
+        for ind in self._mod_full_dancoff_fsr_inds:
+            fullmoc.set_extern_src(ind, 0, pot_xs)
+
+        if isinstance(self.fill, BurnablePoisonRod) or isinstance(
+            self.fill, ControlRod
+        ):
+            self.fill.set_full_dancoff_control_rod_sources(fullmoc, moderator)
 
     def compute_clad_dancoff_correction(
         self, isomoc: MOCDriver, fullmoc: MOCDriver
@@ -512,25 +691,7 @@ class GuideTube:
         full_flux = fullmoc.homogenize_flux_spectrum(self._clad_full_dancoff_fsr_inds)[
             0
         ]
-        C = (iso_flux - full_flux) / iso_flux
-        D = 1.0 - C
-        return D
-
-    def append_clad_dancoff_correction(self, C) -> None:
-        """
-        Saves new Dancoff correction for the cladding that will be used for all
-        subsequent cross section updates.
-
-        Parameters
-        ----------
-        C : float
-            New Dancoff correction.
-        """
-        if C < 0.0 or C > 1.0:
-            raise ValueError(
-                f"Dancoff correction must be in range [0, 1]. Was provided {C}."
-            )
-        self._clad_dancoff_corrections.append(C)
+        return (iso_flux - full_flux) / iso_flux
 
     # ==========================================================================
     # Transport Calculation Related Methods
@@ -549,30 +710,32 @@ class GuideTube:
         """
         # Compute escape xs
         Ee = 1.0 / (2.0 * (self.outer_radius - self.inner_radius))
+        new_clad_xs = self.clad.roman_xs(self._clad_dancoff_correction, Ee, ndl)
 
-        # Get / set the xs
+        # Set the xs
         if self._clad_xs is None:
-            self._clad_xs = self.clad.roman_xs(
-                self._clad_dancoff_corrections[t], Ee, ndl
-            )
+            self._clad_xs = new_clad_xs
         else:
-            self._clad_xs.set(
-                self.clad.roman_xs(self._clad_dancoff_corrections[t], Ee, ndl)
-            )
+            self._clad_xs.set(new_clad_xs)
 
         if self._clad_xs.name == "":
             self._clad_xs.name = "Clad"
 
-    def set_fill_xs_for_depletion_step(self, t: int, ndl: NDLibrary) -> None:
+    def set_fill_xs_for_depletion_step(
+        self, t: int, moderator_xs: CrossSection, ndl: NDLibrary
+    ) -> None:
         """
         Constructs the CrossSection objects for the fill of the guide tube
         at the specified depletion step. The depletion step changes the poison
-        composition, if filled with a burnable poison rod.
+        composition, if filled with a burnable poison rod, or the control rod
+        composition if filled with a control rod.
 
         Parameters
         ----------
         t : int
             Index for the depletion step.
+        moderator_xs : CrossSection
+            Cross sections for the moderator.
         ndl : NDLibrary
             Nuclear data library to use for cross sections.
         """
@@ -584,6 +747,8 @@ class GuideTube:
             self.fill.set_gap_xs(ndl)
             self.fill.set_clad_xs(ndl)
             self.fill.set_poison_xs_for_depletion_step(t, ndl)
+        elif isinstance(self.fill, ControlRod):
+            self.fill.set_xs(t, moderator_xs, ndl)
 
     def make_moc_cell(
         self, moderator_xs: CrossSection, dx: float, dy: float, pintype: PinCellType
@@ -628,7 +793,9 @@ class GuideTube:
 
             # Initialize the cross section lists with the inner moderator xs
             xss += len(radii) * [moderator_xs]
-        elif isinstance(self.fill, BurnablePoisonRod):
+        elif isinstance(self.fill, BurnablePoisonRod) or isinstance(
+            self.fill, ControlRod
+        ):
             radii, xss = self.fill._make_moc_cell(moderator_xs)
             FILL_OFFSET = len(radii)
 
@@ -706,6 +873,17 @@ class GuideTube:
             self.fill._poison_fsr_ids += cell_fsr_ids[3 * NA : 4 * NA]
             self.fill._gap_fsr_ids += cell_fsr_ids[4 * NA : 5 * NA]
             self.fill._clad_fsr_ids += cell_fsr_ids[5 * NA : 6 * NA]
+        elif isinstance(self.fill, ControlRod):
+            for r in range(self.fill.num_rings):
+                self.fill._absorber_ring_fsr_ids[r] += cell_fsr_ids[
+                    r * NA : (r + 1) * NA
+                ]
+            self.fill._gap_fsr_ids += cell_fsr_ids[
+                self.fill.num_rings * NA : (self.fill.num_rings + 1) * NA
+            ]
+            self.fill._clad_fsr_ids += cell_fsr_ids[
+                (self.fill.num_rings + 1) * NA : (self.fill.num_rings + 2) * NA
+            ]
 
         I = 0  # Starting index for cell_fsr_inds
         # Go through all rings of moderator and get FSR IDs
@@ -746,26 +924,32 @@ class GuideTube:
         for id in self._mod_fsr_ids:
             self._mod_fsr_inds.append(moc.get_fsr_indx(id, 0))
 
-        if isinstance(self.fill, BurnablePoisonRod):
+        if isinstance(self.fill, BurnablePoisonRod) or isinstance(
+            self.fill, ControlRod
+        ):
             self.fill.populate_fsr_indexes(moc)
 
     def obtain_flux_spectra(self, moc: MOCDriver) -> None:
         """
-        If the guide tube contains a burnable poison rod, the average flux
-        spectrum in the poison is obtained from the MOC simulation.
+        If the guide tube contains a burnable poison rod or a control rod, the
+        average flux spectrum is obtained from the MOC simulation.
 
         Parameters
         ----------
         moc : MOCDriver
             MOC simulation for the full calculations.
         """
-        if not self.empty and isinstance(self.fill, BurnablePoisonRod):
+        if (
+            not self.empty
+            and isinstance(self.fill, BurnablePoisonRod)
+            or isinstance(self.fill, ControlRod)
+        ):
             self.fill.obtain_flux_spectra(moc)
 
     def normalize_flux_spectrum(self, f) -> None:
         """
-        If the guide tube contains a burnable poison rod, it applies a
-        multiplicative factor to the flux spectra for the poison. This permits
+        If the guide tube contains a burnable poison rod or a control rod, it
+        applies a multiplicative factor to the flux spectra. This permits
         normalizing the flux to a known assembly power.
 
         Parameters
@@ -773,7 +957,11 @@ class GuideTube:
         f : float
             Normalization factor.
         """
-        if not self.empty and isinstance(self.fill, BurnablePoisonRod):
+        if (
+            not self.empty
+            and isinstance(self.fill, BurnablePoisonRod)
+            or isinstance(self.fill, ControlRod)
+        ):
             self.fill.normalize_flux_spectrum(f)
 
     def predict_depletion(
@@ -805,8 +993,11 @@ class GuideTube:
         if dt <= 0:
             raise ValueError("Predictor time step must be > 0.")
 
-        if not self.empty and isinstance(self.fill, BurnablePoisonRod):
-            self.fill.predict_depletion(chain, ndl, dt, dtm1)
+        if not self.empty:
+            if isinstance(self.fill, BurnablePoisonRod) or (
+                isinstance(self.fill, ControlRod) and not self.fill.is_moderator
+            ):
+                self.fill.predict_depletion(chain, ndl, dt, dtm1)
 
     def correct_depletion(
         self,
@@ -835,9 +1026,9 @@ class GuideTube:
         """
         if dt <= 0:
             raise ValueError("Corrector time step must be > 0.")
-        # Nothing to do here yet, as guide tube "fills" with burnable
-        # absorber pins is not yet supported. In the future, those will
-        # need to be depleted !
 
-        if not self.empty and isinstance(self.fill, BurnablePoisonRod):
-            self.fill.correct_depletion(chain, ndl, dt, dtm1)
+        if not self.empty:
+            if isinstance(self.fill, BurnablePoisonRod) or (
+                isinstance(self.fill, ControlRod) and not self.fill.is_moderator
+            ):
+                self.fill.correct_depletion(chain, ndl, dt, dtm1)

@@ -93,6 +93,8 @@ class BurnablePoisonRod:
         ]
         if not sorted(tmp_radii_list):
             raise ValueError("Burnable poison rod radii are not sorted.")
+        if tmp_radii_list[0] <= 0:
+            raise ValueError("All radii must be > 0.")
 
         # Set materials
         self._center = copy.deepcopy(center)
@@ -117,7 +119,7 @@ class BurnablePoisonRod:
                 np.array([self.center.potential_xs]),
                 np.array([self.center.potential_xs]),
                 np.array([[0.0]]),
-                "BPR Clad",
+                "BPR Center",
             )
 
         self._clad_dancoff_xs: CrossSection = CrossSection(
@@ -329,7 +331,7 @@ class BurnablePoisonRod:
                     np.array([self.center.potential_xs]),
                     np.array([self.center.potential_xs]),
                     np.array([[0.0]]),
-                    "BPR Clad",
+                    "BPR Center",
                 )
             )
 
@@ -399,14 +401,14 @@ class BurnablePoisonRod:
             isomoc.set_extern_src(ind, 0, pot_xs)
 
     def set_isolated_dancoff_clad_sources(
-        self, isomoc: MOCDriver, moderator: Material, ndl: NDLibrary
+        self, isomoc: MOCDriver, moderator: Material
     ) -> None:
         """
         Initializes the fixed sources for the isolated MOC calculation required
         in computing Dancoff corrections. Sources are set for a clad Dancoff
         correction calculation.
 
-        The cladding of a burnable poison pin is no self-shielded. Therefore,
+        The cladding of a burnable poison pin is not self-shielded. Therefore,
         this method is an alias to set_isolated_dancoff_fuel_sources.
 
         Parameters
@@ -416,9 +418,26 @@ class BurnablePoisonRod:
         moderator : Material
             Material definition for the moderator, used to obtain the potential
             scattering cross section.
-        ndl : NDLibrary
-            Nuclear data library for obtaining potential scattering cross
-            sections.
+        """
+        self.set_isolated_dancoff_fuel_sources(isomoc, moderator)
+
+    def set_isolated_dancoff_control_rod_sources(
+        self, isomoc: MOCDriver, moderator: Material
+    ) -> None:
+        """
+        Initializes the fixed sources for the isolated MOC calculation required
+        in computing Dancoff corrections. Sources are set for a control rod
+        Dancoff correction calculation.
+
+        This method is an alias to set_isolated_dancoff_fuel_sources.
+
+        Parameters
+        ----------
+        isomoc : MOCDriver
+            MOC simulation for the isolated geometry.
+        moderator : Material
+            Material definition for the moderator, used to obtain the potential
+            scattering cross section.
         """
         self.set_isolated_dancoff_fuel_sources(isomoc, moderator)
 
@@ -460,26 +479,43 @@ class BurnablePoisonRod:
             fullmoc.set_extern_src(ind, 0, pot_xs)
 
     def set_full_dancoff_clad_sources(
-        self, fullmoc: MOCDriver, moderator: Material, ndl: NDLibrary
+        self, fullmoc: MOCDriver, moderator: Material
     ) -> None:
         """
         Initializes the fixed sources for the full MOC calculation required
         in computing Dancoff corrections. Sources are set for a clad Dancoff
         correction calculation.
 
-        The cladding of a burnable poison pin is no self-shielded. Therefore,
+        The cladding of a burnable poison pin is not self-shielded. Therefore,
         this method is an alias to set_isolated_dancoff_fuel_sources.
 
         Parameters
         ----------
-        isomoc : MOCDriver
-            MOC simulation for the isolated geometry.
+        fullmoc : MOCDriver
+            MOC simulation for the full geometry.
         moderator : Material
             Material definition for the moderator, used to obtain the potential
             scattering cross section.
-        ndl : NDLibrary
-            Nuclear data library for obtaining potential scattering cross
-            sections.
+        """
+        self.set_full_dancoff_fuel_sources(fullmoc, moderator)
+
+    def set_full_dancoff_control_rod_sources(
+        self, fullmoc: MOCDriver, moderator: Material
+    ) -> None:
+        """
+        Initializes the fixed sources for the full MOC calculation required
+        in computing Dancoff corrections. Sources are set for a control rod
+        Dancoff correction calculation.
+
+        This method is an alias to set_isolated_dancoff_fuel_sources.
+
+        Parameters
+        ----------
+        fullmoc : MOCDriver
+            MOC simulation for the full geometry.
+        moderator : Material
+            Material definition for the moderator, used to obtain the potential
+            scattering cross section.
         """
         self.set_full_dancoff_fuel_sources(fullmoc, moderator)
 
