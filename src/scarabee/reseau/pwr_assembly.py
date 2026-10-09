@@ -1,4 +1,5 @@
 from .burnable_poison_rod import BurnablePoisonRod
+from .control_rod import ControlRod
 from .fuel_pin import FuelPin
 from .guide_tube import GuideTube
 from .critical_leakage import CriticalLeakage
@@ -150,6 +151,8 @@ class PWRAssembly:
         Width of the grid sleeve around the assembly.
     grid_sleeve : optional Material
         Material defining the grid sleeve around the assembly.
+    has_control_rods : bool
+        True if some of the guide tubes have a control rod. False otherwise.
     dancoff_moc_track_spacing : float
         Spacing between tracks in the MOC calculations for determining Dancoff
         corrections. Default value is 0.05 cm.
@@ -293,7 +296,12 @@ class PWRAssembly:
 
         self._initial_heavy_metal_linear_mass: float = 0.0
 
-        self._cells_set = False
+        # We initally assume there are no control rods and they are not inserted.
+        # These are changed by _set_cells called below.
+        self._has_control_rods: bool = False
+        self._control_rods_inserted: bool = False
+
+        self._cells_set: bool = False
         self._cells: List[List[Union[FuelPin, GuideTube]]] = [[]]
         self._set_cells(cells)
 
@@ -334,7 +342,7 @@ class PWRAssembly:
             self._spacer_grid_width = spacer_grid_width
             self._spacer_grid = spacer_grid
 
-            if self.spacer_grid_width is not None:
+            if self._spacer_grid_width is not None:
                 if self._spacer_grid_width <= 0.0:
                     raise ValueError("Spacer grid width must be > 0.")
                 elif self._spacer_grid_width >= self._pitch:
@@ -351,7 +359,7 @@ class PWRAssembly:
             self._grid_sleeve_width = grid_sleeve_width
             self._grid_sleeve = grid_sleeve
 
-            if self.grid_sleeve_width is not None:
+            if self._grid_sleeve_width is not None:
                 if self._grid_sleeve_width <= 0.0:
                     raise ValueError("Grid sleeve width must be > 0.")
                 elif self._grid_sleeve_width >= 0.5 * (
@@ -468,13 +476,30 @@ class PWRAssembly:
         self._dancoff_moc_track_spacing = 0.05
         self._dancoff_moc_num_angles = 32
         self._dancoff_flux_tolerance = 1.0e-5
+        if self.has_control_rods:
+            # Apparently, it is a little tricky to get good Dancoff corrections
+            # for control rods, and erroneous negative values can appear
+            # without a fine enough discretization. I found these values
+            # necessary to avoid negatives.
+            self._dancoff_moc_track_spacing = 0.01
+            self._dancoff_moc_num_angles = 128
 
-        self._fuel_dancoff_corrections = np.zeros(
+        self._fuel_dancoff_corrections_no_control_rods = np.zeros(
             (self._simulated_shape[1], self._simulated_shape[0])
         )
-        self._clad_dancoff_corrections = np.zeros(
+        self._fuel_dancoff_corrections_control_rods = np.zeros(
             (self._simulated_shape[1], self._simulated_shape[0])
         )
+        self._clad_dancoff_corrections_no_control_rods = np.zeros(
+            (self._simulated_shape[1], self._simulated_shape[0])
+        )
+        self._clad_dancoff_corrections_control_rods = np.zeros(
+            (self._simulated_shape[1], self._simulated_shape[0])
+        )
+        self._control_rod_dancoff_corrections = np.zeros(
+            (self._simulated_shape[1], self._simulated_shape[0])
+        )
+        self._dancoff_corrections_computed_and_assigned: bool = False
 
         # ======================================================================
         # TRANSPORT CALCULATION DATA
@@ -625,6 +650,14 @@ class PWRAssembly:
     @property
     def moderator_xs(self) -> CrossSection:
         return self._moderator_xs
+
+    @property
+    def has_control_rods(self) -> bool:
+        return self._has_control_rods
+
+    @property
+    def control_rods_inserted(self) -> bool:
+        return self._control_rods_inserted
 
     @property
     def dancoff_moc_track_spacing(self) -> float:
@@ -990,6 +1023,52 @@ class PWRAssembly:
     def form_factors(self) -> List[FormFactors]:
         return self._form_factors
 
+    def remove_control_rods(self, scilent: bool = False) -> None:
+        """
+        If the guide tubes have any control rod fills, their cross sections
+        will be set to that of the moderator. It also instructs all cells to
+        use Dancoff corrections for when control rods are removed.
+
+        Paramters
+        ---------
+        scilent : bool, default False
+            If False, a message is written to the log that control rods are
+            being removed. If True, no message is written.
+        """
+        if not scilent:
+            scarabee_log(LogLevel.Info, "Removing control rods")
+        for i in range(len(self._cells)):
+            for j in range(len(self._cells[i])):
+                cell = self._cells[i][j]
+                cell.use_no_control_rod_dancoff_correction()
+                if isinstance(cell, GuideTube):
+                    cell.remove_control_rod()
+        self._control_rods_inserted = False
+
+    def insert_control_rods(self, scilent: bool = False) -> None:
+        """
+        If the guide tubes have any control rod fills, their cross sections
+        will be set to those of the actual control rods. It also instructs all
+        cells to use Dancoff corrections for when control rods are inserted.
+
+        Paramters
+        ---------
+        scilent : bool, default False
+            If False, a message is written to the log that control rods are
+            being inserted. If True, no message is written.
+        """
+        if not scilent:
+            scarabee_log(LogLevel.Info, "Inserting control rods")
+        for i in range(len(self._cells)):
+            for j in range(len(self._cells[i])):
+                cell = self._cells[i][j]
+                cell.use_control_rod_dancoff_correction()
+                if isinstance(cell, GuideTube):
+                    cell.insert_control_rod()
+
+        if self.has_control_rods:
+            self._control_rods_inserted = True
+
     def _set_cells(self, cells: List[List[Union[FuelPin, GuideTube]]]) -> None:
         if len(cells) != self._simulated_shape[1]:
             raise ValueError(
@@ -1010,6 +1089,18 @@ class PWRAssembly:
             self._cells.append([])
             for i in range(len(cells[j])):
                 self._cells[-1].append(copy.deepcopy(cells[j][i]))
+
+                if (
+                    isinstance(cells[j][i], GuideTube)
+                    and not cells[j][i].empty
+                    and isinstance(cells[j][i].fill, ControlRod)
+                ):
+                    self._has_control_rods = True
+                    self._control_rods_inserted = True
+                    cr = self._cells[-1][-1].fill
+                    if cr.is_moderator:
+                        # All control rods start as inserted
+                        cr.is_moderator = False
 
                 if isinstance(cells[j][i], FuelPin):
                     lfm = cells[j][i].initial_fissionable_linear_mass
@@ -1143,6 +1234,10 @@ class PWRAssembly:
                                 * cell.fill.center_radius
                                 * cell.fill.center_radius
                             )
+                    elif isinstance(cell.fill, ControlRod) and cell.fill.is_moderator:
+                        cell_mod_volume += (
+                            np.pi * cell.fill.clad_radius * cell.fill.clad_radius
+                        )
 
                 # First check for quarter symmetry and being corner pin
                 if (
@@ -1533,7 +1628,7 @@ class PWRAssembly:
             return False
         return True
 
-    def set_dancoff_moderator_xs(self) -> None:
+    def _set_dancoff_moderator_xs(self) -> None:
         """
         Updates the moderator cross section for all Dancoff correction calculations.
         """
@@ -1546,7 +1641,7 @@ class PWRAssembly:
             )
         )
 
-    def set_dancoff_spacer_grid_sleeve_xs(self) -> None:
+    def _set_dancoff_spacer_grid_sleeve_xs(self) -> None:
         """
         Updates the spacer grid and grid sleeve cross sections for all Dancoff
         correction calculations.
@@ -1570,13 +1665,31 @@ class PWRAssembly:
                 )
             )
 
-    def compute_fuel_dancoff_corrections(self) -> None:
+    def _compute_fuel_dancoff_corrections(self, control_rods: bool) -> None:
         """
-        Recomputes all Dancoff corrections for the fuel regions in the problem,
-        using the most recent material definitions. All fuel is shelf-shielded
-        together, regardless of wether or not is is UO2 or MOX.
+        Recomputes all Dancoff corrections for the fuel regions in the problem.
+        All fuel is shelf-shielded together, regardless of wether or not is is
+        UO2 or MOX.
+
+        Parameters
+        ----------
+        control_rods : bool
+        If True, saves the Dancoff corrections for use with control rods.
+        If False, they are saved for use without control rods.
         """
-        scarabee_log(LogLevel.Info, "Computing Dancoff corrections for the fuel.")
+        if control_rods:
+            scarabee_log(
+                LogLevel.Info,
+                "Computing Dancoff corrections for the fuel with control rods.",
+            )
+        elif not control_rods and self.has_control_rods:
+            scarabee_log(
+                LogLevel.Info,
+                "Computing Dancoff corrections for the fuel without control rods.",
+            )
+        else:
+            scarabee_log(LogLevel.Info, "Computing Dancoff corrections for the fuel.")
+
         set_logging_level(LogLevel.Warning)
         if not self._dancoff_components_initialized():
             raise RuntimeError(
@@ -1591,13 +1704,17 @@ class PWRAssembly:
 
                 isomoc.flux_tolerance = self.dancoff_flux_tolerance
 
-                cell.set_xs_for_fuel_dancoff_calculation()
+                if isinstance(cell, FuelPin):
+                    cell.set_xs_for_fuel_dancoff_calculation()
+                elif isinstance(cell, GuideTube):
+                    cell.set_xs_for_fuel_dancoff_calculation(self.moderator)
 
                 cell.set_isolated_dancoff_fuel_sources(isomoc, self.moderator)
 
                 cell.set_full_dancoff_fuel_sources(
                     self._full_dancoff_moc, self.moderator
                 )
+
         self._full_dancoff_moc.flux_tolerance = self.dancoff_flux_tolerance
 
         # Solve all the MOCs in parallel
@@ -1625,16 +1742,38 @@ class PWRAssembly:
                     C = cell.compute_fuel_dancoff_correction(
                         isomoc, self._full_dancoff_moc
                     )
-                    self._fuel_dancoff_corrections[j, i] = C
+                    if control_rods:
+                        self._fuel_dancoff_corrections_control_rods[j, i] = C
+                    else:
+                        self._fuel_dancoff_corrections_no_control_rods[j, i] = C
         set_logging_level(LogLevel.Info)
 
-    def compute_clad_dancoff_corrections(self) -> None:
+    def _compute_clad_dancoff_corrections(self, control_rods: bool) -> None:
         """
-        Recomputes all Dancoff corrections for the fuel pin cladding regions
-        in the problem, using the most recent material definitions. All
-        cladding is shelf-shielded together.
+        Recomputes all Dancoff corrections for the cladding regions in the
+        problem, including guide tubes. All cladding is shelf-shielded together.
+
+        Parameters
+        ----------
+        control_rods : bool
+        If True, saves the Dancoff corrections for use with control rods.
+        If False, they are saved for use without control rods.
         """
-        scarabee_log(LogLevel.Info, "Computing Dancoff corrections for the cladding.")
+        if control_rods:
+            scarabee_log(
+                LogLevel.Info,
+                "Computing Dancoff corrections for the cladding with control rods.",
+            )
+        elif not control_rods and self.has_control_rods:
+            scarabee_log(
+                LogLevel.Info,
+                "Computing Dancoff corrections for the cladding without control rods.",
+            )
+        else:
+            scarabee_log(
+                LogLevel.Info, "Computing Dancoff corrections for the cladding."
+            )
+
         set_logging_level(LogLevel.Warning)
         if self._full_dancoff_moc is None:
             raise RuntimeError(
@@ -1648,16 +1787,22 @@ class PWRAssembly:
                 isomoc = self._isolated_dancoff_mocs[j][i]
                 isomoc.flux_tolerance = self.dancoff_flux_tolerance
 
-                cell.set_xs_for_clad_dancoff_calculation(self._ndl)
+                if isinstance(cell, FuelPin):
+                    cell.set_xs_for_clad_dancoff_calculation(self._ndl)
+                    cell.set_isolated_dancoff_clad_sources(
+                        isomoc, self.moderator, self._ndl
+                    )
+                    cell.set_full_dancoff_clad_sources(
+                        self._full_dancoff_moc, self.moderator, self._ndl
+                    )
+                elif isinstance(cell, GuideTube):
+                    cell.set_xs_for_clad_dancoff_calculation(self.moderator)
+                    cell.set_isolated_dancoff_clad_sources(isomoc, self.moderator)
+                    cell.set_full_dancoff_clad_sources(
+                        self._full_dancoff_moc, self.moderator
+                    )
 
-                cell.set_isolated_dancoff_clad_sources(
-                    isomoc, self.moderator, self._ndl
-                )
-
-                cell.set_full_dancoff_clad_sources(
-                    self._full_dancoff_moc, self.moderator, self._ndl
-                )
-            self._full_dancoff_moc.flux_tolerance = self.dancoff_flux_tolerance
+        self._full_dancoff_moc.flux_tolerance = self.dancoff_flux_tolerance
 
         # Solve all the MOCs in parallel
         threads = []
@@ -1680,25 +1825,123 @@ class PWRAssembly:
                 isomoc = self._isolated_dancoff_mocs[j][i]
 
                 C = cell.compute_clad_dancoff_correction(isomoc, self._full_dancoff_moc)
-                self._clad_dancoff_corrections[j, i] = C
+
+                if control_rods:
+                    self._clad_dancoff_corrections_control_rods[j, i] = C
+                else:
+                    self._clad_dancoff_corrections_no_control_rods[j, i] = C
         set_logging_level(LogLevel.Info)
 
-    def apply_dancoff_corrections(self) -> None:
+    def _compute_control_rod_dancoff_corrections(self) -> None:
         """
-        Appends all fuel and cladding Dancoff corrections to the appropriate cell.
+        Recomputes all Dancoff corrections for the contro rods in the problem.
+        All control rods are shelf-shielded together.
+        """
+        scarabee_log(
+            LogLevel.Info, "Computing Dancoff corrections for the control rods."
+        )
+
+        set_logging_level(LogLevel.Warning)
+        if self._full_dancoff_moc is None:
+            raise RuntimeError(
+                "Dancoff calculation components have not been initialized."
+            )
+
+        # Set the xs and sources for all cells
+        for j in range(len(self.cells)):
+            for i in range(len(self.cells[j])):
+                cell = self.cells[j][i]
+                isomoc = self._isolated_dancoff_mocs[j][i]
+                isomoc.flux_tolerance = self.dancoff_flux_tolerance
+
+                if isinstance(cell, FuelPin):
+                    cell.set_xs_for_control_rod_dancoff_calculation(self._ndl)
+                    cell.set_isolated_dancoff_control_rod_sources(
+                        isomoc, self.moderator, self._ndl
+                    )
+                    cell.set_full_dancoff_control_rod_sources(
+                        self._full_dancoff_moc, self.moderator, self._ndl
+                    )
+                elif isinstance(cell, GuideTube):
+                    cell.set_xs_for_control_rod_dancoff_calculation(self.moderator)
+                    cell.set_isolated_dancoff_control_rod_sources(
+                        isomoc, self.moderator
+                    )
+                    cell.set_full_dancoff_control_rod_sources(
+                        self._full_dancoff_moc, self.moderator
+                    )
+
+        self._full_dancoff_moc.flux_tolerance = self.dancoff_flux_tolerance
+
+        # Solve all the MOCs in parallel
+        threads = []
+        for j in range(len(self.cells)):
+            for i in range(len(self.cells[j])):
+                cell = self.cells[j][i]
+                if isinstance(cell, GuideTube):
+                    if isinstance(cell.fill, ControlRod):
+                        isomoc = self._isolated_dancoff_mocs[j][i]
+                        threads.append(Thread(target=isomoc.solve))
+                        threads[-1].start()
+        threads.append(Thread(target=self._full_dancoff_moc.solve))
+        threads[-1].start()
+        for t in threads:
+            t.join()
+
+        # Go through and let each cell compute the Dancoff correction if it holds
+        # a fuel pin.
+        for j in range(len(self.cells)):
+            for i in range(len(self.cells[j])):
+                cell = self.cells[j][i]
+                isomoc = self._isolated_dancoff_mocs[j][i]
+
+                if isinstance(cell, GuideTube):
+                    if isinstance(cell.fill, ControlRod):
+                        C = cell.fill.compute_control_rod_dancoff_correction(
+                            isomoc, self._full_dancoff_moc
+                        )
+                        self._control_rod_dancoff_corrections[j, i] = C
+
+        set_logging_level(LogLevel.Info)
+
+    def _apply_dancoff_corrections(self) -> None:
+        """
+        Applies all fuel and cladding Dancoff corrections to the appropriate cell.
         """
         for j in range(len(self.cells)):
             for i in range(len(self.cells[j])):
                 cell = self.cells[j][i]
                 if isinstance(cell, FuelPin):
-                    cell.append_fuel_dancoff_correction(
-                        self._fuel_dancoff_corrections[j, i]
+                    cell.fuel_dancoff_correction_no_control_rods = (
+                        self._fuel_dancoff_corrections_no_control_rods[j, i]
                     )
-                cell.append_clad_dancoff_correction(
-                    self._clad_dancoff_corrections[j, i]
-                )
+                    if self.has_control_rods:
+                        cell.fuel_dancoff_correction_control_rods = (
+                            self._fuel_dancoff_corrections_control_rods[j, i]
+                        )
+                    else:
+                        cell.fuel_dancoff_correction_control_rods = (
+                            self._fuel_dancoff_corrections_no_control_rods[j, i]
+                        )
+                elif isinstance(cell, GuideTube) and not cell.empty:
+                    if isinstance(cell.fill, ControlRod):
+                        cell.fill.absorber_dancoff_correction = (
+                            self._control_rod_dancoff_corrections[j, i]
+                        )
 
-    def self_shield_and_xs_update(self) -> None:
+                cell.clad_dancoff_correction_no_control_rods = (
+                    self._clad_dancoff_corrections_no_control_rods[j, i]
+                )
+                if self.has_control_rods:
+                    cell.clad_dancoff_correction_control_rods = (
+                        self._clad_dancoff_corrections_control_rods[j, i]
+                    )
+                else:
+                    cell.clad_dancoff_correction_control_rods = (
+                        self._clad_dancoff_corrections_no_control_rods[j, i]
+                    )
+
+    def compute_dancoff_corrections(self) -> None:
         """
         Computes a new set of Dancoff corrections for the fuel and the
         cladding.  After, these are applied to all the cells in the problem.
@@ -1706,14 +1949,28 @@ class PWRAssembly:
         if not self._dancoff_components_initialized():
             self._init_dancoff_components()
 
+        orig_cr_inserted = copy.deepcopy(self.control_rods_inserted)
+
         # Update the Dancoff cross sections held by the assembly
-        self.set_dancoff_moderator_xs()
-        self.set_dancoff_spacer_grid_sleeve_xs()
+        self._set_dancoff_moderator_xs()
+        self._set_dancoff_spacer_grid_sleeve_xs()
 
         # Compute Dancoff corrections
-        self.compute_fuel_dancoff_corrections()
-        self.compute_clad_dancoff_corrections()
-        self.apply_dancoff_corrections()
+        if self.has_control_rods:
+            self.insert_control_rods(scilent=True)
+            self._compute_fuel_dancoff_corrections(control_rods=True)
+            self._compute_clad_dancoff_corrections(control_rods=True)
+            self._compute_control_rod_dancoff_corrections()
+            self.remove_control_rods(scilent=True)
+        self._compute_fuel_dancoff_corrections(control_rods=False)
+        self._compute_clad_dancoff_corrections(control_rods=False)
+        self._apply_dancoff_corrections()
+        self._dancoff_corrections_computed_and_assigned = True
+
+        if orig_cr_inserted:
+            self.insert_control_rods(scilent=True)
+        else:
+            self.remove_control_rods(scilent=True)
 
     # ==========================================================================
     # Transport Calculation Related Methods
@@ -1994,7 +2251,9 @@ class PWRAssembly:
             for i in range(len(self.cells[j])):
                 cell = self.cells[j][i]
                 if isinstance(cell, GuideTube):
-                    cell.set_fill_xs_for_depletion_step(-1, self._ndl)
+                    cell.set_fill_xs_for_depletion_step(
+                        -1, self.moderator_xs, self._ndl
+                    )
 
     def apply_leakage_model(self, scilent: bool = False) -> None:
         """
@@ -2334,10 +2593,10 @@ class PWRAssembly:
             C_vEf, _ = curve_fit(fnc, LRr, f_vEf)
 
             # Store computed values
-            lc.set_D(G_in, C_D)
-            lc.set_Ea(G_in, C_Ea)
-            lc.set_Ef(G_in, C_Ef)
-            lc.set_vEf(G_in, C_vEf)
+            lc.set_D(G_in, C_D[0])
+            lc.set_Ea(G_in, C_Ea[0])
+            lc.set_Ef(G_in, C_Ef[0])
+            lc.set_vEf(G_in, C_vEf[0])
 
             # Do same for each down-scattering transition
             for G_out in range(G_in + 1, NG):
@@ -2346,7 +2605,7 @@ class PWRAssembly:
                     Es[b] = xss[b].Es(G_in, G_out)
                 f_Es = (Es - xs_ref.Es(G_in, G_out)) / xs_ref.Es(G_in, G_out)
                 C_Es, _ = curve_fit(fnc, LRr, f_Es)
-                lc.set_Es(G_in, G_out, C_Es)
+                lc.set_Es(G_in, G_out, C_Es[0])
 
         return lc
 
@@ -2423,7 +2682,6 @@ class PWRAssembly:
     def _run_assembly_calculation(
         self,
         self_shield: bool,
-        apply_dancoff_corrections: bool = False,
         transport: bool = True,
     ) -> None:
         """
@@ -2437,21 +2695,15 @@ class PWRAssembly:
         Paramters
         ---------
         self_shield : bool
-            If True, self-shielding is performed for the fuel and cladding.
-        apply_dancoff_corrections : bool, default False
-            If self_shield is False and this option is True, the previously
-            obtained Dancoff corrections are applied to all cells.
+            If True, self-shielding is performed for the fuel, cladding, and
+            control rods by computing new Dancoff corrections.
         transport : bool, default True
             If True, the MOC calculation is performed. Otherwise, the MOC
             calculation is not performed, but the leakage correction and flux
             normalization are.
         """
-        if self_shield:
-            # If we want self-shielding, do that stuff
-            self.self_shield_and_xs_update()
-        elif apply_dancoff_corrections:
-            # Sets dancoff corrections, even if self-shielding wasn't performed
-            self.apply_dancoff_corrections()
+        if self._dancoff_corrections_computed_and_assigned == False or self_shield:
+            self.compute_dancoff_corrections()
 
         self.recompute_all_xs()
 
@@ -2542,7 +2794,7 @@ class PWRAssembly:
 
             scarabee_log(LogLevel.Info, "Predictor:")
             # Run initial calcualtion for this time step
-            self._run_assembly_calculation(True)
+            self._run_assembly_calculation(False)
             scarabee_log(LogLevel.Info, "")
             self._keff[t] = self._asmbly_moc.keff
             dd, ff = self._compute_diffusion_data_and_form_factors()
@@ -2553,7 +2805,7 @@ class PWRAssembly:
             self._predict_depletion(dt_sec, dtm1_sec)
 
             scarabee_log(LogLevel.Info, "Corrector:")
-            # Run the a new transport calcualtion to get rates
+            # Run the a new transport calculation to get rates
             self._run_assembly_calculation(False, transport=self.corrector_transport)
 
             # Do correction step for isotopes
@@ -2589,7 +2841,7 @@ class PWRAssembly:
         """
         if self.depletion_exposure_steps is None:
             # Single one-off calulcation
-            self._run_assembly_calculation(True)
+            self._run_assembly_calculation(False)
             self._diffusion_data = []
             self._form_factors = []
             self._keff = np.array([self._asmbly_moc.keff])

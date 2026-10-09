@@ -1,4 +1,6 @@
 from .fuel_pin import *
+from .burnable_poison_rod import *
+from .control_rod import *
 from .guide_tube import *
 from .reflector import *
 from .symmetry import *
