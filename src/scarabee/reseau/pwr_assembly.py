@@ -2681,7 +2681,7 @@ class PWRAssembly:
 
     def _run_assembly_calculation(
         self,
-        self_shield: bool,
+        force_self_shield: bool,
         transport: bool = True,
     ) -> None:
         """
@@ -2694,7 +2694,7 @@ class PWRAssembly:
 
         Paramters
         ---------
-        self_shield : bool
+        force_self_shield : bool
             If True, self-shielding is performed for the fuel, cladding, and
             control rods by computing new Dancoff corrections.
         transport : bool, default True
@@ -2702,7 +2702,10 @@ class PWRAssembly:
             calculation is not performed, but the leakage correction and flux
             normalization are.
         """
-        if self._dancoff_corrections_computed_and_assigned == False or self_shield:
+        if (
+            self._dancoff_corrections_computed_and_assigned == False
+            or force_self_shield
+        ):
             self.compute_dancoff_corrections()
 
         self.recompute_all_xs()
@@ -2826,7 +2829,7 @@ class PWRAssembly:
         )
         scarabee_log(LogLevel.Info, "Time    : {:.3E} days".format(self._times[-1]))
         scarabee_log(LogLevel.Info, "")
-        self._run_assembly_calculation(True)
+        self._run_assembly_calculation(False)
         self._keff[-1] = self._asmbly_moc.keff
         dd, ff = self._compute_diffusion_data_and_form_factors()
         self._diffusion_data.append(dd)
