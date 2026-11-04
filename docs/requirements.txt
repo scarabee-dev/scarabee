@@ -1,8 +1,8 @@
-sphinx==5.0.2
+sphinx
 pydata_sphinx_theme
 sphinx-numfig
 numpy
 scipy
-nbsphinx>=0.7.1
+nbsphinx
 jupyter
 pandoc
