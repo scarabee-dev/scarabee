@@ -12,6 +12,8 @@ PWR Assembly Components
 
 .. autoclass:: scarabee.reseau.BurnablePoisonRod
 
+.. autoclass:: scarabee.reseau.ControlRod
+
 .. autoclass:: scarabee.reseau.CriticalLeakage
 
 .. autoclass:: scarabee.reseau.Symmetry
