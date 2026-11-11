@@ -334,6 +334,8 @@ double Tab1::interpolate(const int p, const double x, const double x0,
 
 double Tab1::integrate(const int p, const double x0, const double y0,
                        const double x1, const double y1) const {
+  if (x1 == x0) return 0.;
+
   switch (p) {
     case 1:
       // Histogram
